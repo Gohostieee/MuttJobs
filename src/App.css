@@ -1,0 +1,482 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Geist Variable', sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground antialiased;
+    }
+  html {
+    @apply font-sans;
+    }
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.resume-workspace {
+  min-height: 100svh;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 83% 0%, color-mix(in oklab, var(--primary) 5%, transparent) 0, transparent 24rem),
+    var(--background);
+}
+
+.resume-library-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 3.25rem clamp(1.5rem, 4vw, 4.5rem) 2.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.resume-title-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: .8rem;
+  color: var(--muted-foreground);
+  font-size: .72rem;
+  font-weight: 650;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.resume-title-row svg { width: 14px; }
+.resume-library-header h1 { font-size: clamp(2rem, 4vw, 3.75rem); font-weight: 590; letter-spacing: -.055em; line-height: .98; }
+.resume-library-header > div > p { max-width: 38rem; margin-top: .9rem; color: var(--muted-foreground); font-size: .95rem; line-height: 1.6; }
+.resume-header-actions { display: flex; flex-shrink: 0; gap: .5rem; }
+
+.resume-library-body { padding: 1.75rem clamp(1.5rem, 4vw, 4.5rem) 4rem; }
+.resume-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.resume-search { display: flex; width: min(100%, 27rem); height: 2.6rem; align-items: center; gap: .65rem; padding: 0 .85rem; border: 1px solid var(--border); border-radius: .7rem; background: color-mix(in oklab, var(--background) 90%, var(--muted)); transition: border-color 160ms, box-shadow 160ms; }
+.resume-search:focus-within { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 18%, transparent); }
+.resume-search svg { width: 16px; color: var(--muted-foreground); }
+.resume-search input { width: 100%; border: 0; outline: 0; background: transparent; font-size: .875rem; }
+.resume-search input::placeholder { color: var(--muted-foreground); }
+.resume-count { display: flex; align-items: center; gap: .45rem; color: var(--muted-foreground); font-size: .78rem; }
+.resume-count svg { width: 14px; }
+
+.resume-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 18.5rem), 1fr)); gap: 1.25rem; }
+.resume-card { min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: .9rem; background: var(--card); color: var(--card-foreground); text-align: left; box-shadow: 0 1px 2px color-mix(in oklab, var(--foreground) 5%, transparent); cursor: pointer; transition: translate 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
+.resume-card:hover { translate: 0 -3px; border-color: color-mix(in oklab, var(--foreground) 25%, var(--border)); box-shadow: 0 14px 32px color-mix(in oklab, var(--foreground) 10%, transparent); }
+.resume-card:focus-visible { outline: 3px solid color-mix(in oklab, var(--ring) 35%, transparent); outline-offset: 2px; }
+.resume-card-preview { position: relative; height: 23.5rem; overflow: hidden; background: #dadbd8; pointer-events: none; }
+.resume-card-preview::after { position: absolute; inset: auto 0 0; height: 4.5rem; content: ""; background: linear-gradient(transparent, rgb(20 29 26 / 14%)); }
+.resume-card-document { position: absolute; top: 1rem; left: 50%; width: 794px; transform: translateX(-50%) scale(.39); transform-origin: top center; box-shadow: 0 4px 18px rgb(0 0 0 / 12%); }
+.resume-card-info { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.05rem 1.1rem; }
+.resume-card-info h2 { overflow: hidden; font-size: .95rem; font-weight: 620; letter-spacing: -.015em; text-overflow: ellipsis; white-space: nowrap; }
+.resume-card-info p { margin-top: .25rem; color: var(--muted-foreground); font-size: .72rem; }
+.resume-card-info > span { flex-shrink: 0; color: var(--muted-foreground); font-size: .73rem; }
+.resume-card-skeleton { height: 29rem; cursor: default; }
+.resume-card-skeleton > div { height: 23.5rem; background: linear-gradient(90deg, var(--muted) 25%, color-mix(in oklab, var(--muted) 65%, white) 50%, var(--muted) 75%); background-size: 200% 100%; animation: resume-shimmer 1.5s infinite; }
+.resume-card-skeleton > span { display: block; width: 45%; height: .8rem; margin: 1.35rem 1rem; border-radius: 1rem; background: var(--muted); }
+@keyframes resume-shimmer { to { background-position: -200% 0; } }
+.resume-empty { display: flex; min-height: 22rem; align-items: center; justify-content: center; flex-direction: column; border: 1px dashed var(--border); border-radius: 1rem; color: var(--muted-foreground); text-align: center; }
+.resume-empty > svg { width: 28px; height: 28px; margin-bottom: 1rem; }
+.resume-empty h2 { color: var(--foreground); font-size: 1rem; font-weight: 620; }
+.resume-empty p { margin-top: .35rem; font-size: .84rem; }
+
+.resume-viewer { --resume-sections-sidebar-width: 18rem; position: relative; display: grid; height: 100svh; grid-template-rows: auto 1fr; overflow: hidden; background: #202523; }
+.resume-viewer.is-sections-sidebar-collapsed { --resume-sections-sidebar-width: 0px; }
+.resume-viewer-header { z-index: 3; display: flex; height: 4.25rem; align-items: center; gap: .75rem; padding: 0 1.1rem; border-bottom: 1px solid rgb(255 255 255 / 8%); background: rgb(25 29 28 / 94%); color: #f4f5f4; backdrop-filter: blur(14px); }
+.resume-viewer-header button { background: transparent; color: #f4f5f4; }
+.resume-viewer-title { min-width: 0; }
+.resume-viewer-title h1 { overflow: hidden; font-size: .9rem; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }
+.resume-viewer-title p { margin-top: .15rem; color: #969c99; font-size: .68rem; }
+.resume-viewer-actions { display: flex; align-items: center; gap: .7rem; margin-left: auto; }
+.resume-history-actions { display: flex; align-items: center; gap: .1rem; }
+.resume-history-actions button { color: #f4f5f4; }
+.resume-history-actions button:disabled { opacity: .32; }
+.resume-history-actions svg { width: 15px; height: 15px; }
+.resume-viewer-hint { color: #969c99; font-size: .7rem; }
+.resume-save-state { color: #9db8ad; font-size: .7rem; font-variant-numeric: tabular-nums; }
+.resume-save-state.is-saving { color: #e1c98d; }
+.resume-save-state.is-error { color: #f0a49b; }
+.resume-sections-toggle { gap: .45rem; }
+.resume-sections-toggle svg { width: 15px; height: 15px; }
+.resume-viewer-content { display: grid; min-width: 0; min-height: 0; grid-template-columns: minmax(0, 1fr) var(--resume-sections-sidebar-width); }
+.resume-viewport { overflow: auto; padding: 3rem; overscroll-behavior: contain; }
+.resume-zoom-stage { margin: 0 auto; transform-origin: top center; }
+.resume-sections-sidebar { min-width: 0; overflow-y: auto; padding: 1.35rem 1rem; border-left: 1px solid rgb(255 255 255 / 8%); background: rgb(25 29 28 / 86%); color: #f4f5f4; }
+.resume-sections-sidebar-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 0 .25rem 1.1rem; border-bottom: 1px solid rgb(255 255 255 / 8%); }
+.resume-sections-sidebar-actions { display: flex; align-items: center; gap: .35rem; }
+.resume-sections-sidebar-actions button { color: #aeb6b2; }
+.resume-sections-sidebar-actions button:hover { color: #fff; }
+.resume-sections-kicker { display: flex; align-items: center; gap: .4rem; color: #8f9793; font-size: .64rem; font-weight: 650; letter-spacing: .13em; text-transform: uppercase; }
+.resume-sections-kicker svg { width: 13px; height: 13px; }
+.resume-sections-sidebar h2 { margin-top: .35rem; font-size: 1.05rem; font-weight: 650; letter-spacing: -.02em; }
+.resume-sections-sidebar-description { margin-top: .25rem; color: #7f8984; font-size: .68rem; }
+.resume-sections-count { display: grid; width: 1.75rem; height: 1.75rem; place-items: center; border: 1px solid rgb(255 255 255 / 12%); border-radius: 999px; background: rgb(255 255 255 / 5%); color: #c7cbc9; font-size: .68rem; font-variant-numeric: tabular-nums; }
+.resume-sections-list { margin: .8rem 0 0; padding: 0; list-style: none; }
+.resume-sections-list.is-dragging { user-select: none; }
+.resume-sections-list li + li { margin-top: .25rem; }
+.resume-sections-list li { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.resume-sections-list li.is-dragging { opacity: .45; }
+.resume-sections-list li.is-drop-before::before, .resume-sections-list li.is-drop-after::after { position: absolute; right: .45rem; left: .45rem; height: 2px; border-radius: 99px; background: #9db8ad; content: ""; pointer-events: none; }
+.resume-sections-list li.is-drop-before::before { top: -.14rem; }
+.resume-sections-list li.is-drop-after::after { bottom: -.14rem; }
+.resume-section-link { display: grid; width: 100%; grid-template-columns: 1rem 1.75rem minmax(0, 1fr); align-items: center; gap: .5rem; padding: .65rem .55rem; border: 1px solid transparent; border-radius: .65rem; background: transparent; color: #b7bfbb; text-align: left; cursor: grab; transition: background 160ms, border-color 160ms, color 160ms; }
+.resume-section-link:active { cursor: grabbing; }
+.resume-section-link:hover { border-color: rgb(255 255 255 / 9%); background: rgb(255 255 255 / 6%); color: #fff; }
+.resume-section-link.is-hidden { border-color: rgb(255 255 255 / 6%); background: rgb(255 255 255 / 2%); color: #8f9793; cursor: default; }
+.resume-section-link.is-hidden:hover { border-color: rgb(255 255 255 / 10%); background: rgb(255 255 255 / 4%); color: #c7cbc9; }
+.resume-section-link:focus-visible { outline: 2px solid rgb(255 255 255 / 45%); outline-offset: 2px; }
+.resume-section-drag-handle { display: grid; width: 13px; height: 18px; place-items: center; color: #66716c; cursor: grab; touch-action: none; transition: color 160ms; }
+.resume-section-drag-handle svg { width: 13px; height: 13px; }
+.resume-section-drag-handle:active { cursor: grabbing; }
+.resume-section-link:hover .resume-section-drag-handle { color: #c7cbc9; }
+.resume-section-index { color: #727c77; font-family: Arial, sans-serif; font-size: .64rem; font-variant-numeric: tabular-nums; }
+.resume-section-link-copy { display: grid; min-width: 0; gap: .15rem; }
+.resume-section-link-title { overflow: hidden; font-size: .8rem; font-weight: 540; text-overflow: ellipsis; white-space: nowrap; }
+.resume-section-link-detail { overflow: hidden; color: #7f8984; font-size: .64rem; text-overflow: ellipsis; white-space: nowrap; }
+.resume-section-link:hover .resume-section-index { color: #c7cbc9; }
+.resume-section-link:hover .resume-section-link-detail { color: #aeb6b2; }
+.resume-section-link.is-hidden .resume-section-drag-handle { color: #4f5954; }
+.resume-section-link.is-hidden .resume-section-link-detail { color: #7f8984; }
+.resume-section-actions { display: flex; align-items: center; gap: .1rem; padding-right: .3rem; }
+.resume-section-actions button { color: #66716c; }
+.resume-section-actions button:hover { color: #fff; }
+.resume-sections-empty { padding: 1rem .25rem; color: #8f9793; font-size: .78rem; line-height: 1.5; }
+.resume-section-dialog { max-width: 30rem; }
+.resume-section-options { display: grid; max-height: min(22rem, 50vh); gap: .35rem; overflow-y: auto; }
+.resume-section-option { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .65rem .7rem; border: 1px solid var(--border); border-radius: .65rem; background: var(--muted); }
+.resume-section-option > div { display: grid; min-width: 0; gap: .18rem; }
+.resume-section-option strong { overflow: hidden; font-size: .82rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.resume-section-option span { color: var(--muted-foreground); font-size: .72rem; }
+.resume-section-option button { flex-shrink: 0; }
+.resume-zoom-controls { position: fixed; z-index: 5; bottom: 1.5rem; left: calc(50% - var(--resume-sections-sidebar-width) / 2); display: flex; align-items: center; gap: .15rem; padding: .35rem; border: 1px solid rgb(255 255 255 / 10%); border-radius: .85rem; background: rgb(17 20 19 / 92%); color: #f3f4f3; box-shadow: 0 10px 40px rgb(0 0 0 / 35%); translate: -50%; backdrop-filter: blur(16px); }
+.resume-zoom-controls button { color: #eef0ef; }
+.resume-zoom-controls output { min-width: 3.8rem; color: #c7cbc9; font-variant-numeric: tabular-nums; font-size: .76rem; text-align: center; }
+.resume-control-separator { width: 1px; height: 1.25rem; margin: 0 .2rem; background: rgb(255 255 255 / 12%); }
+
+.resume-document { position: relative; box-sizing: border-box; width: var(--resume-page-width); min-height: var(--resume-page-height); overflow: hidden; padding: var(--resume-margin-y) var(--resume-margin-x); background: var(--resume-paper); color: var(--resume-text); font-family: var(--resume-body-font), Georgia, serif; font-size: var(--resume-body-size); line-height: var(--resume-body-leading); box-shadow: 0 18px 70px rgb(0 0 0 / 24%); print-color-adjust: exact; }
+.resume-document { font-weight: var(--resume-body-weight); }
+.resume-document.hide-link-underline a { text-decoration: none; }
+.resume-document[data-format="free-form"] { min-height: 0; }
+.resume-accent { position: absolute; top: 0; right: 0; left: 0; height: 9px; background: var(--resume-primary); }
+.resume-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 28px; }
+.resume-identity { min-width: 0; }
+.resume-eyebrow { margin-bottom: 9px; color: var(--resume-primary); font-family: Arial, sans-serif; font-size: 8px; font-weight: 700; letter-spacing: .19em; text-transform: uppercase; }
+.resume-header h1 { font-family: var(--resume-heading-font), Georgia, serif; font-size: 34px; font-weight: 600; letter-spacing: -.035em; line-height: 1.05; }
+.resume-header h1 { font-weight: var(--resume-heading-weight); }
+.resume-headline { margin-top: 7px; color: color-mix(in srgb, var(--resume-text) 67%, transparent); font-size: 13px; }
+.resume-contact { display: flex; flex-wrap: wrap; gap: 7px 17px; margin-top: 16px; color: color-mix(in srgb, var(--resume-text) 72%, transparent); font-family: Arial, sans-serif; font-size: 9px; }
+.resume-contact-item { display: inline-flex; align-items: center; gap: 5px; }
+.resume-contact svg { width: 10px; height: 10px; color: var(--resume-primary); stroke-width: 1.7; }
+.resume-contact a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 2px; }
+.resume-custom-field { gap: 4px !important; }
+.resume-custom-field strong { margin-right: 4px; }
+.resume-icon { width: 1em; height: 1em; flex: 0 0 auto; stroke-width: 1.8; }
+.resume-icon-text { display: inline-grid; place-items: center; width: 1.2em; height: 1.2em; border: 1px solid currentColor; border-radius: .25em; font-family: Arial, sans-serif; font-size: .72em; font-weight: 700; line-height: 1; }
+.resume-icon.is-muted { opacity: .2; }
+.resume-picture { flex: 0 0 auto; border-style: solid; object-fit: cover; }
+.resume-rule { height: 1px; margin: 28px 0 27px; background: color-mix(in srgb, var(--resume-text) 14%, transparent); }
+.resume-sections, .resume-main-column, .resume-side-column { display: grid; align-content: start; gap: var(--resume-gap-y); }
+.resume-page-layout { display: grid; gap: var(--resume-gap-x); }
+.resume-page-layout.has-sidebar { grid-template-columns: minmax(0, calc(100% - var(--resume-sidebar-width))) minmax(0, var(--resume-sidebar-width)); }
+.resume-page-layout + .resume-page-layout { margin-top: var(--resume-gap-y); }
+.resume-section-heading { display: flex; align-items: center; gap: 13px; margin-bottom: 13px; color: var(--resume-primary); font-family: var(--resume-heading-font), Georgia, serif; font-size: var(--resume-heading-size); font-weight: 600; letter-spacing: .01em; }
+.resume-section-heading { gap: 9px; font-weight: var(--resume-heading-weight); }
+.resume-section-heading > .resume-icon { width: 1.05em; height: 1.05em; }
+.resume-section-heading i { height: 1px; flex: 1; background: color-mix(in srgb, var(--resume-primary) 34%, transparent); }
+.resume-item + .resume-item { margin-top: 17px; }
+.resume-item-heading-content { display: flex; min-width: 0; align-items: flex-start; gap: 7px; }
+.resume-item-heading-content > .resume-icon { margin-top: 1px; color: var(--resume-primary); }
+.resume-section-items { display: grid; gap: 17px 20px; }
+.resume-section-items .resume-item + .resume-item { margin-top: 0; }
+.resume-item-topline { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; }
+.resume-item h3 { font-size: 11px; font-weight: 700; line-height: 1.3; }
+.resume-organization { margin-top: 1px; color: var(--resume-primary); font-family: Arial, sans-serif; font-size: 9px; font-weight: 600; }
+.resume-item-meta { display: flex; flex: 0 0 auto; align-items: flex-end; flex-direction: column; color: color-mix(in srgb, var(--resume-text) 62%, transparent); font-family: Arial, sans-serif; font-size: 8px; }
+.resume-rich-text { margin-top: 7px; }
+.resume-rich-text p { position: relative; margin: 0 0 4px; }
+.resume-rich-text p:last-child { margin-bottom: 0; }
+.resume-rich-text ul, .resume-rich-text ol { margin: 4px 0; padding-left: 1.35em; }
+.resume-rich-text ul { list-style-type: disc; }
+.resume-rich-text ol { list-style-type: decimal; }
+.resume-rich-text li + li { margin-top: 4px; }
+.resume-link, .resume-level { margin-top: 4px; color: var(--resume-primary); font-size: 8px; }
+.resume-link a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.resume-link-inline { display: inline-block; }
+.resume-recipient { display: flex; gap: 7px; margin-bottom: 7px; font-size: 9px; }
+.resume-recipient strong { color: var(--resume-primary); font-family: Arial, sans-serif; font-size: 8px; text-transform: uppercase; }
+.resume-phone { display: flex; align-items: center; gap: 4px; margin-top: 5px; color: color-mix(in srgb, var(--resume-text) 68%, transparent); font-family: Arial, sans-serif; font-size: 8px; }
+.resume-phone svg { width: 9px; height: 9px; color: var(--resume-primary); }
+.resume-keywords { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.resume-keywords span { padding: 2px 6px; border-radius: 99px; background: color-mix(in srgb, var(--resume-primary) 9%, transparent); color: var(--resume-primary); font-family: Arial, sans-serif; font-size: 7.5px; }
+.resume-role { margin-top: 9px; padding-left: 10px; border-left: 1px solid color-mix(in srgb, var(--resume-primary) 30%, transparent); }
+.resume-level { display: inline-flex; align-items: center; gap: 3px; min-height: 9px; }
+.resume-level > i { display: block; width: 7px; height: 7px; border: 1px solid color-mix(in srgb, var(--resume-primary) 55%, transparent); background: transparent; }
+.resume-level-circle > i { border-radius: 50%; }
+.resume-level-square > i { border-radius: 1px; }
+.resume-level-rectangle > i, .resume-level-rectangle-full > i { width: 12px; height: 5px; border-radius: 1px; }
+.resume-level > i.is-filled { background: var(--resume-primary); border-color: var(--resume-primary); }
+.resume-level-rectangle-full > i { background: color-mix(in srgb, var(--resume-primary) 16%, transparent); border-color: transparent; }
+.resume-level-rectangle-full > i.is-filled { background: var(--resume-primary); }
+.resume-level-progress { width: 72px; height: 5px; overflow: hidden; border-radius: 99px; background: color-mix(in srgb, var(--resume-primary) 16%, transparent); }
+.resume-level-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--resume-primary); }
+.resume-level-icons { gap: 2px; }
+.resume-level-icons .resume-icon { width: 9px; height: 9px; color: var(--resume-primary); }
+
+.resume-editable-field { display: contents; }
+.resume-editable-field.is-editing { display: block; min-width: 0; }
+.resume-editable-text { border-radius: 3px; cursor: text; transition: background-color 140ms, box-shadow 140ms; }
+.resume-editable-text:hover { background: color-mix(in srgb, var(--resume-primary) 9%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--resume-primary) 16%, transparent); }
+.resume-editable-placeholder { display: inline-block; color: color-mix(in srgb, var(--resume-text) 45%, transparent); font-style: italic; }
+.resume-editor { position: relative; z-index: 20; width: 100%; overflow: hidden; border: 1px solid var(--resume-primary); border-radius: 6px; background: var(--resume-paper); color: var(--resume-text); box-shadow: 0 8px 24px rgb(0 0 0 / 16%); font-family: Arial, sans-serif; font-size: 11px; line-height: 1.45; }
+.resume-editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 4px; border-bottom: 1px solid color-mix(in srgb, var(--resume-primary) 18%, transparent); background: color-mix(in srgb, var(--resume-primary) 7%, var(--resume-paper)); }
+.resume-editor-tool, .resume-editor-action { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-height: 24px; border: 0; border-radius: 4px; background: transparent; color: var(--resume-text); cursor: pointer; font-family: Arial, sans-serif; font-size: 10px; }
+.resume-editor-tool { width: 25px; }
+.resume-editor-tool:hover, .resume-editor-action:hover { background: color-mix(in srgb, var(--resume-primary) 14%, transparent); }
+.resume-editor-tool:focus-visible, .resume-editor-action:focus-visible { outline: 2px solid var(--resume-primary); outline-offset: 1px; }
+.resume-editor-tool svg { width: 13px; height: 13px; }
+.resume-editor-action { padding: 0 6px; }
+.resume-editor-action svg { width: 12px; height: 12px; }
+.resume-editor-done { background: var(--resume-primary); color: var(--resume-paper); }
+.resume-editor-done:hover { background: color-mix(in srgb, var(--resume-primary) 85%, black); }
+.resume-editor-divider { width: 1px; height: 17px; margin: 0 3px; background: color-mix(in srgb, var(--resume-text) 18%, transparent); }
+.resume-editor-actions { display: flex; gap: 3px; margin-left: auto; }
+.resume-editor-content { min-height: 2.5em; max-height: 18rem; overflow: auto; padding: 8px 9px; outline: 0; white-space: pre-wrap; }
+.resume-editor-content:empty::before { color: color-mix(in srgb, var(--resume-text) 42%, transparent); content: attr(data-placeholder); pointer-events: none; }
+.resume-editor-content:focus:empty::before { display: none; }
+.resume-editor-content p, .resume-editor-content div { margin: 0 0 4px; }
+.resume-editor-content p:last-child, .resume-editor-content div:last-child { margin-bottom: 0; }
+.resume-editor-content ul, .resume-editor-content ol { margin: 4px 0; padding-left: 1.35em; }
+.resume-editor-content ul { list-style-type: disc; }
+.resume-editor-content ol { list-style-type: decimal; }
+
+/* The schema carries a template name. These variants keep each supported
+   template visibly distinct while sharing the same data model. */
+.resume-template-azurill .resume-accent { height: 14px; border-radius: 0 0 18px 18px; }
+.resume-template-bronzor .resume-section-heading i { background: var(--resume-text); opacity: .18; }
+.resume-template-chikorita .resume-accent { height: 5px; }
+.resume-template-ditgar .resume-header { padding-top: 8px; }
+.resume-template-ditto .resume-section-heading { text-transform: uppercase; letter-spacing: .12em; }
+.resume-template-gengar .resume-accent { height: 18px; clip-path: polygon(0 0, 100% 0, 96% 100%, 4% 100%); }
+.resume-template-glalie .resume-section-heading { border-bottom: 2px solid var(--resume-primary); padding-bottom: 4px; }
+.resume-template-kakuna .resume-picture { border-radius: 18px !important; }
+.resume-template-lapras .resume-header h1 { letter-spacing: .01em; }
+.resume-template-leafish .resume-section-heading { font-style: italic; }
+.resume-template-meowth .resume-accent { height: 3px; }
+.resume-template-onyx .resume-section-heading i { height: 2px; }
+.resume-template-pikachu .resume-accent { height: 12px; }
+.resume-template-rhyhorn .resume-section-heading { gap: 13px; }
+.resume-template-scizor .resume-section-heading i { background: var(--resume-text); opacity: .28; }
+
+@media (max-width: 767px) {
+  .resume-library-header { align-items: flex-start; flex-direction: column; padding-top: 2rem; }
+  .resume-header-actions { width: 100%; }
+  .resume-header-actions > :first-child { flex: 1; }
+  .resume-toolbar { align-items: stretch; flex-direction: column; }
+  .resume-search { width: 100%; }
+  .resume-viewer { height: calc(100svh - 3rem); }
+  .resume-viewer-hint { display: none; }
+  .resume-viewer.has-sections-sidebar { --resume-sections-sidebar-width: min(18rem, 48vw); }
+  .resume-sections-toggle span { display: none; }
+  .resume-viewport { padding: 1.5rem; }
+  .resume-zoom-controls { left: 50%; }
+}
+
+@media print {
+  body * { visibility: hidden; }
+  .resume-document, .resume-document * { visibility: visible; }
+  .resume-document { position: absolute; inset: 0; box-shadow: none; }
+}
+
+/* Resume AI editing surface */
+.resume-viewer { --resume-ai-sidebar-width: 21rem; }
+.resume-viewer.is-ai-sidebar-collapsed { --resume-ai-sidebar-width: 0px; }
+.resume-viewer-content { grid-template-columns: var(--resume-ai-sidebar-width) minmax(0, 1fr); }
+.resume-ai-toggle { gap: .45rem; }
+.resume-ai-toggle svg { width: 15px; height: 15px; }
+.resume-ai-sidebar { display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; border-right: 1px solid rgb(255 255 255 / 8%); background: rgb(25 29 28 / 96%); color: #f4f5f4; }
+.resume-ai-sidebar-header { display: flex; align-items: flex-start; justify-content: space-between; gap: .8rem; padding: 1.2rem 1rem .95rem; border-bottom: 1px solid rgb(255 255 255 / 8%); }
+.resume-ai-sidebar-heading { min-width: 0; }
+.resume-ai-sidebar-kicker { display: flex; align-items: center; gap: .4rem; color: #9db8ad; font-size: .62rem; font-weight: 650; letter-spacing: .13em; text-transform: uppercase; }
+.resume-ai-sidebar-kicker svg { width: 13px; height: 13px; }
+.resume-ai-sidebar h2 { margin-top: .35rem; font-size: 1.05rem; font-weight: 650; letter-spacing: -.02em; }
+.resume-ai-sidebar-header p { margin-top: .25rem; color: #7f8984; font-size: .68rem; line-height: 1.45; }
+.resume-ai-provider-badge { flex-shrink: 0; border-color: rgb(157 184 173 / 28%); color: #c7d7d0; font-size: .65rem; }
+.resume-ai-provider-badge svg { width: 12px; height: 12px; }
+.resume-ai-file-card { display: flex; align-items: center; gap: .55rem; margin: .8rem 1rem 0; padding: .6rem .65rem; border: 1px solid rgb(255 255 255 / 8%); border-radius: .65rem; background: rgb(255 255 255 / 4%); }
+.resume-ai-file-card > svg:first-child { width: 15px; height: 15px; flex: 0 0 auto; color: #9db8ad; }
+.resume-ai-file-card > svg:last-child { width: 13px; height: 13px; flex: 0 0 auto; margin-left: auto; color: #9db8ad; }
+.resume-ai-file-card div { display: grid; min-width: 0; gap: .12rem; }
+.resume-ai-file-card strong { overflow: hidden; font-size: .72rem; font-weight: 560; text-overflow: ellipsis; white-space: nowrap; }
+.resume-ai-file-card span { overflow: hidden; color: #7f8984; font-size: .61rem; text-overflow: ellipsis; white-space: nowrap; }
+.resume-ai-activity { margin: .8rem 1rem 0; padding: .65rem .7rem .7rem; border: 1px solid rgb(157 184 173 / 16%); border-radius: .7rem; background: rgb(157 184 173 / 5%); }
+.resume-ai-activity-heading { display: flex; align-items: center; justify-content: space-between; color: #9db8ad; font-size: .62rem; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
+.resume-ai-activity-heading span:first-child { display: inline-flex; align-items: center; gap: .35rem; }
+.resume-ai-activity-heading svg { width: 12px; height: 12px; }
+.resume-ai-activity-heading > span:last-child { display: grid; min-width: 1.35rem; height: 1.35rem; place-items: center; border: 1px solid rgb(157 184 173 / 22%); border-radius: 999px; color: #c7d7d0; font-size: .58rem; }
+.resume-ai-activity-list { display: grid; gap: .55rem; margin-top: .65rem; }
+.resume-ai-activity-entry { display: flex; align-items: flex-start; gap: .5rem; }
+.resume-ai-activity-dot { width: .38rem; height: .38rem; flex: 0 0 auto; margin-top: .3rem; border-radius: 999px; background: #9db8ad; box-shadow: 0 0 0 3px rgb(157 184 173 / 10%); }
+.resume-ai-activity-entry div { display: grid; min-width: 0; gap: .1rem; }
+.resume-ai-activity-entry strong { color: #dce6e1; font-size: .67rem; font-weight: 560; }
+.resume-ai-activity-entry span:not(.resume-ai-activity-dot) { overflow: hidden; color: #8f9a95; font-size: .61rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.resume-ai-undo-button { width: 100%; margin-top: .7rem; border-color: rgb(255 255 255 / 12%); color: #c7d7d0; font-size: .68rem; }
+.resume-ai-undo-button svg { width: 13px; height: 13px; }
+.resume-ai-conversation { min-height: 0; }
+.resume-ai-conversation-content { min-height: 100%; gap: 1.05rem; padding: 1rem; }
+.resume-ai-conversation-content .group { max-width: 100%; }
+.resume-ai-conversation-content .group.is-user { max-width: 92%; }
+.resume-ai-conversation-content .group.is-user .group\[\.is-user\]\:bg-secondary { background: rgb(255 255 255 / 8%); }
+.resume-ai-conversation-content .group.is-assistant { color: #d3d9d6; }
+.resume-ai-conversation-content .group.is-assistant p { color: inherit; }
+.resume-ai-empty-state { min-height: 15rem; padding: 1.2rem .4rem; color: #8f9a95; }
+.resume-ai-empty-state > div:first-child { color: #9db8ad; }
+.resume-ai-empty-state h3 { color: #dce6e1; font-size: .82rem; }
+.resume-ai-empty-state p { max-width: 16rem; color: #7f8984; font-size: .7rem; line-height: 1.5; }
+.resume-ai-working-message { color: #9db8ad; font-size: .72rem; }
+.resume-ai-suggestions { flex: 0 0 auto; padding: 0 1rem .65rem; }
+.resume-ai-suggestions > div { gap: .35rem; }
+.resume-ai-suggestions button { max-width: 100%; overflow: hidden; border-color: rgb(255 255 255 / 11%); color: #aebbb4; font-size: .65rem; text-overflow: ellipsis; }
+.resume-ai-composer { flex: 0 0 auto; padding: .7rem 1rem .9rem; border-top: 1px solid rgb(255 255 255 / 8%); background: rgb(25 29 28 / 98%); }
+.resume-ai-prompt { position: relative; }
+.resume-ai-prompt [data-slot="input-group"] { border-color: rgb(255 255 255 / 14%); background: rgb(255 255 255 / 5%); box-shadow: none; }
+.resume-ai-prompt textarea { min-height: 4.1rem; padding-right: 2.8rem; color: #eef1ef; font-size: .76rem; }
+.resume-ai-prompt textarea::placeholder { color: #77817c; }
+.resume-ai-submit { position: absolute; right: .35rem; bottom: .35rem; }
+.resume-ai-composer-hint { display: flex; align-items: center; gap: .3rem; margin: .45rem .1rem 0; color: #77817c; font-size: .59rem; line-height: 1.35; }
+.resume-ai-composer-hint svg { width: 11px; height: 11px; flex: 0 0 auto; }
+.resume-ai-error { margin: .4rem .1rem 0; color: #f0a49b; font-size: .65rem; line-height: 1.4; }
+.resume-viewer.has-ai-sidebar .resume-viewport { grid-column: 2; }
+.resume-viewer.is-ai-sidebar-collapsed .resume-viewport { grid-column: 1 / -1; }
+.resume-zoom-controls { left: calc(50% + var(--resume-ai-sidebar-width) / 2); }
+
+@media (max-width: 767px) {
+  .resume-viewer { --resume-ai-sidebar-width: min(21rem, 84vw); }
+  .resume-viewer.is-ai-sidebar-collapsed { --resume-ai-sidebar-width: 0px; }
+  .resume-ai-sidebar-header { padding-top: .9rem; }
+  .resume-ai-sidebar { max-width: 84vw; }
+  .resume-zoom-controls { left: 50%; }
+}
