@@ -1,0 +1,1523 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "picture": {
+      "$ref": "#/$defs/picture"
+    },
+    "basics": {
+      "$ref": "#/$defs/basics"
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "sections": {
+      "$ref": "#/$defs/sections"
+    },
+    "customSections": {
+      "$ref": "#/$defs/customSections"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "required": [
+    "picture",
+    "basics",
+    "summary",
+    "sections",
+    "customSections",
+    "metadata"
+  ],
+  "additionalProperties": {},
+  "$defs": {
+    "website": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "itemWebsite": {
+      "type": "object",
+      "default": {
+        "url": "",
+        "label": "",
+        "inlineLink": false
+      },
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "inlineLink": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "url",
+        "label",
+        "inlineLink"
+      ],
+      "additionalProperties": false
+    },
+    "icon": {
+      "type": "string"
+    },
+    "iconColor": {
+      "type": "string",
+      "default": ""
+    },
+    "picture": {
+      "type": "object",
+      "properties": {
+        "hidden": {
+          "type": "boolean"
+        },
+        "url": {
+          "type": "string"
+        },
+        "size": {
+          "type": "number",
+          "minimum": 32,
+          "maximum": 512
+        },
+        "rotation": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "aspectRatio": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 2.5
+        },
+        "borderRadius": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "borderColor": {
+          "type": "string"
+        },
+        "borderWidth": {
+          "type": "number",
+          "minimum": 0
+        },
+        "shadowColor": {
+          "type": "string"
+        },
+        "shadowWidth": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "hidden",
+        "url",
+        "size",
+        "rotation",
+        "aspectRatio",
+        "borderRadius",
+        "borderColor",
+        "borderWidth",
+        "shadowColor",
+        "shadowWidth"
+      ],
+      "additionalProperties": false
+    },
+    "customField": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "icon": {
+          "$ref": "#/$defs/icon"
+        },
+        "text": {
+          "type": "string"
+        },
+        "link": {
+          "type": "string",
+          "default": ""
+        }
+      },
+      "required": [
+        "id",
+        "icon",
+        "text",
+        "link"
+      ],
+      "additionalProperties": false
+    },
+    "basics": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "headline": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "website": {
+          "$ref": "#/$defs/website"
+        },
+        "customFields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/customField"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "headline",
+        "email",
+        "phone",
+        "location",
+        "website",
+        "customFields"
+      ],
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string",
+          "default": ""
+        },
+        "columns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6,
+          "default": 1
+        },
+        "alignment": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "default": "left"
+        },
+        "pageAlignment": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "default": "left"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "keepTogether": {
+          "type": "boolean",
+          "default": false
+        },
+        "startOnNewPage": {
+          "type": "boolean",
+          "default": false
+        },
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "icon",
+        "columns",
+        "alignment",
+        "pageAlignment",
+        "enabled",
+        "hidden",
+        "keepTogether",
+        "startOnNewPage",
+        "content"
+      ],
+      "additionalProperties": false
+    },
+    "itemBase": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "hidden": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "hidden"
+      ]
+    },
+    "role": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "position": {
+          "type": "string"
+        },
+        "period": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "position",
+        "period",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "summaryItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "hidden",
+        "content"
+      ],
+      "unevaluatedProperties": false
+    },
+    "coverLetterItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "recipient": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "recipient",
+        "content"
+      ],
+      "unevaluatedProperties": false
+    },
+    "awardItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "awarder": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "website": {
+          "$ref": "#/$defs/itemWebsite"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "awarder",
+        "date",
+        "website",
+        "description"
+      ],
+      "unevaluatedProperties": false
+    },
+    "certificationItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "website": {
+          "$ref": "#/$defs/itemWebsite"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "issuer",
+        "date",
+        "website",
+        "description"
+      ],
+      "unevaluatedProperties": false
+    },
+    "educationItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "school": {
+          "type": "string",
+          "minLength": 1
+        },
+        "degree": {
+          "type": "string"
+        },
+        "area": {
+          "type": "string"
+        },
+        "grade": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "period": {
+          "type": "string"
+        },
+        "website": {
+          "$ref": "#/$defs/itemWebsite"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "school",
+        "degree",
+        "area",
+        "grade",
+        "location",
+        "period",
+        "website",
+        "description"
+      ],
+      "unevaluatedProperties": false
+    },
+    "experienceItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "company": {
+          "type": "string",
+          "minLength": 1
+        },
+        "position": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "period": {
+          "type": "string"
+        },
+        "website": {
+          "$ref": "#/$defs/itemWebsite"
+        },
+        "description": {
+          "type": "string"
+        },
+        "roles": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/role"
+          }
+        }
+      },
+      "required": [
+        "company",
+        "position",
+        "location",
+        "period",
+        "website",
+        "description",
+        "roles"
+      ],
+      "unevaluatedProperties": false
+    },
+    "interestItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "icon": {
+          "$ref": "#/$defs/icon"
+        },
+        "iconColor": {
+          "$ref": "#/$defs/iconColor"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "keywords": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "icon",
+        "iconColor",
+        "name",
+        "keywords"
+      ],
+      "unevaluatedProperties": false
+    },
+    "languageItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "language": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fluency": {
+          "type": "string"
+        },
+        "level": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5,
+          "default": 0
+        }
+      },
+      "required": [
+        "language",
+        "fluency",
+        "level"
+      ],
+      "unevaluatedProperties": false
+    },
+    "profileItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "icon": {
+          "$ref": "#/$defs/icon"
+        },
+        "iconColor": {
+          "$ref": "#/$defs/iconColor"
+        },
+        "network": {
+          "type": "string",
+          "minLength": 1
+        },
+        "username": {
+          "type": "string"
+        },
+        "website": {
+          "$ref": "#/$defs/itemWebsite"
+        }
+      },
+      "required": [
+        "icon",
+        "iconColor",
+        "network",
+        "username",
+        "website"
+      ],
+      "unevaluatedProperties": false
+    },
+    "projectItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "period": {
+          "type": "string"
+        },
+        "website": {
+          "$ref": "#/$defs/itemWebsite"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "period",
+        "website",
+        "description"
+      ],
+      "unevaluatedProperties": false
+    },
+    "publicationItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "website": {
+          "$ref": "#/$defs/itemWebsite"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "publisher",
+        "date",
+        "website",
+        "description"
+      ],
+      "unevaluatedProperties": false
+    },
+    "referenceItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "position": {
+          "type": "string"
+        },
+        "website": {
+          "$ref": "#/$defs/itemWebsite"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "position",
+        "website",
+        "phone",
+        "description"
+      ],
+      "unevaluatedProperties": false
+    },
+    "skillItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "icon": {
+          "$ref": "#/$defs/icon"
+        },
+        "iconColor": {
+          "$ref": "#/$defs/iconColor"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The overarching skill category or heading, such as Frontend, Backend, Languages, Cloud, DevOps, or Soft Skills. This is not an individual keyword."
+        },
+        "proficiency": {
+          "type": "string",
+          "description": "Optional proficiency label for the category. Leave empty unless the source explicitly provides a proficiency statement."
+        },
+        "level": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5,
+          "default": 0,
+          "description": "Optional 0-5 display level. Use a non-zero value only when the source explicitly provides a rating or level."
+        },
+        "keywords": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Concrete skills, tools, technologies, methods, or soft-skill terms that belong inside this category. Populate this array when the source provides terms; do not create one category per keyword."
+        }
+      },
+      "required": [
+        "icon",
+        "iconColor",
+        "name",
+        "proficiency",
+        "level",
+        "keywords"
+      ],
+      "unevaluatedProperties": false
+    },
+    "volunteerItem": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemBase"
+        }
+      ],
+      "properties": {
+        "organization": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location": {
+          "type": "string"
+        },
+        "period": {
+          "type": "string"
+        },
+        "website": {
+          "$ref": "#/$defs/itemWebsite"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "organization",
+        "location",
+        "period",
+        "website",
+        "description"
+      ],
+      "unevaluatedProperties": false
+    },
+    "baseSection": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string",
+          "default": ""
+        },
+        "columns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6,
+          "default": 1
+        },
+        "alignment": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "default": "left"
+        },
+        "pageAlignment": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "default": "left"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "keepTogether": {
+          "type": "boolean",
+          "default": false
+        },
+        "startOnNewPage": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "title",
+        "icon",
+        "columns",
+        "alignment",
+        "pageAlignment",
+        "enabled",
+        "hidden",
+        "keepTogether",
+        "startOnNewPage"
+      ]
+    },
+    "profilesSection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseSection"
+        }
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/profileItem"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "unevaluatedProperties": false
+    },
+    "experienceSection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseSection"
+        }
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/experienceItem"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "unevaluatedProperties": false
+    },
+    "educationSection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseSection"
+        }
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/educationItem"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "unevaluatedProperties": false
+    },
+    "projectsSection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseSection"
+        }
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/projectItem"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "unevaluatedProperties": false
+    },
+    "skillsSection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseSection"
+        }
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/skillItem"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "unevaluatedProperties": false,
+      "description": "A list of overarching skill categories. Each item uses name for the category heading and keywords for the concrete skills inside that category."
+    },
+    "languagesSection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseSection"
+        }
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/languageItem"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "unevaluatedProperties": false
+    },
+    "interestsSection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseSection"
+        }
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/interestItem"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "unevaluatedProperties": false
+    },
+    "awardsSection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseSection"
+        }
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/awardItem"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "unevaluatedProperties": false
+    },
+    "certificationsSection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseSection"
+        }
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/certificationItem"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "unevaluatedProperties": false
+    },
+    "publicationsSection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseSection"
+        }
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/publicationItem"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "unevaluatedProperties": false
+    },
+    "volunteerSection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseSection"
+        }
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/volunteerItem"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "unevaluatedProperties": false
+    },
+    "referencesSection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseSection"
+        }
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/referenceItem"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "unevaluatedProperties": false
+    },
+    "sectionType": {
+      "type": "string",
+      "enum": [
+        "summary",
+        "profiles",
+        "experience",
+        "education",
+        "projects",
+        "skills",
+        "languages",
+        "interests",
+        "awards",
+        "certifications",
+        "publications",
+        "volunteer",
+        "references",
+        "cover-letter"
+      ]
+    },
+    "customSection": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseSection"
+        }
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/sectionType"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/coverLetterItem"
+              },
+              {
+                "$ref": "#/$defs/summaryItem"
+              },
+              {
+                "$ref": "#/$defs/profileItem"
+              },
+              {
+                "$ref": "#/$defs/experienceItem"
+              },
+              {
+                "$ref": "#/$defs/educationItem"
+              },
+              {
+                "$ref": "#/$defs/projectItem"
+              },
+              {
+                "$ref": "#/$defs/skillItem"
+              },
+              {
+                "$ref": "#/$defs/languageItem"
+              },
+              {
+                "$ref": "#/$defs/interestItem"
+              },
+              {
+                "$ref": "#/$defs/awardItem"
+              },
+              {
+                "$ref": "#/$defs/certificationItem"
+              },
+              {
+                "$ref": "#/$defs/publicationItem"
+              },
+              {
+                "$ref": "#/$defs/volunteerItem"
+              },
+              {
+                "$ref": "#/$defs/referenceItem"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "items"
+      ],
+      "unevaluatedProperties": false
+    },
+    "sections": {
+      "type": "object",
+      "properties": {
+        "profiles": {
+          "$ref": "#/$defs/profilesSection"
+        },
+        "experience": {
+          "$ref": "#/$defs/experienceSection"
+        },
+        "education": {
+          "$ref": "#/$defs/educationSection"
+        },
+        "projects": {
+          "$ref": "#/$defs/projectsSection"
+        },
+        "skills": {
+          "$ref": "#/$defs/skillsSection"
+        },
+        "languages": {
+          "$ref": "#/$defs/languagesSection"
+        },
+        "interests": {
+          "$ref": "#/$defs/interestsSection"
+        },
+        "awards": {
+          "$ref": "#/$defs/awardsSection"
+        },
+        "certifications": {
+          "$ref": "#/$defs/certificationsSection"
+        },
+        "publications": {
+          "$ref": "#/$defs/publicationsSection"
+        },
+        "volunteer": {
+          "$ref": "#/$defs/volunteerSection"
+        },
+        "references": {
+          "$ref": "#/$defs/referencesSection"
+        }
+      },
+      "required": [
+        "profiles",
+        "experience",
+        "education",
+        "projects",
+        "skills",
+        "languages",
+        "interests",
+        "awards",
+        "certifications",
+        "publications",
+        "volunteer",
+        "references"
+      ],
+      "additionalProperties": false
+    },
+    "customSections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/customSection"
+      }
+    },
+    "fontWeight": {
+      "type": "string",
+      "enum": [
+        "100",
+        "200",
+        "300",
+        "400",
+        "500",
+        "600",
+        "700",
+        "800",
+        "900"
+      ]
+    },
+    "typographyItem": {
+      "type": "object",
+      "properties": {
+        "fontFamily": {
+          "type": "string"
+        },
+        "fontWeights": {
+          "type": "array",
+          "default": [
+            "400"
+          ],
+          "items": {
+            "$ref": "#/$defs/fontWeight"
+          }
+        },
+        "fontSize": {
+          "type": "number",
+          "minimum": 6,
+          "maximum": 24,
+          "default": 11
+        },
+        "lineHeight": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 4,
+          "default": 1.5
+        }
+      },
+      "required": [
+        "fontFamily",
+        "fontWeights",
+        "fontSize",
+        "lineHeight"
+      ],
+      "additionalProperties": false
+    },
+    "pageLayout": {
+      "type": "object",
+      "properties": {
+        "fullWidth": {
+          "type": "boolean"
+        },
+        "main": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sidebar": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "fullWidth",
+        "main",
+        "sidebar"
+      ],
+      "additionalProperties": false
+    },
+    "layout": {
+      "type": "object",
+      "properties": {
+        "sidebarWidth": {
+          "type": "number",
+          "minimum": 10,
+          "maximum": 50,
+          "default": 35
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pageLayout"
+          }
+        }
+      },
+      "required": [
+        "sidebarWidth",
+        "pages"
+      ],
+      "additionalProperties": false
+    },
+    "page": {
+      "type": "object",
+      "properties": {
+        "gapX": {
+          "type": "number",
+          "minimum": 0
+        },
+        "gapY": {
+          "type": "number",
+          "minimum": 0
+        },
+        "marginX": {
+          "type": "number",
+          "minimum": 0
+        },
+        "marginY": {
+          "type": "number",
+          "minimum": 0
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "a4",
+            "letter",
+            "free-form"
+          ],
+          "default": "a4"
+        },
+        "locale": {
+          "type": "string",
+          "default": "en-US"
+        },
+        "hideLinkUnderline": {
+          "type": "boolean",
+          "default": false
+        },
+        "hideIcons": {
+          "type": "boolean",
+          "default": false
+        },
+        "hideSectionIcons": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "gapX",
+        "gapY",
+        "marginX",
+        "marginY",
+        "format",
+        "locale",
+        "hideLinkUnderline",
+        "hideIcons",
+        "hideSectionIcons"
+      ],
+      "additionalProperties": false
+    },
+    "level": {
+      "type": "object",
+      "properties": {
+        "icon": {
+          "$ref": "#/$defs/icon"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "hidden",
+            "circle",
+            "square",
+            "rectangle",
+            "rectangle-full",
+            "progress-bar",
+            "icon"
+          ]
+        }
+      },
+      "required": [
+        "icon",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "colors": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "background": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "primary",
+        "text",
+        "background"
+      ],
+      "additionalProperties": false
+    },
+    "design": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/level"
+        },
+        "colors": {
+          "$ref": "#/$defs/colors"
+        }
+      },
+      "required": [
+        "level",
+        "colors"
+      ],
+      "additionalProperties": false
+    },
+    "typography": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/typographyItem"
+        },
+        "heading": {
+          "$ref": "#/$defs/typographyItem"
+        },
+        "entryTitleSize": {
+          "type": "number",
+          "minimum": 6,
+          "maximum": 24,
+          "default": 12
+        },
+        "entrySubtitleSize": {
+          "type": "number",
+          "minimum": 6,
+          "maximum": 24,
+          "default": 10
+        },
+        "entryMetaSize": {
+          "type": "number",
+          "minimum": 6,
+          "maximum": 24,
+          "default": 9
+        }
+      },
+      "required": [
+        "body",
+        "heading",
+        "entryTitleSize",
+        "entrySubtitleSize",
+        "entryMetaSize"
+      ],
+      "additionalProperties": false
+    },
+    "template": {
+      "type": "string",
+      "enum": [
+        "cyndaquil",
+        "mewtwo"
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "template": {
+          "$ref": "#/$defs/template",
+          "default": "cyndaquil"
+        },
+        "layout": {
+          "$ref": "#/$defs/layout"
+        },
+        "page": {
+          "$ref": "#/$defs/page"
+        },
+        "design": {
+          "$ref": "#/$defs/design"
+        },
+        "typography": {
+          "$ref": "#/$defs/typography"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "styleRules": {
+          "default": []
+        }
+      },
+      "required": [
+        "template",
+        "layout",
+        "page",
+        "design",
+        "typography",
+        "notes",
+        "styleRules"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

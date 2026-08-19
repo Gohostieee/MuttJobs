@@ -22,17 +22,18 @@ import type {
   ReferenceItem,
   ResumeData,
   ResumeItemWebsite,
+  ResumeSectionAlignment,
   Role,
   Sections,
   SkillItem,
   SummaryItem,
   SummarySection,
-  Template,
   Typography,
   TypographyItem,
   VolunteerItem,
 } from "@/lib/resume-types"
 import { sanitizeRichTextHtml } from "@/lib/rich-text"
+import { normalizeResumeTemplate } from "@/lib/resume-templates"
 
 type UnknownRecord = Record<string, unknown>
 
@@ -54,10 +55,6 @@ const SECTION_KEYS = [
 export { SECTION_KEYS as STANDARD_SECTION_KEYS }
 
 type StandardSectionKey = (typeof SECTION_KEYS)[number]
-
-const TEMPLATES: Template[] = [
-  "azurill", "bronzor", "chikorita", "ditgar", "ditto", "gengar", "glalie", "kakuna", "lapras", "leafish", "meowth", "onyx", "pikachu", "rhyhorn", "scizor",
-]
 
 const LEVEL_TYPES = ["hidden", "circle", "square", "rectangle", "rectangle-full", "progress-bar", "icon"] as const
 
@@ -127,6 +124,8 @@ function createBaseSection(title: string, enabled = false) {
     title,
     icon: "",
     columns: 1,
+    alignment: "left" as const,
+    pageAlignment: "left" as const,
     enabled,
     hidden: false,
     keepTogether: false,
@@ -157,7 +156,7 @@ function createMetadata(): Metadata {
     gapY: 6,
     marginX: 18,
     marginY: 18,
-    format: "a4",
+    format: "letter",
     locale: "en-US",
     hideLinkUnderline: false,
     hideIcons: false,
@@ -170,9 +169,15 @@ function createMetadata(): Metadata {
   const colors: Colors = { primary: "#315c50", text: "#1e2825", background: "#ffffff" }
   const body: TypographyItem = { fontFamily: "Georgia", fontWeights: ["400"], fontSize: 11, lineHeight: 1.5 }
   const heading: TypographyItem = { fontFamily: "Georgia", fontWeights: ["600"], fontSize: 13, lineHeight: 1.5 }
-  const typography: Typography = { body, heading }
+  const typography: Typography = {
+    body,
+    heading,
+    entryTitleSize: 12,
+    entrySubtitleSize: 10,
+    entryMetaSize: 9,
+  }
   return {
-    template: "onyx",
+    template: "cyndaquil",
     layout,
     page,
     design: { level: { icon: "circle", type: "circle" }, colors },
@@ -274,16 +279,26 @@ function normalizeStandardSection<K extends StandardSectionKey>(key: K, value: u
   return { ...base, items } as Sections[K]
 }
 
-function normalizeBaseSection(value: UnknownRecord, fallback: { title: string; icon: string; columns: number; enabled: boolean; hidden: boolean; keepTogether: boolean; startOnNewPage: boolean }) {
+function normalizeBaseSection(value: UnknownRecord, fallback: { title: string; icon: string; columns: number; alignment: ResumeSectionAlignment; pageAlignment: ResumeSectionAlignment; enabled: boolean; hidden: boolean; keepTogether: boolean; startOnNewPage: boolean }) {
+  const alignment = normalizeSectionAlignment(value.alignment, fallback.alignment)
   return {
     title: stringValue(value.title, fallback.title),
     icon: stringValue(value.icon, fallback.icon),
     columns: Math.round(clamp(numberValue(value.columns, fallback.columns), 1, 6)),
+    alignment,
+    // Before pageAlignment existed, alignment controlled both the content and
+    // the item's position within the page. Mirror that value while loading old
+    // documents so their rendered layout does not change during migration.
+    pageAlignment: normalizeSectionAlignment(value.pageAlignment, "pageAlignment" in value ? fallback.pageAlignment : alignment),
     enabled: booleanValue(value.enabled, fallback.enabled),
     hidden: booleanValue(value.hidden, fallback.hidden),
     keepTogether: booleanValue(value.keepTogether, fallback.keepTogether),
     startOnNewPage: booleanValue(value.startOnNewPage, fallback.startOnNewPage),
   }
+}
+
+function normalizeSectionAlignment(value: unknown, fallback: ResumeSectionAlignment): ResumeSectionAlignment {
+  return value === "left" || value === "center" || value === "right" ? value : fallback
 }
 
 function normalizeCustomSection(value: unknown, index: number): CustomSection {
@@ -454,7 +469,7 @@ function normalizeMetadata(value: unknown, fallback: Metadata): Metadata {
   const levelSource = asRecord(designSource.level)
   const typographySource = asRecord(source.typography)
   return {
-    template: TEMPLATES.includes(source.template as Template) ? source.template as Template : fallback.template,
+    template: normalizeResumeTemplate(source.template, fallback.template),
     layout: normalizeLayout(layoutSource, fallback.layout),
     page: {
       gapX: Math.max(0, numberValue(pageSource.gapX, fallback.page.gapX)),
@@ -481,6 +496,9 @@ function normalizeMetadata(value: unknown, fallback: Metadata): Metadata {
     typography: {
       body: normalizeTypographyItem(asRecord(typographySource.body), fallback.typography.body),
       heading: normalizeTypographyItem(asRecord(typographySource.heading), fallback.typography.heading),
+      entryTitleSize: normalizeTypographySize(typographySource.entryTitleSize, fallback.typography.entryTitleSize),
+      entrySubtitleSize: normalizeTypographySize(typographySource.entrySubtitleSize, fallback.typography.entrySubtitleSize),
+      entryMetaSize: normalizeTypographySize(typographySource.entryMetaSize, fallback.typography.entryMetaSize),
     },
     notes: stringValue(source.notes, fallback.notes),
     styleRules: "styleRules" in source ? source.styleRules : fallback.styleRules,
@@ -513,6 +531,10 @@ function normalizeTypographyItem(source: UnknownRecord, fallback: TypographyItem
     fontSize: clamp(numberValue(source.fontSize, fallback.fontSize), 6, 24),
     lineHeight: clamp(numberValue(source.lineHeight, fallback.lineHeight), 0.5, 4),
   }
+}
+
+function normalizeTypographySize(value: unknown, fallback: number) {
+  return clamp(numberValue(value, fallback), 6, 24)
 }
 
 function normalizeSectionType(value: unknown) {

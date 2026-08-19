@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/cover-letter.schema.json",
+  "title": "Cover Letter",
+  "description": "A simple professional cover letter organized like the rendered document.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["metadata", "applicant", "recipient", "position", "content", "closing"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["date", "page", "typography"],
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "page": { "$ref": "#/$defs/page" },
+        "typography": { "$ref": "#/$defs/typography" }
+      }
+    },
+    "applicant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "address": { "$ref": "#/$defs/address" }
+      }
+    },
+    "recipient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["company", "salutation"],
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "title": { "type": ["string", "null"] },
+        "company": { "type": "string" },
+        "address": { "$ref": "#/$defs/address" },
+        "salutation": { "type": "string" }
+      }
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title"],
+      "properties": {
+        "title": { "type": "string" },
+        "source": { "type": ["string", "null"] }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opening", "body", "closingParagraph"],
+      "properties": {
+        "opening": { "type": "string" },
+        "body": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": { "type": "string" }
+        },
+        "closingParagraph": { "type": "string" }
+      }
+    },
+    "closing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["signOff", "name"],
+      "properties": {
+        "signOff": { "type": "string", "default": "Sincerely," },
+        "name": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "fontWeight": {
+      "type": "string",
+      "enum": ["100", "200", "300", "400", "500", "600", "700", "800", "900"]
+    },
+    "typographyItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fontFamily", "fontWeights", "fontSize", "lineHeight"],
+      "properties": {
+        "fontFamily": { "type": "string" },
+        "fontWeights": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/fontWeight" }
+        },
+        "fontSize": { "type": "number", "minimum": 6, "maximum": 24 },
+        "lineHeight": { "type": "number", "minimum": 0.5, "maximum": 4 }
+      }
+    },
+    "typography": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["body", "heading"],
+      "properties": {
+        "body": { "$ref": "#/$defs/typographyItem" },
+        "heading": { "$ref": "#/$defs/typographyItem" }
+      }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "marginX", "marginY"],
+      "properties": {
+        "format": { "type": "string", "enum": ["a4", "letter"], "default": "letter" },
+        "marginX": { "type": "number", "minimum": 0, "maximum": 60 },
+        "marginY": { "type": "number", "minimum": 0, "maximum": 60 }
+      }
+    },
+    "address": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "street": { "type": ["string", "null"] },
+        "street2": { "type": ["string", "null"] },
+        "city": { "type": ["string", "null"] },
+        "state": { "type": ["string", "null"] },
+        "postalCode": { "type": ["string", "null"] },
+        "country": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

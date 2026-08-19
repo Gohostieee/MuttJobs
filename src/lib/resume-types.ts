@@ -9,6 +9,7 @@ export type ResumeItemWebsite = ResumeWebsite & {
 
 export type Icon = string
 export type IconColor = string
+export type ResumeSectionAlignment = "left" | "center" | "right"
 
 export type Picture = {
   hidden: boolean
@@ -44,6 +45,8 @@ export type BaseSection = {
   title: string
   icon: string
   columns: number
+  alignment: ResumeSectionAlignment
+  pageAlignment: ResumeSectionAlignment
   enabled: boolean
   hidden: boolean
   keepTogether: boolean
@@ -296,24 +299,12 @@ export type Design = {
 export type Typography = {
   body: TypographyItem
   heading: TypographyItem
+  entryTitleSize: number
+  entrySubtitleSize: number
+  entryMetaSize: number
 }
 
-export type Template =
-  | "azurill"
-  | "bronzor"
-  | "chikorita"
-  | "ditgar"
-  | "ditto"
-  | "gengar"
-  | "glalie"
-  | "kakuna"
-  | "lapras"
-  | "leafish"
-  | "meowth"
-  | "onyx"
-  | "pikachu"
-  | "rhyhorn"
-  | "scizor"
+export type Template = "cyndaquil" | "mewtwo"
 
 export type Metadata = {
   template: Template
