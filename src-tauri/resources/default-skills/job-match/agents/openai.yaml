@@ -1,0 +1,4 @@
+interface:
+  display_name: "Job Match"
+  short_description: "Compare resume evidence with a target role"
+  default_prompt: "Use $job-match to compare this resume with the pasted job description."

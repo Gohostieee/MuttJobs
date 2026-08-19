@@ -1,0 +1,4 @@
+interface:
+  display_name: "Resume Summary"
+  short_description: "Write a concise evidence-backed summary"
+  default_prompt: "Use $resume-summary to improve only the professional summary."

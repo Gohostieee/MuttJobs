@@ -1,0 +1,4 @@
+interface:
+  display_name: "Edit Selection"
+  short_description: "Safely edit one selected resume passage"
+  default_prompt: "Use $edit-selection to edit only the selected resume text while preserving every surrounding field and fact."

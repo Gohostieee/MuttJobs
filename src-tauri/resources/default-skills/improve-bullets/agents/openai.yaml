@@ -1,0 +1,4 @@
+interface:
+  display_name: "Improve Bullets"
+  short_description: "Rewrite bullets without inventing evidence"
+  default_prompt: "Use $improve-bullets to strengthen the weakest supported resume bullets."

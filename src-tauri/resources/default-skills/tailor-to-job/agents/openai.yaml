@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tailor to Job"
+  short_description: "Conservatively tailor proven resume evidence"
+  default_prompt: "Use $tailor-to-job to tailor this resume to the pasted job description."

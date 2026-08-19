@@ -1,0 +1,4 @@
+interface:
+  display_name: "Seniority Signal Audit"
+  short_description: "Audit demonstrated senior engineering signals"
+  default_prompt: "Use $seniority-signal-audit to assess the senior-level evidence in this resume."
