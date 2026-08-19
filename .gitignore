@@ -26,3 +26,10 @@ dist-ssr
 # Tauri and local worker build artifacts
 src-tauri/target
 agent-worker/dist
+
+# Isolated verification build outputs
+.codex-vite-check-*/
+.vite-*-check/
+.vite-check/
+target-*-check/
+src-tauri/target-*-check/
