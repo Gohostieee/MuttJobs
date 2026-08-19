@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react"
 import {
   BarChart3,
+  Bot,
   Briefcase,
+  BookOpenText,
   CalendarDays,
   ContactRound,
   FileText,
@@ -10,6 +12,7 @@ import {
   PanelLeftOpen,
   Search,
   Settings,
+  UserRound,
   type LucideIcon,
 } from "lucide-react"
 
@@ -41,11 +44,14 @@ import {
 
 export type AppTabId =
   | "overview"
+  | "agent"
+  | "profile"
   | "jobs"
   | "applications"
   | "interviews"
   | "contacts"
   | "resumes"
+  | "cover-letters"
   | "settings"
 
 export type AppTab = {
@@ -63,9 +69,21 @@ export const APP_TABS: AppTab[] = [
     icon: LayoutDashboard,
   },
   {
+    id: "agent",
+    label: "Agent",
+    description: "Work with your MuttJobs agent.",
+    icon: Bot,
+  },
+  {
+    id: "profile",
+    label: "Profile",
+    description: "Keep the full context behind your career in one place.",
+    icon: UserRound,
+  },
+  {
     id: "jobs",
-    label: "Job Board",
-    description: "Discover and save promising roles.",
+    label: "Job Search",
+    description: "Find and save promising roles with TheirStack.",
     icon: Briefcase,
   },
   {
@@ -91,6 +109,12 @@ export const APP_TABS: AppTab[] = [
     label: "Resumes",
     description: "Browse and review your saved resumes.",
     icon: FileText,
+  },
+  {
+    id: "cover-letters",
+    label: "Cover Letters",
+    description: "Build and tailor structured cover letters.",
+    icon: BookOpenText,
   },
 ]
 
