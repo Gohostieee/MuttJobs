@@ -35,10 +35,9 @@ import {
 import type { ResumeAiSelection, ResumeAiStreamEvent } from "@/lib/resume-ai"
 
 const SUGGESTIONS = [
-  "Find remote product design jobs posted this week",
-  "Show me the applications I should work on next",
-  "Prepare a tailored resume and cover letter for a saved job",
-  "Move an application to interviewing",
+  "Show me all of my saved jobs",
+  "Get all details for a saved job",
+  "Research a saved company with a model and reasoning level",
 ]
 
 type ChatEntry = {
@@ -131,12 +130,12 @@ export function AgentWorkspace() {
         <div className="agent-workspace-title">
           <span className="agent-workspace-mark"><Bot aria-hidden="true" /></span>
           <div>
-            <p>Application automation</p>
+            <p>Workflow orchestration</p>
             <h1>MuttJobs Agent</h1>
           </div>
         </div>
         <p className="agent-workspace-capabilities">
-          Search jobs, tailor documents, and organize your application board.
+          Use trusted MuttJobs tools to inspect saved jobs and run Company Research.
         </p>
       </header>
 
@@ -146,8 +145,8 @@ export function AgentWorkspace() {
             <ConversationEmptyState
               className="resume-ai-empty-state agent-workspace-empty"
               icon={<Sparkles className="size-5" />}
-              title="Run your application process from one chat."
-              description="Tell the agent what roles you want or which saved job to prepare. It can use your local resumes, create tailored documents, and keep the board current."
+              title="Run MuttJobs workflows from one chat."
+              description="Ask for saved-job details or start Company Research. Research requests must name the model and reasoning level to use."
             />
           ) : messages.map((message) => (
             <UiMessage
@@ -195,7 +194,7 @@ export function AgentWorkspace() {
           <PromptInputTextarea
             value={input}
             onChange={(event) => setInput(event.currentTarget.value)}
-            placeholder="Ask the agent to find a job or prepare an application…"
+            placeholder="Ask about saved jobs or research a company…"
             disabled={isBusy}
             aria-label="Message the MuttJobs application agent"
           />
@@ -207,7 +206,7 @@ export function AgentWorkspace() {
           </PromptInputFooter>
         </PromptInput>
         <p className="resume-ai-composer-hint">
-          <CircleAlert aria-hidden="true" /> Saving a new TheirStack result can use a reveal credit; the agent only does that when you ask.
+          <CircleAlert aria-hidden="true" /> Company Research only runs for saved jobs and requires an explicit model and reasoning level.
         </p>
         {error ? <p className="resume-ai-error" role="alert">{error}</p> : null}
       </div>

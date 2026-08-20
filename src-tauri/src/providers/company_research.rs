@@ -583,6 +583,15 @@ pub async fn start_company_research_run(
     app: AppHandle,
     request: StartCompanyResearchRequest,
 ) -> Result<CompanyResearchRun, String> {
+    tauri::async_runtime::spawn_blocking(move || start_company_research_run_blocking(app, request))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+pub(crate) fn start_company_research_run_blocking(
+    app: AppHandle,
+    request: StartCompanyResearchRequest,
+) -> Result<CompanyResearchRun, String> {
     validate_identifier(&request.run_id, "research run ID")?;
     let input = normalize_input(request.input)?;
     let provider_id = request.provider.as_deref().unwrap_or("codex");
@@ -655,12 +664,7 @@ pub async fn start_company_research_run(
     );
 
     let shared = Arc::new(Mutex::new(run));
-    let task_app = app.clone();
-    let task_shared = shared.clone();
-    let result =
-        tauri::async_runtime::spawn_blocking(move || orchestrate(&task_app, &task_shared, flags))
-            .await
-            .map_err(|error| error.to_string())?;
+    let result = orchestrate(&app, &shared, flags);
     let run_id = result
         .as_ref()
         .map(|run| run.id.clone())

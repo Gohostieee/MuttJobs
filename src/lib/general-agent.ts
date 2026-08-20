@@ -8,8 +8,8 @@ export type GeneralAgentMessage = {
   content: string
 }
 
-export type GeneralAgentAction = {
-  action: string
+export type GeneralAgentToolCall = {
+  tool: "getAllJobs" | "getJob" | "researchCompany"
   label: string
   status: "completed" | "failed"
   result: unknown
@@ -17,7 +17,7 @@ export type GeneralAgentAction = {
 
 export type GeneralAgentResult = {
   response: string
-  actions: GeneralAgentAction[]
+  toolCalls: GeneralAgentToolCall[]
 }
 
 type GeneralAgentStreamEnvelope = {
