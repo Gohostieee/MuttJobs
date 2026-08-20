@@ -367,6 +367,13 @@ fn active_runs() -> &'static Mutex<CancellationMap> {
     ACTIVE_RUNS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+pub(crate) fn has_active_company_research_runs() -> bool {
+    active_runs()
+        .lock()
+        .map(|active| !active.is_empty())
+        .unwrap_or(true)
+}
+
 fn research_directory(app: &AppHandle, job_id: i64) -> Result<PathBuf, String> {
     if job_id <= 0 {
         return Err("Company research requires a valid saved job ID.".into());

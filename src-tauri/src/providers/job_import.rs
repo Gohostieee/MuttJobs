@@ -123,6 +123,13 @@ fn active_job_imports() -> &'static Mutex<HashSet<String>> {
     ACTIVE_JOB_IMPORTS.get_or_init(|| Mutex::new(HashSet::new()))
 }
 
+pub(crate) fn has_active_job_imports() -> bool {
+    active_job_imports()
+        .lock()
+        .map(|active| !active.is_empty())
+        .unwrap_or(true)
+}
+
 fn job_import_directory(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app
         .path()

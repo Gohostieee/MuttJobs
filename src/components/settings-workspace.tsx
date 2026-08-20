@@ -1,18 +1,33 @@
 import { useEffect, useState } from "react"
 import { listen } from "@tauri-apps/api/event"
+import { open, save as saveDialog } from "@tauri-apps/plugin-dialog"
 import {
+  ArchiveRestore,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   CircleAlert,
   Copy,
+  Download,
   RefreshCw,
   Settings2,
   Terminal,
+  Upload,
   WalletCards,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -22,6 +37,15 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { ThemeManager } from "@/components/theme-manager"
+import {
+  backupErrorMessage,
+  exportDataBackup,
+  formatBackupBytes,
+  importDataBackup,
+  inspectDataBackup,
+  type BackupExportSummary,
+  type BackupInspection,
+} from "@/lib/data-backup"
 import {
   getProviderHealth,
   getProviderSettings,
@@ -166,6 +190,8 @@ export function SettingsWorkspace() {
           </p>
 
           <ThemeManager />
+
+          <DataBackupCard />
 
           <div className="mt-10">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
@@ -354,6 +380,160 @@ export function SettingsWorkspace() {
         </div>
       </div>
     </section>
+  )
+}
+
+function DataBackupCard() {
+  const [operation, setOperation] = useState<"export" | "inspect" | "import" | null>(null)
+  const [inspection, setInspection] = useState<{ path: string; data: BackupInspection } | null>(null)
+  const [exportSummary, setExportSummary] = useState<BackupExportSummary | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleExport() {
+    setError(null)
+    setExportSummary(null)
+    setOperation("export")
+    try {
+      const date = new Date().toISOString().slice(0, 10)
+      const selected = await saveDialog({
+        defaultPath: `MuttJobs-backup-${date}.muttjobs-backup`,
+        filters: [{ name: "MuttJobs backup", extensions: ["muttjobs-backup"] }],
+      })
+      if (!selected) return
+      const destination = selected.toLowerCase().endsWith(".muttjobs-backup")
+        ? selected
+        : `${selected}.muttjobs-backup`
+      setExportSummary(await exportDataBackup(destination))
+    } catch (cause) {
+      setError(backupErrorMessage(cause, "MuttJobs could not export this backup."))
+    } finally {
+      setOperation(null)
+    }
+  }
+
+  async function handleChooseImport() {
+    setError(null)
+    setOperation("inspect")
+    try {
+      const selected = await open({
+        multiple: false,
+        directory: false,
+        filters: [{ name: "MuttJobs backup", extensions: ["muttjobs-backup"] }],
+      })
+      if (!selected || Array.isArray(selected)) return
+      setInspection({ path: selected, data: await inspectDataBackup(selected) })
+    } catch (cause) {
+      setError(backupErrorMessage(cause, "MuttJobs could not inspect this backup."))
+    } finally {
+      setOperation(null)
+    }
+  }
+
+  async function handleImport() {
+    if (!inspection) return
+    setOperation("import")
+    setError(null)
+    try {
+      await importDataBackup(inspection.path)
+    } catch (cause) {
+      setError(backupErrorMessage(cause, "MuttJobs could not import this backup. Your previous data was restored."))
+      setOperation(null)
+      setInspection(null)
+    }
+  }
+
+  const importing = operation === "import"
+  const inspecting = operation === "inspect"
+  const exporting = operation === "export"
+
+  return (
+    <div className="mt-10">
+      <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Data</p>
+      <h2 className="mt-1 text-lg font-semibold tracking-tight">Backups</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Move your complete MuttJobs workspace between machines or keep a local recovery copy.
+      </p>
+
+      <Card className="mt-5 gap-0 py-0">
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-background">
+            <ArchiveRestore className="size-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-medium">Export or import all durable data</div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Includes jobs, application state, resumes, cover letters, profiles, research, saved searches,
+              agent skills, settings, and themes. Temporary import files and provider credentials are excluded.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void handleExport()} disabled={operation !== null}>
+              {exporting ? <Spinner /> : <Download />}
+              {exporting ? "Exporting…" : "Export backup"}
+            </Button>
+            <Button onClick={() => void handleChooseImport()} disabled={operation !== null}>
+              {inspecting ? <Spinner /> : <Upload />}
+              {inspecting ? "Inspecting…" : "Import backup"}
+            </Button>
+          </div>
+        </div>
+        <div className="border-t bg-muted/30 px-5 py-3 text-xs text-muted-foreground">
+          Backup files are not encrypted. Treat them as sensitive because they contain personal and job-search data.
+        </div>
+      </Card>
+
+      {exportSummary ? (
+        <Alert className="mt-3" role="status">
+          <CheckCircle2 />
+          <AlertTitle>Backup exported</AlertTitle>
+          <AlertDescription>
+            {exportSummary.totalFiles.toLocaleString()} files ({formatBackupBytes(exportSummary.totalBytes)}) saved to {exportSummary.path}.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {error ? (
+        <Alert className="mt-3" variant="destructive">
+          <CircleAlert />
+          <AlertTitle>Backup operation failed</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <AlertDialog open={inspection !== null} onOpenChange={(open) => { if (!open && !importing) setInspection(null) }}>
+        <AlertDialogContent className="sm:max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Merge this MuttJobs backup?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Matching items will be replaced by the imported versions. Data found only on this machine will remain,
+              provider credentials will be preserved, and MuttJobs will restart after the merge.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {inspection ? (
+            <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
+              <span className="text-muted-foreground">Exported</span>
+              <span className="text-right">{new Date(inspection.data.exportedAt).toLocaleString()}</span>
+              <span className="text-muted-foreground">Source version</span>
+              <span className="text-right">{inspection.data.appVersion}</span>
+              <span className="text-muted-foreground">Backup contents</span>
+              <span className="text-right">{inspection.data.totalFiles.toLocaleString()} files · {formatBackupBytes(inspection.data.totalBytes)}</span>
+              <span className="text-muted-foreground">Matching files</span>
+              <span className="text-right">{inspection.data.conflictSummary.conflicts.toLocaleString()}</span>
+              <span className="text-muted-foreground">New files</span>
+              <span className="text-right">{inspection.data.conflictSummary.newItems.toLocaleString()}</span>
+              <span className="text-muted-foreground">Current-only files kept</span>
+              <span className="text-right">{inspection.data.conflictSummary.currentOnlyItems.toLocaleString()}</span>
+            </div>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={importing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={(event) => { event.preventDefault(); void handleImport() }} disabled={importing}>
+              {importing ? <Spinner /> : <ArchiveRestore />}
+              {importing ? "Merging…" : "Merge and restart"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   )
 }
 

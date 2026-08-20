@@ -24,6 +24,7 @@ use webview2_com::{
 #[cfg(windows)]
 use windows::core::HSTRING;
 
+mod data_backup;
 mod providers;
 
 #[derive(Clone, Serialize)]
@@ -168,6 +169,13 @@ fn resume_import_lock() -> &'static Mutex<()> {
 
 fn active_resume_imports() -> &'static Mutex<HashSet<String>> {
     ACTIVE_RESUME_IMPORTS.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+pub(crate) fn has_active_resume_imports() -> bool {
+    active_resume_imports()
+        .lock()
+        .map(|active| !active.is_empty())
+        .unwrap_or(true)
 }
 
 fn resume_import_directory(app: &AppHandle) -> Result<PathBuf, String> {
@@ -1249,6 +1257,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .manage(providers::ProviderState::default())
         .invoke_handler(tauri::generate_handler![
@@ -1266,6 +1275,11 @@ pub fn run() {
             providers::resume_matching::save_job_primary_resume,
             export_resume_pdf,
             save_cover_letter,
+            data_backup::export_data_backup,
+            data_backup::inspect_data_backup,
+            data_backup::begin_data_import,
+            data_backup::commit_data_import,
+            data_backup::rollback_data_import,
             run_resume_ai_job,
             run_cover_letter_ai_job,
             providers::general_agent::run_general_agent_job,
@@ -1299,6 +1313,7 @@ pub fn run() {
             providers::refresh_provider_health
         ])
         .setup(|app| {
+            data_backup::recover_interrupted_import(app.handle())?;
             providers::load_settings(app.handle());
             providers::start_health_scheduler(app.handle().clone());
             Ok(())
