@@ -210,6 +210,31 @@ export function addResumeSectionItem(resume: ResumeData, key: string): ResumeDat
   }))
 }
 
+export function setResumeSectionItems(resume: ResumeData, key: string, items: AnyResumeItem[]): ResumeData {
+  const section = getResumeSection(resume, key)
+  if (!section?.items) return resume
+
+  return updateResumeSection(resume, key, (current) => ({
+    ...current,
+    items,
+  }))
+}
+
+export function updateResumeSectionItem(
+  resume: ResumeData,
+  key: string,
+  itemIndex: number,
+  update: (item: AnyResumeItem) => AnyResumeItem,
+): ResumeData {
+  const section = getResumeSection(resume, key)
+  if (!section?.items || !Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= section.items.length) return resume
+
+  return updateResumeSection(resume, key, (current) => ({
+    ...current,
+    items: (current.items ?? []).map((item, index) => index === itemIndex ? update(item) : item),
+  }))
+}
+
 export function removeResumeSectionItem(resume: ResumeData, key: string, itemIndex: number): ResumeData {
   const section = getResumeSection(resume, key)
   if (!section?.items || !Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= section.items.length) return resume

@@ -81,6 +81,7 @@ type ResumeEditContext = {
 export type ResumeSectionEntry = {
   id: string
   key: string
+  type: SectionType
   title: string
   detail: string
   hidden: boolean
@@ -170,6 +171,7 @@ export function getResumeSectionEntries(
     entries.push({
       id: getResumeSectionId(key),
       key,
+      type: descriptor.type,
       title: descriptor.section.title || titleCase(key),
       detail: getSectionDetail(descriptor.section),
       hidden: descriptor.section.hidden,
@@ -789,15 +791,19 @@ function ResumeItemView({
       })}
       {keywords.length ? (
         <div className="resume-keywords">
-          {keywords.map((keyword, index) => (
-            <Fragment key={`${keyword}-${index}`}>
-              {index ? <span className="resume-keyword-separator" aria-hidden="true">, </span> : null}
-              <ResumeText context={editContext} path={[...itemPath, "keywords", index]} value={keyword} as="span" />
-            </Fragment>
-          ))}
+          {kind === "skills" ? (
+            <span>{keywords.join(", ")}</span>
+          ) : (
+            keywords.map((keyword, index) => (
+              <Fragment key={`${keyword}-${index}`}>
+                {index ? <span className="resume-keyword-separator" aria-hidden="true">, </span> : null}
+                <ResumeText context={editContext} path={[...itemPath, "keywords", index]} value={keyword} as="span" />
+              </Fragment>
+            ))
+          )}
         </div>
       ) : null}
-      {kind !== "skills" && presentation.level !== undefined ? <LevelIndicator value={presentation.level} config={level} hideIcons={hideIcons} /> : null}
+      {presentation.level !== undefined && (kind !== "skills" || presentation.level > 0) ? <LevelIndicator value={presentation.level} config={level} hideIcons={hideIcons} /> : null}
       {kind === "references" && (editContext || presentation.phone) ? <div className="resume-phone">{!hideIcons ? <Phone aria-hidden="true" /> : null}<ResumeText context={editContext} path={[...itemPath, "phone"]} value={presentation.phone} placeholder="Phone number" /></div> : null}
     </div>
   )

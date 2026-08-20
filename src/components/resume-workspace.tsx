@@ -48,6 +48,7 @@ import {
   type ResumeSectionDropPosition,
 } from "@/components/resume-document"
 import { ResumeDesignPanel } from "@/components/resume-design-panel"
+import { ResumeSkillsSection } from "@/components/resume-skills-section"
 import {
   AgentActivityTrace,
   DEFAULT_RESUME_AI_SELECTION,
@@ -1069,7 +1070,7 @@ export function ResumeViewer({
   } as CSSProperties
 
   return (
-    <main className={`resume-viewer ${aiSidebarOpen ? "has-ai-sidebar" : "is-ai-sidebar-collapsed"} ${sectionsSidebarOpen ? "has-sections-sidebar" : "is-sections-sidebar-collapsed"} ${isAiSidebarResizing ? "is-ai-sidebar-resizing" : ""} ${isSectionsSidebarResizing ? "is-sections-sidebar-resizing" : ""}`.trim()} style={viewerStyle}>
+    <main className={`resume-viewer ${fullScreen ? "fixed inset-0 z-50" : ""} ${aiSidebarOpen ? "has-ai-sidebar" : "is-ai-sidebar-collapsed"} ${sectionsSidebarOpen ? "has-sections-sidebar" : "is-sections-sidebar-collapsed"} ${isAiSidebarResizing ? "is-ai-sidebar-resizing" : ""} ${isSectionsSidebarResizing ? "is-sections-sidebar-resizing" : ""}`.trim()} style={viewerStyle}>
       <header className="resume-viewer-header">
         <Button variant="ghost" size="icon" onClick={() => void handleBack()} aria-label={backLabel}><ArrowLeft /></Button>
         {!aiSidebarOpen ? (
@@ -1566,16 +1567,25 @@ export function ResumeSectionsSidebar({
                     </div>
                   </div>
                   {section.supportsItems && isExpanded ? (
-                    <ResumeSectionItemsFolder
-                      id={itemsId}
-                      resume={resume}
-                      section={section}
-                      onSelect={handleSectionItemSelect}
-                      onAdd={onAddItem}
-                      onRemove={onRemoveItem}
-                      onToggleHidden={onToggleItemHidden}
-                      onReorder={onReorderItem}
-                    />
+                    section.type === "skills" ? (
+                      <ResumeSkillsSection
+                        resume={resume}
+                        sectionKey={section.key}
+                        sectionTitle={section.title}
+                        onChange={onChange}
+                      />
+                    ) : (
+                      <ResumeSectionItemsFolder
+                        id={itemsId}
+                        resume={resume}
+                        section={section}
+                        onSelect={handleSectionItemSelect}
+                        onAdd={onAddItem}
+                        onRemove={onRemoveItem}
+                        onToggleHidden={onToggleItemHidden}
+                        onReorder={onReorderItem}
+                      />
+                    )
                   ) : null}
                 </li>
               )

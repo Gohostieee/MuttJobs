@@ -357,6 +357,51 @@ input {
 .resume-section-item-link:hover .resume-section-drag-handle { color: var(--foreground); }
 .resume-section-item-link.is-hidden .resume-section-drag-handle { color: color-mix(in oklab, var(--muted-foreground) 50%, transparent); }
 .resume-section-items-empty { margin: 0; padding: .35rem .15rem .55rem 0; color: var(--muted-foreground); font-size: .67rem; line-height: 1.4; }
+.resume-skills-section { margin: .2rem .3rem .35rem 2.25rem; overflow: hidden; border: 1px solid var(--border); border-radius: .45rem; background: color-mix(in oklab, var(--background) 92%, var(--muted)); }
+.resume-skills-section.is-empty { border-style: dashed; }
+.resume-skills-list { margin: 0; padding: 0; list-style: none; }
+.resume-skill-row { display: grid; min-height: 4.5rem; grid-template-columns: 1.75rem minmax(0, 1fr) 2.25rem; align-items: stretch; border-bottom: 1px solid var(--border); }
+.resume-skill-row:last-child { border-bottom: 0; }
+.resume-skill-row.is-hidden { background: color-mix(in oklab, var(--muted) 36%, transparent); }
+.resume-skill-drag-handle { display: flex; align-items: center; justify-content: center; color: color-mix(in oklab, var(--muted-foreground) 58%, transparent); cursor: grab; touch-action: none; }
+.resume-skill-drag-handle:active { cursor: grabbing; }
+.resume-skill-drag-handle svg { width: .9rem; height: .9rem; }
+.resume-skill-row-main { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; justify-content: center; gap: .12rem; padding: .55rem .3rem; color: var(--foreground); text-align: left; }
+.resume-skill-row-main:hover { color: var(--foreground); background: color-mix(in oklab, var(--muted) 72%, transparent); }
+.resume-skill-row-title { overflow: hidden; width: 100%; font-size: .75rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.resume-skill-row-subtitle { overflow: hidden; width: 100%; color: var(--muted-foreground); font-size: .65rem; text-overflow: ellipsis; white-space: nowrap; }
+.resume-skill-row-options { align-self: center; color: var(--muted-foreground); }
+.resume-skill-row-options:hover { color: var(--foreground); }
+.resume-skills-add { width: 100%; height: 3rem; justify-content: flex-start; border-radius: 0; color: var(--muted-foreground); font-size: .72rem; }
+.resume-skills-add svg { width: .9rem; height: .9rem; }
+.resume-skill-dialog { max-width: min(36rem, calc(100% - 2rem)); }
+.resume-skill-form { display: grid; min-width: 0; gap: 1rem; }
+.resume-skill-name-row { display: flex; min-width: 0; align-items: flex-end; gap: .5rem; }
+.resume-skill-name-row > .resume-skill-color-picker { flex: 0 0 auto; }
+.resume-skill-color-picker { position: relative; display: inline-flex; height: 2rem; width: 2.25rem; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: .5rem; color: var(--muted-foreground); cursor: pointer; }
+.resume-skill-color-picker:hover { color: var(--foreground); background: var(--muted); }
+.resume-skill-color-swatch { display: block; height: 1rem; width: 1rem; border: 1px solid color-mix(in oklab, var(--foreground) 28%, transparent); border-radius: 999px; pointer-events: none; }
+.resume-skill-color-picker input { position: absolute; inset: 0; height: 100%; width: 100%; cursor: pointer; opacity: 0; }
+.resume-skill-color-clear { position: absolute; right: -.35rem; top: -.35rem; z-index: 1; display: flex; height: 1rem; width: 1rem; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 999px; background: var(--background); color: var(--muted-foreground); cursor: pointer; }
+.resume-skill-color-clear:hover { color: var(--destructive); }
+.resume-skill-color-clear svg { width: .65rem; height: .65rem; }
+.resume-skill-icon-popover { width: 14rem; }
+.resume-skill-icon-options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .25rem; }
+.resume-skill-icon-option { width: 100%; }
+.resume-skill-chips { display: grid; gap: .5rem; overflow: hidden; padding: .45rem .55rem .55rem; border: 1px solid var(--input); border-radius: .55rem; background: color-mix(in oklab, var(--background) 94%, var(--muted)); }
+.resume-skill-chip-list { display: flex; max-height: 6rem; min-height: 0; flex-wrap: wrap; gap: .25rem; overflow-y: auto; }
+.resume-skill-chip { touch-action: none; }
+.resume-skill-chip [data-slot="badge"] { max-width: 100%; cursor: grab; gap: .1rem; background: color-mix(in oklab, var(--muted) 55%, transparent); }
+.resume-skill-chip [data-slot="badge"]:active { cursor: grabbing; }
+.resume-skill-chip [data-slot="badge"].is-editing { border-color: var(--ring); background: color-mix(in oklab, var(--primary) 12%, transparent); box-shadow: 0 0 0 1px color-mix(in oklab, var(--ring) 40%, transparent); }
+.resume-skill-chip-text { max-width: 12rem; overflow: hidden; text-overflow: ellipsis; }
+.resume-skill-chip-action { display: inline-flex; height: 1.15rem; width: 1.15rem; align-items: center; justify-content: center; border-radius: .25rem; color: var(--muted-foreground); cursor: pointer; }
+.resume-skill-chip-action:hover { background: var(--secondary); color: var(--foreground); }
+.resume-skill-chip-action.is-delete:hover { color: var(--destructive); }
+.resume-skill-chip-action svg { width: .72rem; height: .72rem; }
+.resume-skill-chips > input { height: 2.25rem; border: 0; background: transparent; box-shadow: none; }
+.resume-skill-chips > input:focus-visible { box-shadow: none; }
+.resume-skill-chip-help { margin: 0; color: var(--muted-foreground); font-size: .68rem; line-height: 1.35; }
 .resume-section-columns-popover { width: 15rem; }
 .resume-section-columns-popover [data-slot="popover-title"] { color: var(--popover-foreground); font-size: .8rem; font-weight: 650; }
 .resume-section-columns-popover [data-slot="popover-description"] { color: var(--muted-foreground); font-size: .68rem; line-height: 1.4; }
@@ -505,12 +550,13 @@ input {
 .resume-section-heading i { height: 1px; flex: 1; background: color-mix(in srgb, var(--resume-primary) 34%, transparent); }
 .resume-item + .resume-item { margin-top: 17px; }
 .resume-item-heading-content { display: flex; min-width: 0; align-items: flex-start; gap: 7px; }
+.resume-item-heading-content > div { min-width: 0; }
 .resume-item-heading-content > .resume-icon { margin-top: 1px; color: var(--resume-primary); }
 .resume-section-items { display: grid; grid-template-columns: repeat(var(--resume-section-column-count), minmax(0, 1fr)); width: 100%; max-width: 100%; gap: 17px 20px; }
 .resume-section-items[data-page-alignment="left"] { justify-content: start; }
-.resume-section-items[data-page-alignment="center"], .resume-section-items[data-page-alignment="right"] { grid-template-columns: repeat(var(--resume-section-column-count), minmax(0, max-content)); }
 .resume-section-items[data-page-alignment="center"] { justify-content: space-between; }
 .resume-section-items[data-page-alignment="right"] { justify-content: end; }
+.resume-section-items > .resume-item { min-width: 0; max-width: 100%; overflow: hidden; }
 .resume-section-items[data-alignment="left"] { text-align: left; }
 .resume-section-items[data-alignment="center"] { text-align: center; }
 .resume-section-items[data-alignment="right"] { text-align: right; }
@@ -535,9 +581,15 @@ input {
 .resume-recipient strong { color: var(--resume-primary); font-family: Arial, sans-serif; font-size: 8px; text-transform: uppercase; }
 .resume-phone { display: flex; align-items: center; gap: 4px; margin-top: 5px; color: color-mix(in srgb, var(--resume-text) 68%, transparent); font-family: Arial, sans-serif; font-size: 8px; }
 .resume-phone svg { width: 9px; height: 9px; color: var(--resume-primary); }
-.resume-keywords { display: flex; flex-wrap: wrap; gap: 0; margin-top: 8px; }
-.resume-keywords span { padding: 0; border-radius: 0; background: transparent; color: var(--resume-primary); font-family: Arial, sans-serif; font-size: 7.5px; }
+.resume-keywords { display: block; min-width: 0; margin-top: 8px; overflow-wrap: anywhere; }
+.resume-keywords span { padding: 0; border-radius: 0; background: transparent; color: var(--resume-primary); font-family: Arial, sans-serif; font-size: 7.5px; overflow-wrap: anywhere; }
 .resume-keyword-separator { white-space: pre; }
+.resume-item-skills { min-width: 0; max-width: 100%; overflow: hidden; }
+.resume-item-skills .resume-item-topline { min-width: 0; }
+.resume-item-skills h3 { max-width: 100%; font-family: var(--resume-body-font), Georgia, serif; font-size: var(--resume-body-size); font-weight: var(--resume-body-bold-weight); line-height: var(--resume-body-leading); white-space: normal; }
+.resume-item-skills .resume-organization { max-width: 100%; margin-top: 2px; color: var(--resume-text); font-family: var(--resume-body-font), Georgia, serif; font-size: var(--resume-body-size); font-weight: var(--resume-body-weight); line-height: var(--resume-body-leading); white-space: normal; }
+.resume-item-skills .resume-keywords { max-width: 100%; margin-top: 2px; color: var(--resume-text); font-family: var(--resume-body-font), Georgia, serif; font-size: calc(var(--resume-body-size) * .875); line-height: var(--resume-body-leading); white-space: normal; }
+.resume-item-skills .resume-keywords span { color: inherit; font-family: inherit; font-size: inherit; }
 .resume-role { margin-top: 9px; padding-left: 10px; border-left: 1px solid color-mix(in srgb, var(--resume-primary) 30%, transparent); }
 .resume-level { display: inline-flex; align-items: center; gap: 3px; min-height: 9px; }
 .resume-level > i { display: block; width: 7px; height: 7px; border: 1px solid color-mix(in srgb, var(--resume-primary) 55%, transparent); background: transparent; }
@@ -763,6 +815,7 @@ input {
   .resume-viewport { padding: 1.5rem; }
   .resume-zoom-controls { left: 50%; }
   .resume-section-items-folder { margin-left: .45rem; padding-left: .5rem; }
+  .resume-skills-section { margin-left: .45rem; }
   .resume-section-items-folder .resume-section-actions { gap: 0; padding-right: 0; }
   .resume-section-items-folder .resume-section-actions button { width: 1.7rem; height: 1.7rem; }
   .resume-section-item-link { grid-template-columns: .85rem 1.25rem minmax(0, 1fr); gap: .25rem; padding-inline: .25rem; }
