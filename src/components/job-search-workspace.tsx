@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react"
 import {
   ArrowLeft,
   BadgeDollarSign,
+  Bookmark,
+  BookmarkPlus,
   Brain,
   BriefcaseBusiness,
   Building2,
@@ -23,6 +25,7 @@ import {
   Sparkles,
   TextSearch,
   Tags,
+  Trash2,
   UserRound,
   X,
 } from "lucide-react"
@@ -34,6 +37,16 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   Card,
   CardContent,
@@ -55,6 +68,8 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
@@ -71,13 +86,26 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import {
+  deleteSavedTheirStackSearch,
   revealTheirStackJob,
   expandTheirStackSearchQuery,
+  listSavedTheirStackSearches,
+  saveTheirStackSearch,
   searchTheirStackJobs,
   searchTheirStackIndustries,
   searchTheirStackKeywords,
   searchTheirStackLocations,
   searchTheirStackTechnologies,
+  THEIRSTACK_JOB_PAGE_SIZE,
   toTheirStackPostedDateParams,
   type PostedDateFilter,
   type TheirStackIndustry,
@@ -85,6 +113,8 @@ import {
   type TheirStackJobSearchRequest,
   type TheirStackKeyword,
   type TheirStackLocation,
+  type TheirStackSavedSearch,
+  type TheirStackSearchQuery,
   type TheirStackSearchQueryExpansion,
   type TheirStackTechnology,
 } from "@/lib/theirstack"
@@ -112,6 +142,33 @@ const DEFAULT_PRE_SEARCH_REASONING: CodexReasoningLevel = "max"
 
 export type JobSearchFilterValues = TheirStackJobSearchRequest
 
+type SearchFormSnapshot = {
+  postedDate: PostedDateFilter
+  selectedLocations: TheirStackLocation[]
+  selectedIndustries: TheirStackIndustry[]
+  selectedTechnologies: TheirStackTechnology[]
+  selectedKeywords: TheirStackKeyword[]
+  locationRelation: "job_location_or" | "job_location_not"
+  industryRelation: "industry_id_or" | "industry_id_not" | "industry_id_not_or_null"
+  technologyRelation: "job_technology_slug_or" | "job_technology_slug_and" | "job_technology_slug_not"
+  keywordRelation: "job_keyword_slug_or" | "job_keyword_slug_and" | "job_keyword_slug_not"
+  jobTitle: string
+  description: string
+  additionalFilters: TheirStackJobSearchRequest
+  activeAdditionalFilters: string[]
+}
+
+type SearchExecution = {
+  filters: TheirStackJobSearchRequest
+  query: TheirStackSearchQuery
+  model: string
+  reasoningEffort: CodexReasoningLevel
+}
+
+type SearchDraft = SearchExecution & {
+  form: SearchFormSnapshot
+}
+
 export function JobSearchWorkspace({
   onSearch,
 }: {
@@ -134,12 +191,48 @@ export function JobSearchWorkspace({
   const [preSearchReasoning, setPreSearchReasoning] = useState<CodexReasoningLevel>(DEFAULT_PRE_SEARCH_REASONING)
   const [hasSearched, setHasSearched] = useState(false)
   const [jobs, setJobs] = useState<TheirStackJob[]>([])
+  const [searchFilters, setSearchFilters] = useState<TheirStackJobSearchRequest | null>(null)
+  const [searchPage, setSearchPage] = useState(0)
+  const [searchPageSize, setSearchPageSize] = useState(THEIRSTACK_JOB_PAGE_SIZE)
+  const [searchTotalResults, setSearchTotalResults] = useState<number | null>(null)
+  const [hasMoreResults, setHasMoreResults] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
   const [searchPhase, setSearchPhase] = useState<SearchPhase>("idle")
   const [searchExpansion, setSearchExpansion] = useState<TheirStackSearchQueryExpansion | null>(null)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [revealingJobIds, setRevealingJobIds] = useState<number[]>([])
   const [selectedJob, setSelectedJob] = useState<TheirStackJob | null>(null)
+  const [savedSearches, setSavedSearches] = useState<TheirStackSavedSearch[]>([])
+  const [savedSearchesLoading, setSavedSearchesLoading] = useState(true)
+  const [savedSearchesError, setSavedSearchesError] = useState<string | null>(null)
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [saveSearchName, setSaveSearchName] = useState("")
+  const [pendingSaveDraft, setPendingSaveDraft] = useState<SearchDraft | null>(null)
+  const [isSavingSearch, setIsSavingSearch] = useState(false)
+  const [saveSearchError, setSaveSearchError] = useState<string | null>(null)
+  const [searchToDelete, setSearchToDelete] = useState<TheirStackSavedSearch | null>(null)
+  const [isDeletingSearch, setIsDeletingSearch] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    void listSavedTheirStackSearches()
+      .then((searches) => {
+        if (!active) return
+        setSavedSearches(searches)
+        setSavedSearchesError(null)
+      })
+      .catch((cause) => {
+        if (!active) return
+        setSavedSearchesError(errorMessage(cause, "Saved searches could not be loaded."))
+      })
+      .finally(() => {
+        if (active) setSavedSearchesLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const locationSummary = useMemo(
     () => formatLocationSummary(selectedLocations),
@@ -169,7 +262,7 @@ export function JobSearchWorkspace({
     })
   }
 
-  async function submitSearch() {
+  function buildSearchDraft(): SearchDraft {
     const filters = compactRequest({
       ...additionalFilters,
       ...toTheirStackPostedDateParams(postedDate),
@@ -180,26 +273,184 @@ export function JobSearchWorkspace({
       ...(jobTitle.trim() ? { job_title_or: splitFilterTerms(jobTitle) } : {}),
       ...(description.trim() ? { job_description_contains_or: splitFilterTerms(description) } : {}),
     })
+    return {
+      filters,
+      query: {
+        jobTitle: jobTitle.trim() || undefined,
+        description: description.trim() || undefined,
+      },
+      model: preSearchModel,
+      reasoningEffort: preSearchReasoning,
+      form: {
+        postedDate,
+        selectedLocations,
+        selectedIndustries,
+        selectedTechnologies,
+        selectedKeywords,
+        locationRelation,
+        industryRelation,
+        technologyRelation,
+        keywordRelation,
+        jobTitle,
+        description,
+        additionalFilters,
+        activeAdditionalFilters,
+      },
+    }
+  }
+
+  async function executeSearch(draft: SearchExecution) {
     setHasSearched(true)
     setSelectedJob(null)
+    setSearchFilters(null)
+    setSearchPage(0)
+    setSearchPageSize(THEIRSTACK_JOB_PAGE_SIZE)
+    setSearchTotalResults(null)
+    setHasMoreResults(false)
     setIsSearching(true)
     setSearchPhase("searching")
     setSearchExpansion(null)
     setSearchError(null)
     try {
       const pipeline = await runJobSearchPipeline(
-        filters,
-        { jobTitle, description },
-        preSearchModel,
-        preSearchReasoning,
+        draft.filters,
+        {
+          jobTitle: draft.query.jobTitle ?? "",
+          description: draft.query.description ?? "",
+        },
+        draft.model,
+        draft.reasoningEffort,
         setSearchPhase,
       )
       onSearch?.(pipeline.filters)
       setSearchExpansion(pipeline.expansion)
       setJobs(pipeline.result.jobs)
+      setSearchFilters(pipeline.filters)
+      setSearchPage(pipeline.result.page)
+      setSearchPageSize(pipeline.result.limit || THEIRSTACK_JOB_PAGE_SIZE)
+      setSearchTotalResults(pipeline.result.totalResults ?? null)
+      setHasMoreResults(pipeline.result.jobs.length >= (pipeline.result.limit || THEIRSTACK_JOB_PAGE_SIZE))
     } catch (cause) {
       setJobs([])
+      setSearchFilters(null)
       setSearchError(errorMessage(cause, "TheirStack could not complete this search."))
+    } finally {
+      setIsSearching(false)
+      setSearchPhase("idle")
+    }
+  }
+
+  async function submitSearch() {
+    await executeSearch(buildSearchDraft())
+  }
+
+  function openSaveSearchDialog() {
+    const draft = buildSearchDraft()
+    setPendingSaveDraft(draft)
+    setSaveSearchName(defaultSavedSearchName(draft.query))
+    setSaveSearchError(null)
+    setSaveDialogOpen(true)
+  }
+
+  async function handleSaveSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!pendingSaveDraft) return
+    const name = saveSearchName.trim()
+    if (!name) {
+      setSaveSearchError("Give this search a name first.")
+      return
+    }
+
+    setIsSavingSearch(true)
+    setSaveSearchError(null)
+    try {
+      const saved = await saveTheirStackSearch({
+        name,
+        filters: pendingSaveDraft.filters,
+        query: pendingSaveDraft.query,
+        model: pendingSaveDraft.model,
+        reasoningEffort: pendingSaveDraft.reasoningEffort,
+        form: pendingSaveDraft.form as unknown as Record<string, unknown>,
+      })
+      setSavedSearches((current) => [saved, ...current])
+      setSaveDialogOpen(false)
+      setPendingSaveDraft(null)
+    } catch (cause) {
+      setSaveSearchError(errorMessage(cause, "The search could not be saved."))
+    } finally {
+      setIsSavingSearch(false)
+    }
+  }
+
+  function restoreSearchFormSnapshot(value: Record<string, unknown> | null | undefined) {
+    if (!isSearchFormSnapshot(value)) return
+    setPostedDate(value.postedDate)
+    setSelectedLocations(value.selectedLocations)
+    setSelectedIndustries(value.selectedIndustries)
+    setSelectedTechnologies(value.selectedTechnologies)
+    setSelectedKeywords(value.selectedKeywords)
+    setLocationRelation(value.locationRelation)
+    setIndustryRelation(value.industryRelation)
+    setTechnologyRelation(value.technologyRelation)
+    setKeywordRelation(value.keywordRelation)
+    setJobTitle(value.jobTitle)
+    setDescription(value.description)
+    setAdditionalFilters(value.additionalFilters)
+    setActiveAdditionalFilters(value.activeAdditionalFilters as AdvancedFilterId[])
+  }
+
+  async function runSavedSearch(search: TheirStackSavedSearch) {
+    const model = savedSearchModel(search.model)
+    const reasoningEffort = savedSearchReasoning(search.reasoningEffort)
+    restoreSearchFormSnapshot(search.form)
+    setPreSearchModel(model)
+    setPreSearchReasoning(reasoningEffort)
+    await executeSearch({
+      filters: compactRequest(search.filters),
+      query: search.query ?? {},
+      model,
+      reasoningEffort,
+    })
+  }
+
+  async function confirmDeleteSavedSearch() {
+    if (!searchToDelete) return
+    setIsDeletingSearch(true)
+    setSavedSearchesError(null)
+    try {
+      await deleteSavedTheirStackSearch(searchToDelete.id)
+      setSavedSearches((current) => current.filter((search) => search.id !== searchToDelete.id))
+      setSearchToDelete(null)
+    } catch (cause) {
+      setSavedSearchesError(errorMessage(cause, "The saved search could not be deleted."))
+    } finally {
+      setIsDeletingSearch(false)
+    }
+  }
+
+  async function goToSearchPage(nextPage: number) {
+    if (isSearching || !searchFilters || nextPage < 0 || nextPage === searchPage) return
+
+    const totalPages = searchTotalResults === null
+      ? null
+      : Math.max(1, Math.ceil(searchTotalResults / searchPageSize))
+    if (totalPages !== null && nextPage >= totalPages) return
+    if (totalPages === null && nextPage > searchPage && !hasMoreResults) return
+
+    setSelectedJob(null)
+    setIsSearching(true)
+    setSearchPhase("searching")
+    setSearchError(null)
+    try {
+      const result = await searchTheirStackJobs(searchFilters, nextPage)
+      const pageSize = result.limit || searchPageSize || THEIRSTACK_JOB_PAGE_SIZE
+      setJobs(result.jobs)
+      setSearchPage(result.page)
+      setSearchPageSize(pageSize)
+      if (result.totalResults != null) setSearchTotalResults(result.totalResults)
+      setHasMoreResults(result.jobs.length >= pageSize)
+    } catch (cause) {
+      setSearchError(errorMessage(cause, "TheirStack could not load this results page."))
     } finally {
       setIsSearching(false)
       setSearchPhase("idle")
@@ -267,6 +518,27 @@ export function JobSearchWorkspace({
               >
                 {isSearching ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : <Search data-icon="inline-start" />}
                 {isSearching ? (searchPhase === "expanding" ? "Widening search…" : "Searching…") : "Search jobs"}
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <SavedSearchesPopover
+                searches={savedSearches}
+                loading={savedSearchesLoading}
+                error={savedSearchesError}
+                disabled={isSearching}
+                deletingSearchId={isDeletingSearch ? searchToDelete?.id : null}
+                onRun={(search) => { void runSavedSearch(search) }}
+                onDelete={setSearchToDelete}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9"
+                onClick={openSaveSearchDialog}
+                disabled={isSearching}
+              >
+                <BookmarkPlus data-icon="inline-start" /> Save search
               </Button>
             </div>
 
@@ -381,7 +653,17 @@ export function JobSearchWorkspace({
 
           {hasSearched && !isSearching ? (
             jobs.length ? (
-              <JobResultsTable jobs={jobs} revealingJobIds={revealingJobIds} onSelect={selectJob} />
+              <JobResultsTable
+                jobs={jobs}
+                revealingJobIds={revealingJobIds}
+                onSelect={selectJob}
+                page={searchPage}
+                pageSize={searchPageSize}
+                totalResults={searchTotalResults}
+                hasMoreResults={hasMoreResults}
+                paginationDisabled={isSearching}
+                onPageChange={goToSearchPage}
+              />
             ) : !searchError ? (
               <Card className="items-center py-14 text-center">
                 <BriefcaseBusiness className="size-8 text-muted-foreground" />
@@ -404,8 +686,239 @@ export function JobSearchWorkspace({
           )}
         </div>
       </div>
+      <Dialog
+        open={saveDialogOpen}
+        onOpenChange={(open) => {
+          setSaveDialogOpen(open)
+          if (!open && !isSavingSearch) {
+            setPendingSaveDraft(null)
+            setSaveSearchError(null)
+          }
+        }}
+      >
+        <DialogContent>
+          <form onSubmit={handleSaveSearch}>
+            <DialogHeader>
+              <DialogTitle>Save search</DialogTitle>
+              <DialogDescription>
+                Save the current filters and search expansion settings to run again later.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="saved-search-name">Search name</Label>
+              <Input
+                id="saved-search-name"
+                value={saveSearchName}
+                onChange={(event) => setSaveSearchName(event.target.value)}
+                placeholder="e.g. Senior product roles"
+                maxLength={120}
+                autoFocus
+                disabled={isSavingSearch}
+              />
+              {saveSearchError ? (
+                <p role="alert" className="text-sm text-destructive">{saveSearchError}</p>
+              ) : null}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSaveDialogOpen(false)}
+                disabled={isSavingSearch}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSavingSearch || !pendingSaveDraft}>
+                {isSavingSearch ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : <BookmarkPlus data-icon="inline-start" />}
+                {isSavingSearch ? "Saving..." : "Save search"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog
+        open={Boolean(searchToDelete)}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingSearch) setSearchToDelete(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {searchToDelete?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the saved search from this device. It will not affect any jobs or applications.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingSearch}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={isDeletingSearch}
+              onClick={(event) => {
+                event.preventDefault()
+                void confirmDeleteSavedSearch()
+              }}
+            >
+              {isDeletingSearch ? "Deleting..." : "Delete search"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <JobDetailDialog job={selectedJob} onClose={() => setSelectedJob(null)} />
     </main>
+  )
+}
+
+function SavedSearchesPopover({
+  searches,
+  loading,
+  error,
+  disabled,
+  deletingSearchId,
+  onRun,
+  onDelete,
+}: {
+  searches: TheirStackSavedSearch[]
+  loading: boolean
+  error: string | null
+  disabled?: boolean
+  deletingSearchId?: string | null
+  onRun: (search: TheirStackSavedSearch) => void
+  onDelete: (search: TheirStackSavedSearch) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Popover open={open} onOpenChange={(nextOpen) => setOpen(!disabled && nextOpen)}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-9"
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          disabled={disabled}
+        >
+          <Bookmark data-icon="inline-start" />
+          Saved searches
+          {searches.length ? (
+            <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-xs font-normal">
+              {searches.length}
+            </Badge>
+          ) : null}
+          <ChevronDown data-icon="inline-end" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[min(27rem,calc(100vw-2rem))] overflow-hidden p-0">
+        <PopoverHeader className="border-b px-3 py-3">
+          <PopoverTitle>Saved searches</PopoverTitle>
+          <PopoverDescription>
+            Run a saved filter set again without rebuilding the search.
+          </PopoverDescription>
+        </PopoverHeader>
+        {error ? (
+          <div role="alert" className="border-b bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {error}
+          </div>
+        ) : null}
+        {loading ? (
+          <div className="flex items-center gap-2 px-3 py-8 text-sm text-muted-foreground">
+            <LoaderCircle className="animate-spin" /> Loading saved searches...
+          </div>
+        ) : searches.length ? (
+          <ScrollArea className="max-h-80">
+            <div className="space-y-0.5 p-2">
+              {searches.map((search) => (
+                <div key={search.id} className="flex items-center gap-1 rounded-md hover:bg-muted">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-auto min-w-0 flex-1 justify-start px-2.5 py-2 text-left font-normal"
+                    onClick={() => {
+                      setOpen(false)
+                      onRun(search)
+                    }}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{search.name}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {savedSearchSummary(search)} · saved {formatSavedSearchDate(search.updatedAt)}
+                      </span>
+                    </span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="mr-1 text-muted-foreground hover:text-destructive"
+                    aria-label={`Delete ${search.name}`}
+                    title="Delete saved search"
+                    disabled={deletingSearchId === search.id}
+                    onClick={() => onDelete(search)}
+                  >
+                    {deletingSearchId === search.id ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        ) : (
+          <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+            No saved searches yet. Save the current filters to make them reusable.
+          </p>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function defaultSavedSearchName(query: TheirStackSearchQuery) {
+  const source = query.jobTitle?.trim() || query.description?.trim()
+  if (!source) return "My job search"
+  const firstLine = source.split(/[\n,]/)[0]?.trim() || source
+  return firstLine.slice(0, 120)
+}
+
+function savedSearchSummary(search: TheirStackSavedSearch) {
+  const query = [search.query?.jobTitle, search.query?.description]
+    .map((value) => value?.trim())
+    .filter(Boolean)
+  if (query.length) return query.join(" · ")
+  const filterCount = Object.keys(search.filters ?? {}).length
+  return filterCount ? `${filterCount} saved filters` : "Saved search"
+}
+
+function formatSavedSearchDate(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? "recently" : format(date, "MMM d, yyyy")
+}
+
+function savedSearchModel(value: string | null | undefined) {
+  return CODEX_MODELS.some((model) => model.id === value)
+    ? value as string
+    : DEFAULT_CODEX_MODEL_ID
+}
+
+function savedSearchReasoning(value: string | null | undefined): CodexReasoningLevel {
+  return CODEX_REASONING_LEVELS.some((option) => option.id === value)
+    ? value as CodexReasoningLevel
+    : DEFAULT_PRE_SEARCH_REASONING
+}
+
+function isSearchFormSnapshot(value: unknown): value is SearchFormSnapshot {
+  if (!value || typeof value !== "object") return false
+  const snapshot = value as Partial<SearchFormSnapshot>
+  return Boolean(
+    snapshot.postedDate &&
+      Array.isArray(snapshot.selectedLocations) &&
+      Array.isArray(snapshot.selectedIndustries) &&
+      Array.isArray(snapshot.selectedTechnologies) &&
+      Array.isArray(snapshot.selectedKeywords) &&
+      typeof snapshot.jobTitle === "string" &&
+      typeof snapshot.description === "string" &&
+      snapshot.additionalFilters &&
+      typeof snapshot.additionalFilters === "object" &&
+      Array.isArray(snapshot.activeAdditionalFilters),
   )
 }
 
@@ -1722,10 +2235,22 @@ function JobResultsTable({
   jobs,
   revealingJobIds,
   onSelect,
+  page,
+  pageSize,
+  totalResults,
+  hasMoreResults,
+  paginationDisabled,
+  onPageChange,
 }: {
   jobs: TheirStackJob[]
   revealingJobIds: number[]
   onSelect: (job: TheirStackJob) => void
+  page: number
+  pageSize: number
+  totalResults: number | null
+  hasMoreResults: boolean
+  paginationDisabled: boolean
+  onPageChange: (page: number) => void
 }) {
   const [visibleColumns, setVisibleColumns] = useState<Record<JobColumnId, boolean>>(() =>
     Object.fromEntries(jobColumnDefinitions.map((column) => [column.id, column.defaultVisible])) as Record<JobColumnId, boolean>,
@@ -1733,6 +2258,15 @@ function JobResultsTable({
   const [selectedJobIds, setSelectedJobIds] = useState<number[]>([])
   const allSelected = jobs.length > 0 && jobs.every((job) => selectedJobIds.includes(job.id))
   const someSelected = jobs.some((job) => selectedJobIds.includes(job.id))
+  const normalizedPageSize = pageSize > 0 ? pageSize : THEIRSTACK_JOB_PAGE_SIZE
+  const totalPages = totalResults === null
+    ? null
+    : Math.max(1, Math.ceil(totalResults / normalizedPageSize))
+  const canGoPrevious = page > 0
+  const canGoNext = totalPages === null ? hasMoreResults : page < totalPages - 1
+  const showPagination = canGoPrevious || canGoNext || (totalPages !== null && totalPages > 1)
+  const firstResult = page * normalizedPageSize + 1
+  const lastResult = page * normalizedPageSize + jobs.length
 
   function toggleAll(checked: boolean) {
     setSelectedJobIds(checked ? jobs.map((job) => job.id) : [])
@@ -1746,7 +2280,9 @@ function JobResultsTable({
     <section className="overflow-hidden rounded-lg border bg-background">
       <div className="flex min-h-12 items-center justify-between border-b bg-muted/20 px-3">
         <p className="text-sm text-muted-foreground">
-          {jobs.length} blurred {jobs.length === 1 ? "job" : "jobs"}
+          {totalResults !== null
+            ? `Showing ${firstResult.toLocaleString()}–${lastResult.toLocaleString()} of ${totalResults.toLocaleString()} jobs`
+            : `${jobs.length} blurred ${jobs.length === 1 ? "job" : "jobs"}`}
           {selectedJobIds.length ? ` · ${selectedJobIds.length} selected` : ""}
         </p>
         <ColumnManager visibleColumns={visibleColumns} onChange={setVisibleColumns} />
@@ -1808,8 +2344,80 @@ function JobResultsTable({
           ))}
         </TableBody>
       </Table>
+      {showPagination ? (
+        <div className="flex flex-col gap-3 border-t px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            Page {(page + 1).toLocaleString()}{totalPages !== null ? ` of ${totalPages.toLocaleString()}` : ""}
+          </p>
+          <Pagination className="mx-0 w-auto justify-end">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  aria-disabled={!canGoPrevious || paginationDisabled}
+                  className={cn((!canGoPrevious || paginationDisabled) && "pointer-events-none opacity-50")}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    if (canGoPrevious && !paginationDisabled) onPageChange(page - 1)
+                  }}
+                />
+              </PaginationItem>
+              {totalPages !== null ? paginationPageItems(page, totalPages).map((item) => (
+                <PaginationItem key={typeof item === "number" ? item : item}>
+                  {typeof item === "number" ? (
+                    <PaginationLink
+                      href="#"
+                      isActive={item === page}
+                      aria-label={`Go to page ${item + 1}`}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        if (item !== page && !paginationDisabled) onPageChange(item)
+                      }}
+                      className={cn(paginationDisabled && "pointer-events-none opacity-50")}
+                    >
+                      {item + 1}
+                    </PaginationLink>
+                  ) : (
+                    <PaginationEllipsis />
+                  )}
+                </PaginationItem>
+              )) : (
+                <PaginationItem>
+                  <span className="flex h-8 items-center px-2 text-sm font-medium">{page + 1}</span>
+                </PaginationItem>
+              )}
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  aria-disabled={!canGoNext || paginationDisabled}
+                  className={cn((!canGoNext || paginationDisabled) && "pointer-events-none opacity-50")}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    if (canGoNext && !paginationDisabled) onPageChange(page + 1)
+                  }}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      ) : null}
     </section>
   )
+}
+
+type PaginationPageItem = number | "ellipsis-before" | "ellipsis-after"
+
+function paginationPageItems(page: number, totalPages: number): PaginationPageItem[] {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index)
+
+  const start = Math.max(1, Math.min(page - 1, totalPages - 4))
+  const end = Math.min(totalPages - 2, start + 2)
+  const items: PaginationPageItem[] = [0]
+  if (start > 1) items.push("ellipsis-before")
+  for (let index = start; index <= end; index += 1) items.push(index)
+  if (end < totalPages - 2) items.push("ellipsis-after")
+  items.push(totalPages - 1)
+  return items
 }
 
 function ColumnManager({

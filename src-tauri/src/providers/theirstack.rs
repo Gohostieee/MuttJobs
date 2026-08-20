@@ -230,12 +230,17 @@ struct JobSearchResponse {
 #[serde(rename_all = "camelCase")]
 pub struct JobSearchResult {
     jobs: Vec<JobRecord>,
+    page: u64,
+    limit: u64,
     total_results: Option<i64>,
 }
 
 /// Stage 1 of the search pipeline. Future query enrichment can be inserted
 /// before this safety stage without changing the command or UI contracts.
-fn prepare_job_search_request(mut filters: serde_json::Value) -> Result<serde_json::Value, String> {
+fn prepare_job_search_request(
+    mut filters: serde_json::Value,
+    page: u64,
+) -> Result<serde_json::Value, String> {
     let object = filters
         .as_object_mut()
         .ok_or("The job search filters must be a JSON object.")?;
@@ -262,7 +267,13 @@ fn prepare_job_search_request(mut filters: serde_json::Value) -> Result<serde_js
 
     object.insert("blur_company_data".into(), serde_json::Value::Bool(true));
     object.insert("limit".into(), serde_json::Value::from(JOB_SEARCH_LIMIT));
-    object.insert("page".into(), serde_json::Value::from(0));
+    object.insert("page".into(), serde_json::Value::from(page));
+    // TheirStack documents total counting as an expensive operation and
+    // recommends enabling it only on the initial page.
+    object.insert(
+        "include_total_results".into(),
+        serde_json::Value::Bool(page == 0),
+    );
     object.remove("offset");
     object.remove("cursor");
     Ok(filters)
@@ -271,8 +282,9 @@ fn prepare_job_search_request(mut filters: serde_json::Value) -> Result<serde_js
 pub fn search_jobs(
     settings: &TheirStackSettings,
     filters: serde_json::Value,
+    page: u64,
 ) -> Result<JobSearchResult, String> {
-    let request = prepare_job_search_request(filters)?;
+    let request = prepare_job_search_request(filters, page)?;
     let response = send_job_request(settings, &request, "job search")?;
     let jobs = response
         .data
@@ -281,6 +293,8 @@ pub fn search_jobs(
         .collect::<Result<Vec<_>, _>>()?;
     Ok(JobSearchResult {
         jobs,
+        page,
+        limit: JOB_SEARCH_LIMIT,
         total_results: response
             .metadata
             .and_then(|metadata| metadata.total_results),
@@ -758,28 +772,46 @@ mod tests {
     }
 
     #[test]
-    fn job_search_pipeline_always_forces_blurred_twenty_job_page() {
-        let prepared = prepare_job_search_request(serde_json::json!({
-            "posted_at_max_age_days": 30,
-            "blur_company_data": false,
-            "limit": 500,
-            "page": 9,
-            "offset": 20
-        }))
+    fn job_search_pipeline_forces_blurred_page_size_and_preserves_page() {
+        let prepared = prepare_job_search_request(
+            serde_json::json!({
+                "posted_at_max_age_days": 30,
+                "blur_company_data": false,
+                "limit": 500,
+                "page": 0,
+                "include_total_results": false,
+                "offset": 20
+            }),
+            9,
+        )
         .expect("valid search should be prepared");
 
         assert_eq!(prepared["blur_company_data"], true);
         assert_eq!(prepared["limit"], 20);
-        assert_eq!(prepared["page"], 0);
+        assert_eq!(prepared["page"], 9);
+        assert_eq!(prepared["include_total_results"], false);
         assert!(prepared.get("offset").is_none());
     }
 
     #[test]
+    fn initial_job_search_page_requests_total_results() {
+        let prepared =
+            prepare_job_search_request(serde_json::json!({ "posted_at_max_age_days": 30 }), 0)
+                .expect("valid search should be prepared");
+
+        assert_eq!(prepared["page"], 0);
+        assert_eq!(prepared["include_total_results"], true);
+    }
+
+    #[test]
     fn job_search_pipeline_rejects_filters_that_disable_preview_mode() {
-        let error = prepare_job_search_request(serde_json::json!({
-            "posted_at_max_age_days": 30,
-            "company_domain_or": ["example.com"]
-        }))
+        let error = prepare_job_search_request(
+            serde_json::json!({
+                "posted_at_max_age_days": 30,
+                "company_domain_or": ["example.com"]
+            }),
+            0,
+        )
         .expect_err("company identifiers must not bypass preview mode");
 
         assert!(error.contains("cannot be used with blurred job searches"));

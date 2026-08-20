@@ -7,6 +7,7 @@ pub(crate) mod job_import;
 pub(crate) mod job_search;
 pub(crate) mod general_agent;
 pub(crate) mod resume_matching;
+pub(crate) mod saved_searches;
 pub(crate) mod selection;
 mod skills;
 mod theirstack;
@@ -641,6 +642,7 @@ pub(crate) async fn search_their_stack_keywords(
 pub(crate) async fn search_their_stack_jobs(
     state: State<'_, ProviderState>,
     filters: serde_json::Value,
+    page: u64,
 ) -> Result<theirstack::JobSearchResult, String> {
     let settings = state
         .settings
@@ -649,7 +651,7 @@ pub(crate) async fn search_their_stack_jobs(
         .providers
         .their_stack
         .clone();
-    tauri::async_runtime::spawn_blocking(move || theirstack::search_jobs(&settings, filters))
+    tauri::async_runtime::spawn_blocking(move || theirstack::search_jobs(&settings, filters, page))
         .await
         .map_err(|error| error.to_string())?
 }

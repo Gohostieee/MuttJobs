@@ -280,12 +280,28 @@ export type TheirStackJob = {
 
 export type TheirStackJobSearchResult = {
   jobs: TheirStackJob[]
+  page: number
+  limit: number
   totalResults?: number | null
 }
+
+export const THEIRSTACK_JOB_PAGE_SIZE = 20
 
 export type TheirStackSearchQuery = {
   jobTitle?: string
   description?: string
+}
+
+export type TheirStackSavedSearch = {
+  id: string
+  name: string
+  filters: TheirStackJobSearchRequest
+  query: TheirStackSearchQuery
+  model?: string | null
+  reasoningEffort?: string | null
+  form?: Record<string, unknown> | null
+  createdAt: string
+  updatedAt: string
 }
 
 export type TheirStackSearchQueryExpansion = {
@@ -361,11 +377,13 @@ export const expandTheirStackSearchQuery = (
 
 /**
  * Search is deliberately a pipeline entry point. The trusted Rust stage always
- * adds `blur_company_data: true` and caps the response at 20 jobs before the
- * request can reach TheirStack.
+ * adds `blur_company_data: true`, applies the fixed page size, and validates
+ * the zero-based page before the request can reach TheirStack.
  */
-export const searchTheirStackJobs = (filters: TheirStackJobSearchRequest) =>
-  invoke<TheirStackJobSearchResult>("search_their_stack_jobs", { filters })
+export const searchTheirStackJobs = (
+  filters: TheirStackJobSearchRequest,
+  page = 0,
+) => invoke<TheirStackJobSearchResult>("search_their_stack_jobs", { filters, page })
 
 const normalizeTheirStackJob = (job: TheirStackJob): TheirStackJob => ({
   ...job,
@@ -376,6 +394,22 @@ export const listSavedTheirStackJobs = () =>
   invoke<TheirStackJob[]>("list_saved_their_stack_jobs").then((jobs) =>
     jobs.map(normalizeTheirStackJob),
   )
+
+export const listSavedTheirStackSearches = () =>
+  invoke<TheirStackSavedSearch[]>("list_saved_their_stack_searches")
+
+export const saveTheirStackSearch = (input: {
+  name: string
+  filters: TheirStackJobSearchRequest
+  query: TheirStackSearchQuery
+  model?: string | null
+  reasoningEffort?: string | null
+  form?: Record<string, unknown> | null
+}) =>
+  invoke<TheirStackSavedSearch>("save_their_stack_search", input)
+
+export const deleteSavedTheirStackSearch = (searchId: string) =>
+  invoke<void>("delete_saved_their_stack_search", { searchId })
 
 export const updateTheirStackJobStatus = (jobId: number, status: ApplicationStatus) =>
   invoke<void>("update_their_stack_job_status", { jobId, status })
