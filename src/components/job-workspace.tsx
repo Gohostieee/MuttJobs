@@ -415,7 +415,11 @@ export function JobWorkspace({
             ) : activeStep.id === "resume-matching" ? (
               <ResumeMatchingWorkspace job={job} onJobChange={onJobChange} />
             ) : activeStep.id === "resume-creation" ? (
-              <ResumeCreationWorkspace job={job} onEditorChange={onDocumentViewerChange} />
+              <ResumeCreationWorkspace
+                job={job}
+                onEditorChange={onDocumentViewerChange}
+                onBackToJob={() => selectStep("description")}
+              />
             ) : (
               <WorkflowScaffoldCard step={activeStep} />
             )}

@@ -271,7 +271,7 @@ export function ResumeWorkspace({ onViewerChange }: { onViewerChange?: (open: bo
       <ResumeViewer
         file={selected}
         onBack={(updatedFile) => {
-          setResumes((current) => current.map((resume) => resume.id === updatedFile.id ? updatedFile : resume))
+          setResumes((current) => current.map((resume) => resume.id === selected.id ? updatedFile : resume))
           onViewerChange?.(false)
           setSelected(null)
         }}
@@ -524,6 +524,7 @@ type ResumeViewerProps = {
   onBack: (file: ResumeFile) => void
   targetJobId?: number
   backLabel?: string
+  fullScreen?: boolean
 }
 
 export function ResumeViewer({
@@ -531,6 +532,7 @@ export function ResumeViewer({
   onBack,
   targetJobId,
   backLabel = "Back to resume library",
+  fullScreen = false,
 }: ResumeViewerProps) {
   const [currentFile, setCurrentFile] = useState(file)
   const [zoom, setZoom] = useState(0.78)

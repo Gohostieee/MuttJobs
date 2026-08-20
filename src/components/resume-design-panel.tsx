@@ -96,6 +96,22 @@ export function ResumeDesignPanel({ resume, onChange }: ResumeDesignPanelProps) 
     })
   }
 
+  function updatePageMargin(axis: "marginX" | "marginY", rawValue: string) {
+    const value = Number(rawValue)
+    if (!Number.isFinite(value)) return
+
+    onChange({
+      ...resume,
+      metadata: {
+        ...resume.metadata,
+        page: {
+          ...resume.metadata.page,
+          [axis]: Math.min(60, Math.max(0, value)),
+        },
+      },
+    })
+  }
+
   function updateTemplate(template: Template) {
     if (template === resume.metadata.template) return
     onChange({
@@ -183,6 +199,45 @@ export function ResumeDesignPanel({ resume, onChange }: ResumeDesignPanelProps) 
                 {PAGE_WIDTHS.find((option) => option.value === pageFormat)?.detail}. Page breaks follow the selected print size.
               </p>
             </div>
+
+            <div className="resume-design-field-row">
+              <div className="resume-design-field">
+                <div className="resume-design-label-row">
+                  <Label htmlFor="resume-page-margin-x">Horizontal margin</Label>
+                </div>
+                <div className="resume-design-input-wrap">
+                  <Input
+                    id="resume-page-margin-x"
+                    type="number"
+                    min={0}
+                    max={60}
+                    step={1}
+                    value={resume.metadata.page.marginX}
+                    onChange={(event) => updatePageMargin("marginX", event.currentTarget.value)}
+                  />
+                  <span>mm</span>
+                </div>
+              </div>
+
+              <div className="resume-design-field">
+                <div className="resume-design-label-row">
+                  <Label htmlFor="resume-page-margin-y">Vertical margin</Label>
+                </div>
+                <div className="resume-design-input-wrap">
+                  <Input
+                    id="resume-page-margin-y"
+                    type="number"
+                    min={0}
+                    max={60}
+                    step={1}
+                    value={resume.metadata.page.marginY}
+                    onChange={(event) => updatePageMargin("marginY", event.currentTarget.value)}
+                  />
+                  <span>mm</span>
+                </div>
+              </div>
+            </div>
+            <p className="resume-design-help">Margins control the printable area on all sides of the selected paper.</p>
           </div>
         </div>
       </div>
