@@ -1,19 +1,20 @@
 {
   "name": "muttjobs",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.0-1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build:worker": "node agent-worker/build.mjs",
     "build": "tsc && vite build",
     "build:desktop": "npm run build:worker && npm run build",
+    "test:company-research-ui": "node --experimental-strip-types --test src/lib/company-research-ui.test.ts",
     "preview": "vite preview",
     "tauri": "tauri"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
-    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@openai/codex-sdk": "0.147.0",
     "@radix-ui/react-use-controllable-state": "^1.2.6",
     "@rive-app/react-webgl2": "^4.31.0",
@@ -23,7 +24,9 @@
     "@streamdown/math": "^1.0.2",
     "@streamdown/mermaid": "^1.0.2",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.7.2",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-process": "^2",
     "@tauri-apps/plugin-store": "^2.4.4",
     "@xyflow/react": "^12.11.3",
     "ai": "^7.0.66",
@@ -69,5 +72,8 @@
     "tailwindcss": "^4.3.3",
     "typescript": "~5.8.3",
     "vite": "^7.0.4"
+  },
+  "overrides": {
+    "linkify-it": "5.0.2"
   }
 }

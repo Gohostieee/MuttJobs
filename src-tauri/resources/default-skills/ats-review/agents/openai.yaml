@@ -1,0 +1,4 @@
+interface:
+  display_name: "ATS Review"
+  short_description: "Review ATS readiness without pass guarantees"
+  default_prompt: "Use $ats-review to assess this resume using the MuttJobs ATS readiness heuristic."

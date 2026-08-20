@@ -24,6 +24,8 @@
     "title": "Summary",
     "icon": "",
     "columns": 1,
+    "alignment": "left",
+    "pageAlignment": "left",
     "enabled": true,
     "hidden": false,
     "keepTogether": false,
@@ -31,22 +33,22 @@
     "content": ""
   },
   "sections": {
-    "profiles": { "title": "Profiles", "icon": "", "columns": 1, "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
-    "experience": { "title": "Experience", "icon": "", "columns": 1, "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
-    "education": { "title": "Education", "icon": "", "columns": 1, "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
-    "projects": { "title": "Projects", "icon": "", "columns": 1, "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
-    "skills": { "title": "Skills", "icon": "", "columns": 1, "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
-    "languages": { "title": "Languages", "icon": "", "columns": 1, "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
-    "interests": { "title": "Interests", "icon": "", "columns": 1, "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
-    "awards": { "title": "Awards", "icon": "", "columns": 1, "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
-    "certifications": { "title": "Certifications", "icon": "", "columns": 1, "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
-    "publications": { "title": "Publications", "icon": "", "columns": 1, "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
-    "volunteer": { "title": "Volunteering", "icon": "", "columns": 1, "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
-    "references": { "title": "References", "icon": "", "columns": 1, "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] }
+    "profiles": { "title": "Profiles", "icon": "", "columns": 1, "alignment": "left", "pageAlignment": "left", "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
+    "experience": { "title": "Experience", "icon": "", "columns": 1, "alignment": "left", "pageAlignment": "left", "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
+    "education": { "title": "Education", "icon": "", "columns": 1, "alignment": "left", "pageAlignment": "left", "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
+    "projects": { "title": "Projects", "icon": "", "columns": 1, "alignment": "left", "pageAlignment": "left", "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
+    "skills": { "title": "Skills", "icon": "", "columns": 1, "alignment": "left", "pageAlignment": "left", "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
+    "languages": { "title": "Languages", "icon": "", "columns": 1, "alignment": "left", "pageAlignment": "left", "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
+    "interests": { "title": "Interests", "icon": "", "columns": 1, "alignment": "left", "pageAlignment": "left", "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
+    "awards": { "title": "Awards", "icon": "", "columns": 1, "alignment": "left", "pageAlignment": "left", "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
+    "certifications": { "title": "Certifications", "icon": "", "columns": 1, "alignment": "left", "pageAlignment": "left", "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
+    "publications": { "title": "Publications", "icon": "", "columns": 1, "alignment": "left", "pageAlignment": "left", "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
+    "volunteer": { "title": "Volunteering", "icon": "", "columns": 1, "alignment": "left", "pageAlignment": "left", "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] },
+    "references": { "title": "References", "icon": "", "columns": 1, "alignment": "left", "pageAlignment": "left", "enabled": false, "hidden": false, "keepTogether": false, "startOnNewPage": false, "items": [] }
   },
   "customSections": [],
   "metadata": {
-    "template": "onyx",
+    "template": "cyndaquil",
     "layout": {
       "sidebarWidth": 35,
       "pages": [{ "fullWidth": true, "main": ["summary", "experience", "education", "projects", "skills", "languages", "interests", "awards", "certifications", "publications", "volunteer", "references"], "sidebar": [] }]
@@ -56,7 +58,7 @@
       "gapY": 6,
       "marginX": 18,
       "marginY": 18,
-      "format": "a4",
+      "format": "letter",
       "locale": "en-US",
       "hideLinkUnderline": false,
       "hideIcons": false,
@@ -68,7 +70,10 @@
     },
     "typography": {
       "body": { "fontFamily": "Georgia", "fontWeights": ["400"], "fontSize": 11, "lineHeight": 1.5 },
-      "heading": { "fontFamily": "Georgia", "fontWeights": ["600"], "fontSize": 13, "lineHeight": 1.5 }
+      "heading": { "fontFamily": "Georgia", "fontWeights": ["600"], "fontSize": 13, "lineHeight": 1.5 },
+      "entryTitleSize": 12,
+      "entrySubtitleSize": 10,
+      "entryMetaSize": 9
     },
     "notes": "",
     "styleRules": []

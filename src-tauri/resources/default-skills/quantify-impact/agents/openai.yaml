@@ -1,0 +1,4 @@
+interface:
+  display_name: "Quantify Impact"
+  short_description: "Find useful metric gaps without guessing"
+  default_prompt: "Use $quantify-impact to identify high-value impact questions for this resume."

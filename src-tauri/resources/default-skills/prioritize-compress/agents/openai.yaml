@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prioritize and Compress"
+  short_description: "Rank resume content for careful compression"
+  default_prompt: "Use $prioritize-compress to recommend what to keep, shorten, merge, or remove."

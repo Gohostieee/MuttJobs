@@ -1,4 +1,4 @@
-import { Fragment, memo, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import {
   AtSign,
   Award,
@@ -32,18 +32,31 @@ import type {
   Level,
   RenderableSection,
   ResumeData,
+  ResumeSectionAlignment,
   SectionType,
 } from "@/lib/resume-types"
+import { loadGoogleFonts } from "@/lib/google-fonts"
 import { RichTextEditor } from "@/components/rich-text-editor"
 import { sanitizeRichTextHtml } from "@/lib/rich-text"
+import type {
+  ResumeSelectionAction,
+  ResumeTextSelection,
+  ResumeTextSelectionContext,
+} from "@/lib/resume-selection"
 
 type ResumeDocumentProps = {
   resume: ResumeData
   compact?: boolean
+  showPageGuides?: boolean
+  paginate?: boolean
   onChange?: (resume: ResumeData, meta?: ResumeChangeMeta) => void
   onEditStart?: (key: string) => void
   onEditEnd?: () => void
   onEditCancel?: (key: string, resume: ResumeData) => void
+  onTextSelection?: (selection: ResumeTextSelection | null) => void
+  onSelectionAction?: (action: ResumeSelectionAction, selection: ResumeTextSelection) => void
+  onSelectionRestoreChange?: (restore: (() => void) | null) => void
+  selectionResetKey?: number
 }
 
 type ResumePath = Array<string | number>
@@ -59,14 +72,24 @@ type ResumeEditContext = {
   finish: () => void
   cancel: (path: ResumePath, value: string) => void
   update: (path: ResumePath, value: string) => void
+  reportSelection: (selection: ResumeTextSelection | null) => void
+  runSelectionAction: (action: ResumeSelectionAction, selection: ResumeTextSelection) => void
+  reportSelectionRestore: (restore: (() => void) | null) => void
+  selectionResetKey: number
 }
 
 export type ResumeSectionEntry = {
   id: string
   key: string
+  type: SectionType
   title: string
   detail: string
   hidden: boolean
+  columns: number
+  alignment: ResumeSectionAlignment
+  pageAlignment: ResumeSectionAlignment
+  supportsItems: boolean
+  supportsColumns: boolean
 }
 
 export type ResumeSectionDropPosition = "before" | "after"
@@ -76,6 +99,11 @@ type SectionDescriptor = {
   section: RenderableSection
   type: SectionType
   path: ResumePath
+}
+
+type ResumePageBreakDetail = {
+  page: number
+  crossingSections: string[]
 }
 
 const FALLBACK_ORDER = [
@@ -143,9 +171,15 @@ export function getResumeSectionEntries(
     entries.push({
       id: getResumeSectionId(key),
       key,
+      type: descriptor.type,
       title: descriptor.section.title || titleCase(key),
       detail: getSectionDetail(descriptor.section),
       hidden: descriptor.section.hidden,
+      columns: descriptor.section.columns,
+      alignment: descriptor.section.alignment,
+      pageAlignment: descriptor.section.pageAlignment,
+      supportsItems: Boolean(descriptor.section.items),
+      supportsColumns: Boolean(descriptor.section.items),
     })
   }
 
@@ -196,10 +230,26 @@ export function reorderResumeSections(
   }
 }
 
-export const ResumeDocument = memo(function ResumeDocument({ resume, compact = false, onChange, onEditStart, onEditEnd, onEditCancel }: ResumeDocumentProps) {
+export const ResumeDocument = memo(function ResumeDocument({
+  resume,
+  compact = false,
+  showPageGuides,
+  paginate = true,
+  onChange,
+  onEditStart,
+  onEditEnd,
+  onEditCancel,
+  onTextSelection,
+  onSelectionAction,
+  onSelectionRestoreChange,
+  selectionResetKey = 0,
+}: ResumeDocumentProps) {
   const [activeEditorKey, setActiveEditorKey] = useState<string | null>(null)
+  const [pageCount, setPageCount] = useState(1)
+  const [pageBreakDetails, setPageBreakDetails] = useState<ResumePageBreakDetail[]>([])
+  const documentRef = useRef<HTMLElement>(null)
   const { colors, level } = resume.metadata.design
-  const { body, heading } = resume.metadata.typography
+  const { body, heading, entryTitleSize, entrySubtitleSize, entryMetaSize } = resume.metadata.typography
   const { page } = resume.metadata
   const basics = resume.basics
   const picture = resume.picture
@@ -208,9 +258,70 @@ export const ResumeDocument = memo(function ResumeDocument({ resume, compact = f
   const configuredKeys = new Set(pages.flatMap((configuredPage) => [...configuredPage.main, ...configuredPage.sidebar]))
   const extraKeys = orderedKeys.filter((key) => !configuredKeys.has(key))
   const pageWidth = getResumePageWidth(resume)
-  const pageHeight = page.format === "letter" ? 1056 : 1123
+  const pageHeight = getResumePageHeight(resume)
+  const pageMarginY = page.marginY * 3.78
   const bodyWeight = body.fontWeights[0] ?? "400"
+  const bodyItalicWeight = body.fontWeights[1] ?? bodyWeight
+  const bodyBoldWeight = body.fontWeights[2] ?? "700"
   const headingWeight = heading.fontWeights[0] ?? "600"
+  const bodyFontWeightsKey = body.fontWeights.join(",")
+  const headingFontWeightsKey = heading.fontWeights.join(",")
+  const isMewtwo = resume.metadata.template === "mewtwo"
+  const pageGuidesVisible = !compact && showPageGuides !== false
+
+  useEffect(() => {
+    loadGoogleFonts([
+      { family: body.fontFamily, weights: body.fontWeights },
+      { family: heading.fontFamily || body.fontFamily, weights: heading.fontWeights },
+    ])
+  }, [body.fontFamily, bodyFontWeightsKey, heading.fontFamily, headingFontWeightsKey])
+
+  useLayoutEffect(() => {
+    const element = documentRef.current
+    if (!element) {
+      setPageCount(1)
+      setPageBreakDetails([])
+      return
+    }
+
+    if (!pageHeight || compact || !paginate) {
+      clearResumePagination(element)
+      setPageCount(1)
+      setPageBreakDetails([])
+      return
+    }
+
+    let frame: number | null = null
+    const updatePageMetrics = () => {
+      clearResumePagination(element)
+      applyResumePagination(element, pageHeight, pageWidth, pageMarginY)
+      const nextPageCount = Math.max(1, Math.ceil(element.scrollHeight / pageHeight))
+      const nextPageBreakDetails = pageGuidesVisible
+        ? getResumePageBreakDetails(element, pageHeight, pageWidth, pageMarginY, nextPageCount)
+        : []
+      setPageCount((current) => current === nextPageCount ? current : nextPageCount)
+      setPageBreakDetails((current) => arePageBreakDetailsEqual(current, nextPageBreakDetails) ? current : nextPageBreakDetails)
+    }
+    const measurePages = () => {
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        frame = null
+        updatePageMetrics()
+      })
+    }
+
+    updatePageMetrics()
+    measurePages()
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measurePages)
+    observer?.observe(element)
+
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      observer?.disconnect()
+      clearResumePagination(element)
+    }
+  }, [compact, pageGuidesVisible, pageHeight, pageMarginY, pageWidth, paginate, resume])
+
   const editContext: ResumeEditContext | undefined = onChange ? {
     activeKey: activeEditorKey,
     begin: (key) => {
@@ -227,18 +338,28 @@ export const ResumeDocument = memo(function ResumeDocument({ resume, compact = f
       onEditCancel?.(key, updateResumePath(resume, path, value))
     },
     update: (path, value) => onChange(updateResumePath(resume, path, value), { kind: "text", key: pathKey(path) }),
+    reportSelection: (selection) => onTextSelection?.(selection),
+    runSelectionAction: (action, selection) => onSelectionAction?.(action, selection),
+    reportSelectionRestore: (restore) => onSelectionRestoreChange?.(restore),
+    selectionResetKey,
   } : undefined
   const style = {
     "--resume-primary": colors.primary,
     "--resume-text": colors.text,
     "--resume-paper": colors.background,
     "--resume-body-font": body.fontFamily,
-    "--resume-body-size": `${body.fontSize}px`,
+    "--resume-body-size": `${body.fontSize}pt`,
     "--resume-body-leading": body.lineHeight,
     "--resume-body-weight": bodyWeight,
+    "--resume-body-italic-weight": bodyItalicWeight,
+    "--resume-body-bold-weight": bodyBoldWeight,
     "--resume-heading-font": heading.fontFamily || body.fontFamily,
-    "--resume-heading-size": `${heading.fontSize}px`,
+    "--resume-heading-size": `${heading.fontSize}pt`,
+    "--resume-heading-leading": heading.lineHeight,
     "--resume-heading-weight": headingWeight,
+    "--resume-entry-title-size": `${entryTitleSize}pt`,
+    "--resume-entry-subtitle-size": `${entrySubtitleSize}pt`,
+    "--resume-entry-meta-size": `${entryMetaSize}pt`,
     "--resume-page-width": `${pageWidth}px`,
     "--resume-page-height": `${pageHeight}px`,
     "--resume-margin-x": `${page.marginX * 3.78}px`,
@@ -265,71 +386,135 @@ export const ResumeDocument = memo(function ResumeDocument({ resume, compact = f
 
   return (
     <article
+      ref={documentRef}
       className={`resume-document resume-template-${resume.metadata.template} ${compact ? "is-compact" : ""} ${page.hideLinkUnderline ? "hide-link-underline" : ""}`}
       data-template={resume.metadata.template}
       data-format={page.format}
+      data-page-count={pageHeight ? pageCount : 1}
+      data-page-guides={pageGuidesVisible ? "visible" : "hidden"}
       lang={page.locale}
       style={style}
     >
-      <div className="resume-accent" />
-      <header className="resume-header">
-        <div className="resume-identity">
-          <p className="resume-eyebrow">Curriculum vitae</p>
-          <ResumeText
-            context={editContext}
-            path={["basics", "name"]}
-            value={basics.name}
-            as="h1"
-            placeholder="Untitled resume"
-          />
-          {editContext || basics.headline ? (
-            <ResumeText
-              context={editContext}
-              path={["basics", "headline"]}
-              value={basics.headline}
-              as="p"
-              className="resume-headline"
-              placeholder="Professional headline"
+      {pageHeight && !compact && paginate ? (
+        <div className="resume-page-guides resume-page-surfaces" aria-hidden="true">
+          {Array.from({ length: pageCount }, (_, index) => (
+            <div
+              className={`resume-page-surface${index === pageCount - 1 ? " is-last-page" : ""}`}
+              key={`page-surface-${index + 1}`}
+              style={{ top: `${pageHeight * index}px` }}
             />
-          ) : null}
-          <div className="resume-contact">
-            {editContext || basics.email ? <Contact icon={AtSign} text={basics.email} href={basics.email ? `mailto:${basics.email}` : undefined} hideIcon={page.hideIcons} context={editContext} path={["basics", "email"]} placeholder="Email address" /> : null}
-            {editContext || basics.phone ? <Contact icon={Phone} text={basics.phone} href={basics.phone ? `tel:${basics.phone}` : undefined} hideIcon={page.hideIcons} context={editContext} path={["basics", "phone"]} placeholder="Phone number" /> : null}
-            {editContext || basics.location ? <Contact icon={MapPin} text={basics.location} hideIcon={page.hideIcons} context={editContext} path={["basics", "location"]} placeholder="Location" /> : null}
-            {editContext || basics.website.url || basics.website.label ? (
-              <ContactLink website={basics.website} icon={Globe2} hideIcon={page.hideIcons} context={editContext} path={["basics", "website", "label"]} placeholder="Website" />
-            ) : null}
-            {basics.customFields.map((field, index) => editContext || field.text ? (
-              <div key={field.id || `custom-field-${index}`} className="resume-custom-field">
-                {!page.hideIcons ? <IconGlyph icon={field.icon} /> : null}
+          ))}
+        </div>
+      ) : null}
+      {pageHeight && pageGuidesVisible ? (
+        <div className="resume-page-guides resume-page-margin-overlays" aria-hidden="true">
+          {Array.from({ length: pageCount }, (_, index) => (
+            <div
+              className="resume-page-margin-overlay"
+              key={`page-margin-overlay-${index + 1}`}
+              style={{ top: `${pageHeight * index}px` }}
+            />
+          ))}
+        </div>
+      ) : null}
+      {pageHeight && pageGuidesVisible ? (
+        <div className="resume-page-guides resume-page-guide-labels" aria-hidden="true">
+          {Array.from({ length: pageCount }, (_, index) => (
+            <span
+              className="resume-page-surface-label"
+              key={`page-label-${index + 1}`}
+              style={{ top: `${pageHeight * index + Math.max(8, page.marginY * 1.9)}px` }}
+            >
+              Page {index + 1}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {pageHeight && pageGuidesVisible ? (
+        <div className="resume-page-guides resume-page-breaks" aria-hidden="true">
+          {pageBreakDetails.map((pageBreak) => (
+            <div
+              className={`resume-page-break${pageBreak.crossingSections.length ? " is-content-cut" : ""}`}
+              data-crossing-sections={pageBreak.crossingSections.length || undefined}
+              key={`page-break-${pageBreak.page}`}
+              style={{ top: `${pageHeight * pageBreak.page}px` }}
+            >
+              <span className="resume-page-break-label">
+                <strong>Page {pageBreak.page + 1}</strong>
+                <span>
+                  {pageBreak.crossingSections.length
+                    ? `Cut through ${formatPageBreakSections(pageBreak.crossingSections)}`
+                    : "Clean page boundary"}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {isMewtwo ? (
+        <MewtwoHeader basics={basics} page={page} context={editContext} />
+      ) : (
+        <>
+          <div className="resume-accent" />
+          <header className="resume-header">
+            <div className="resume-identity">
+              <ResumeText
+                context={editContext}
+                path={["basics", "name"]}
+                value={basics.name}
+                as="h1"
+                placeholder="Untitled resume"
+              />
+              {editContext || basics.headline ? (
                 <ResumeText
                   context={editContext}
-                  path={["basics", "customFields", index, "text"]}
-                  value={field.text}
-                  placeholder="Custom field"
-                  renderValue={(content) => field.link ? <SafeLink href={field.link}>{content}</SafeLink> : content}
+                  path={["basics", "headline"]}
+                  value={basics.headline}
+                  as="p"
+                  className="resume-headline"
+                  placeholder="Professional headline"
                 />
+              ) : null}
+              <div className="resume-contact">
+                {editContext || basics.email ? <Contact icon={AtSign} text={basics.email} href={basics.email ? `mailto:${basics.email}` : undefined} hideIcon={page.hideIcons} context={editContext} path={["basics", "email"]} placeholder="Email address" /> : null}
+                {editContext || basics.phone ? <Contact icon={Phone} text={basics.phone} href={basics.phone ? `tel:${basics.phone}` : undefined} hideIcon={page.hideIcons} context={editContext} path={["basics", "phone"]} placeholder="Phone number" /> : null}
+                {editContext || basics.location ? <Contact icon={MapPin} text={basics.location} hideIcon={page.hideIcons} context={editContext} path={["basics", "location"]} placeholder="Location" /> : null}
+                {editContext || basics.website.url || basics.website.label ? (
+                  <ContactLink website={basics.website} icon={Globe2} hideIcon={page.hideIcons} context={editContext} path={["basics", "website", "label"]} placeholder="Website" />
+                ) : null}
+                {basics.customFields.map((field, index) => editContext || field.text ? (
+                  <div key={field.id || `custom-field-${index}`} className="resume-custom-field">
+                    {!page.hideIcons ? <IconGlyph icon={field.icon} /> : null}
+                    <ResumeText
+                      context={editContext}
+                      path={["basics", "customFields", index, "text"]}
+                      value={field.text}
+                      placeholder="Custom field"
+                      renderValue={(content) => field.link ? <SafeLink href={field.link}>{content}</SafeLink> : content}
+                    />
+                  </div>
+                ) : null)}
               </div>
-            ) : null)}
-          </div>
-        </div>
-        {!picture.hidden && picture.url ? (
-          <img
-            className="resume-picture"
-            src={picture.url}
-            alt={basics.name ? `${basics.name} portrait` : "Resume portrait"}
-            style={{
-              width: picture.size,
-              height: picture.size / picture.aspectRatio,
-              rotate: `${picture.rotation}deg`,
-              borderRadius: `${picture.borderRadius}%`,
-              borderColor: picture.borderColor,
-              borderWidth: `${picture.borderWidth}px`,
-              boxShadow: picture.shadowWidth ? `0 ${picture.shadowWidth}px ${picture.shadowWidth * 2}px ${picture.shadowColor}` : undefined,
-            }}
-          />
-        ) : null}
-      </header>
+            </div>
+            {!picture.hidden && picture.url ? (
+              <img
+                className="resume-picture"
+                src={picture.url}
+                alt={basics.name ? `${basics.name} portrait` : "Resume portrait"}
+                style={{
+                  width: picture.size,
+                  height: picture.size / picture.aspectRatio,
+                  rotate: `${picture.rotation}deg`,
+                  borderRadius: `${picture.borderRadius}%`,
+                  borderColor: picture.borderColor,
+                  borderWidth: `${picture.borderWidth}px`,
+                  boxShadow: picture.shadowWidth ? `0 ${picture.shadowWidth}px ${picture.shadowWidth * 2}px ${picture.shadowColor}` : undefined,
+                }}
+              />
+            ) : null}
+          </header>
+        </>
+      )}
 
       <div className="resume-rule" />
       <div className="resume-sections">
@@ -356,6 +541,58 @@ export const ResumeDocument = memo(function ResumeDocument({ resume, compact = f
     </article>
   )
 })
+
+function MewtwoHeader({
+  basics,
+  page,
+  context,
+}: {
+  basics: ResumeData["basics"]
+  page: ResumeData["metadata"]["page"]
+  context?: ResumeEditContext
+}) {
+  return (
+    <header className="resume-header resume-mewtwo-header">
+      <ResumeText
+        context={context}
+        path={["basics", "name"]}
+        value={basics.name}
+        as="h1"
+        placeholder="Firstname Lastname"
+      />
+      {context || basics.headline ? (
+        <ResumeText
+          context={context}
+          path={["basics", "headline"]}
+          value={basics.headline}
+          as="p"
+          className="resume-mewtwo-headline"
+          placeholder="Resume title"
+        />
+      ) : null}
+      <div className="resume-contact resume-mewtwo-contact">
+        {context || basics.email ? <Contact icon={AtSign} text={basics.email} href={basics.email ? `mailto:${basics.email}` : undefined} hideIcon={page.hideIcons} context={context} path={["basics", "email"]} placeholder="your.email@example.com" /> : null}
+        {context || basics.phone ? <Contact icon={Phone} text={basics.phone} href={basics.phone ? `tel:${basics.phone}` : undefined} hideIcon={page.hideIcons} context={context} path={["basics", "phone"]} placeholder="phone number" /> : null}
+        {context || basics.location ? <Contact icon={MapPin} text={basics.location} hideIcon={page.hideIcons} context={context} path={["basics", "location"]} placeholder="City, State" /> : null}
+        {context || basics.website.url || basics.website.label ? (
+          <ContactLink website={basics.website} icon={Globe2} hideIcon={page.hideIcons} context={context} path={["basics", "website", "label"]} placeholder="website" />
+        ) : null}
+        {basics.customFields.map((field, index) => context || field.text ? (
+          <div key={field.id || `mewtwo-custom-field-${index}`} className="resume-custom-field">
+            {!page.hideIcons ? <IconGlyph icon={field.icon} /> : null}
+            <ResumeText
+              context={context}
+              path={["basics", "customFields", index, "text"]}
+              value={field.text}
+              placeholder="Custom field"
+              renderValue={(content) => field.link ? <SafeLink href={field.link}>{content}</SafeLink> : content}
+            />
+          </div>
+        ) : null)}
+      </div>
+    </header>
+  )
+}
 
 function Contact({ icon: Icon, text, href, hideIcon, context, path, placeholder }: { icon: LucideIcon; text: string; href?: string; hideIcon: boolean; context?: ResumeEditContext; path: ResumePath; placeholder?: string }) {
   return (
@@ -398,6 +635,9 @@ function ResumeSectionView({
     <section
       className={`resume-section resume-section-${type}`}
       id={getResumeSectionId(key)}
+      data-section-key={key}
+      data-section-alignment={section.alignment}
+      data-section-page-alignment={section.pageAlignment}
       style={{
         breakInside: section.keepTogether ? "avoid" : undefined,
         breakBefore: section.startOnNewPage ? "page" : undefined,
@@ -408,14 +648,32 @@ function ResumeSectionView({
         <ResumeText context={editContext} path={[...descriptor.path, "title"]} value={section.title} as="span" placeholder={titleCase(key)} />
         <i />
       </div>
-      {hasSectionContent && (editContext || section.content) ? <ResumeText context={editContext} path={[...descriptor.path, "content"]} value={section.content} as="div" className="resume-rich-text" inline={false} placeholder="Add a professional summary" /> : null}
+      {hasSectionContent && (editContext || section.content) ? (
+        <ResumeText
+          context={editContext}
+          path={[...descriptor.path, "content"]}
+          value={section.content}
+          as="div"
+          className="resume-rich-text"
+          inline={false}
+          placeholder="Add a professional summary"
+          selectionContext={{ fieldPath: [...descriptor.path, "content"], sectionKey: descriptor.key }}
+        />
+      ) : null}
       {visibleItems.length ? (
-        <div className="resume-section-items" style={{ gridTemplateColumns: `repeat(${Math.max(1, section.columns)}, minmax(0, 1fr))` }}>
+        <div
+          className="resume-section-items"
+          data-alignment={section.alignment}
+          data-page-alignment={section.pageAlignment}
+          style={{ "--resume-section-column-count": Math.max(1, section.columns) } as CSSProperties}
+        >
           {visibleItems.map((item, index) => (
             <ResumeItemView
               item={item}
+              itemIndex={section.items?.indexOf(item) ?? index}
               itemPath={[...descriptor.path, "items", section.items?.indexOf(item) ?? index]}
               editContext={editContext}
+              sectionKey={descriptor.key}
               sectionType={type}
               hideIcons={hideIcons}
               level={level}
@@ -431,16 +689,20 @@ function ResumeSectionView({
 
 function ResumeItemView({
   item,
+  itemIndex,
   itemPath,
   editContext,
+  sectionKey,
   sectionType,
   hideIcons,
   level,
   hideLinkUnderline,
 }: {
   item: AnyResumeItem
+  itemIndex: number
   itemPath: ResumePath
   editContext?: ResumeEditContext
+  sectionKey: string
   sectionType: SectionType
   hideIcons: boolean
   level: Level
@@ -458,7 +720,11 @@ function ResumeItemView({
   const hasDescription = hasDescriptionField(kind)
 
   return (
-    <div className={`resume-item resume-item-${kind}`}>
+    <div
+      className={`resume-item resume-item-${kind}`}
+      data-resume-item-section={sectionKey}
+      data-resume-item-index={itemIndex}
+    >
       {kind === "cover-letter" && (presentation.recipient || editContext) ? (
         <div className="resume-recipient"><strong>To</strong><ResumeText context={editContext} path={[...itemPath, "recipient"]} value={presentation.recipient} placeholder="Recipient" /></div>
       ) : null}
@@ -486,7 +752,18 @@ function ResumeItemView({
           <EditableWebsite website={presentation.website} itemPath={itemPath} context={editContext} hideLinkUnderline={hideLinkUnderline} />
         </div>
       ) : null}
-      {hasDescription && (editContext || presentation.description) ? <ResumeText context={editContext} path={[...itemPath, descriptionField]} value={presentation.description} as="div" className="resume-rich-text" inline={false} placeholder={getDescriptionPlaceholder(kind)} /> : null}
+      {hasDescription && (editContext || presentation.description) ? (
+        <ResumeText
+          context={editContext}
+          path={[...itemPath, descriptionField]}
+          value={presentation.description}
+          as="div"
+          className="resume-rich-text"
+          inline={false}
+          placeholder={getDescriptionPlaceholder(kind)}
+          selectionContext={{ fieldPath: [...itemPath, descriptionField], sectionKey, itemId: itemIdForRecord(record) }}
+        />
+      ) : null}
       {roles.map((role, index) => {
         const roleRecord = role as Record<string, unknown>
         return (
@@ -497,12 +774,36 @@ function ResumeItemView({
                 {editContext || stringValue(roleRecord.period) ? <ResumeText context={editContext} path={[...itemPath, "roles", index, "period"]} value={stringValue(roleRecord.period)} as="span" placeholder="Role dates" /> : null}
               </div>
             </div>
-            {editContext || stringValue(roleRecord.description) ? <ResumeText context={editContext} path={[...itemPath, "roles", index, "description"]} value={stringValue(roleRecord.description)} as="div" className="resume-rich-text" inline={false} placeholder="Add role details" /> : null}
+            {editContext || stringValue(roleRecord.description) ? (
+              <ResumeText
+                context={editContext}
+                path={[...itemPath, "roles", index, "description"]}
+                value={stringValue(roleRecord.description)}
+                as="div"
+                className="resume-rich-text"
+                inline={false}
+                placeholder="Add role details"
+                selectionContext={{ fieldPath: [...itemPath, "roles", index, "description"], sectionKey, itemId: itemIdForRecord(roleRecord) }}
+              />
+            ) : null}
           </div>
         )
       })}
-      {keywords.length ? <div className="resume-keywords">{keywords.map((keyword, index) => <ResumeText context={editContext} path={[...itemPath, "keywords", index]} value={keyword} as="span" key={`${keyword}-${index}`} />)}</div> : null}
-      {presentation.level !== undefined ? <LevelIndicator value={presentation.level} config={level} hideIcons={hideIcons} /> : null}
+      {keywords.length ? (
+        <div className="resume-keywords">
+          {kind === "skills" ? (
+            <span>{keywords.join(", ")}</span>
+          ) : (
+            keywords.map((keyword, index) => (
+              <Fragment key={`${keyword}-${index}`}>
+                {index ? <span className="resume-keyword-separator" aria-hidden="true">, </span> : null}
+                <ResumeText context={editContext} path={[...itemPath, "keywords", index]} value={keyword} as="span" />
+              </Fragment>
+            ))
+          )}
+        </div>
+      ) : null}
+      {presentation.level !== undefined && (kind !== "skills" || presentation.level > 0) ? <LevelIndicator value={presentation.level} config={level} hideIcons={hideIcons} /> : null}
       {kind === "references" && (editContext || presentation.phone) ? <div className="resume-phone">{!hideIcons ? <Phone aria-hidden="true" /> : null}<ResumeText context={editContext} path={[...itemPath, "phone"]} value={presentation.phone} placeholder="Phone number" /></div> : null}
     </div>
   )
@@ -552,9 +853,10 @@ type ResumeTextProps = {
   inline?: boolean
   placeholder?: string
   renderValue?: (content: ReactNode) => ReactNode
+  selectionContext?: ResumeTextSelectionContext
 }
 
-function ResumeText({ context, path, value, as = "span", className, inline = true, placeholder, renderValue }: ResumeTextProps) {
+function ResumeText({ context, path, value, as = "span", className, inline = true, placeholder, renderValue, selectionContext }: ResumeTextProps) {
   const text = stringValue(value)
   const hasText = hasVisibleText(text)
   const resolvedPlaceholder = placeholder || getResumeFieldPlaceholder(path)
@@ -579,6 +881,11 @@ function ResumeText({ context, path, value, as = "span", className, inline = tru
             onDone={context.finish}
             onCancel={() => context.cancel(path, initialValueRef.current)}
             placeholder={resolvedPlaceholder}
+            selectionContext={selectionContext}
+            selectionResetKey={context.selectionResetKey}
+            onSelectionChange={context.reportSelection}
+            onSelectionAction={context.runSelectionAction}
+            onSelectionRestoreChange={context.reportSelectionRestore}
           />
       </div>
     )
@@ -601,6 +908,10 @@ function ResumeText({ context, path, value, as = "span", className, inline = tru
       </Element>
     </div>
   )
+}
+
+function itemIdForRecord(record: Record<string, unknown>) {
+  return typeof record.id === "string" && record.id.trim() ? record.id : undefined
 }
 
 function getResumeFieldPlaceholder(path: ResumePath) {
@@ -641,7 +952,7 @@ function getTitlePlaceholder(kind: string) {
     experience: "Position",
     education: "School",
     projects: "Project name",
-    skills: "Skill",
+    skills: "Skill category",
     languages: "Language",
     interests: "Interest",
     awards: "Award title",
@@ -1044,6 +1355,229 @@ export function getResumeSectionId(sectionKey: string) {
 
 export function getResumePageWidth(resume: ResumeData) {
   if (resume.metadata.page.format === "letter") return 816
-  if (resume.metadata.page.format === "free-form") return 900
+  if (resume.metadata.page.format === "free-form") return 960
   return 794
+}
+
+export function getResumePageHeight(resume: ResumeData) {
+  if (resume.metadata.page.format === "letter") return 1056
+  if (resume.metadata.page.format === "free-form") return 0
+  return 1123
+}
+
+type ResumePaginationCandidate = {
+  anchor: HTMLElement
+  extent: HTMLElement
+  canSplit: boolean
+}
+
+const RESUME_PAGINATION_EPSILON = 0.5
+const RESUME_PAGINATION_ATTRIBUTE = "data-resume-pagination-break"
+const RESUME_PAGINATION_SPACE = "--resume-pagination-space"
+
+function clearResumePagination(element: HTMLElement) {
+  element.querySelectorAll<HTMLElement>(`[${RESUME_PAGINATION_ATTRIBUTE}]`).forEach((node) => {
+    node.removeAttribute(RESUME_PAGINATION_ATTRIBUTE)
+    node.style.removeProperty(RESUME_PAGINATION_SPACE)
+  })
+}
+
+function applyResumePagination(element: HTMLElement, pageHeight: number, pageWidth: number, pageMarginY: number) {
+  const usableHeight = pageHeight - pageMarginY * 2
+  if (usableHeight <= RESUME_PAGINATION_EPSILON) return
+
+  const documentRect = element.getBoundingClientRect()
+  const scale = documentRect.width > 0 && pageWidth > 0 ? documentRect.width / pageWidth : 1
+  const flows = Array.from(element.querySelectorAll<HTMLElement>(".resume-main-column, .resume-side-column"))
+  if (!flows.length) {
+    const sections = element.querySelector<HTMLElement>(".resume-sections")
+    if (sections) flows.push(sections)
+  }
+
+  flows.forEach((flow) => {
+    getResumePaginationCandidates(flow).forEach((candidate) => {
+      applyResumePaginationCandidate(candidate, documentRect, scale, pageHeight, pageMarginY, usableHeight)
+    })
+  })
+}
+
+function getResumePaginationCandidates(flow: HTMLElement): ResumePaginationCandidate[] {
+  const sections = Array.from(flow.children).filter((child): child is HTMLElement => child instanceof HTMLElement && child.classList.contains("resume-section"))
+
+  return sections.flatMap((section) => {
+    if (section.style.breakInside === "avoid" || section.style.breakBefore === "page") {
+      return [{ anchor: section, extent: section, canSplit: false }]
+    }
+
+    const sectionHeading = Array.from(section.children).find((child): child is HTMLElement => child instanceof HTMLElement && child.classList.contains("resume-section-heading"))
+    const itemsContainer = Array.from(section.children).find((child): child is HTMLElement => child instanceof HTMLElement && child.classList.contains("resume-section-items"))
+    const items = itemsContainer
+      ? Array.from(itemsContainer.children).filter((child): child is HTMLElement => child instanceof HTMLElement && child.classList.contains("resume-item"))
+      : []
+
+    if (items.length) {
+      return [
+        ...(sectionHeading ? [{ anchor: sectionHeading, extent: sectionHeading, canSplit: false }] : []),
+        ...items.flatMap(getResumeItemPaginationCandidates),
+      ]
+    }
+
+    const blocks = getResumeContentBlocks(section)
+    return blocks.length
+      ? [
+          ...(sectionHeading ? [{ anchor: sectionHeading, extent: sectionHeading, canSplit: false }] : []),
+          ...blocks.map((block) => ({ anchor: block, extent: block, canSplit: true })),
+        ]
+      : [{ anchor: section, extent: section, canSplit: true }]
+  })
+}
+
+function getResumeItemPaginationCandidates(item: HTMLElement): ResumePaginationCandidate[] {
+  const blocks = getResumeContentBlocks(item)
+  if (!blocks.length) return [{ anchor: item, extent: item, canSplit: true }]
+
+  return blocks.flatMap((block) => {
+    if (!block.classList.contains("resume-role")) return [{ anchor: block, extent: block, canSplit: true }]
+
+    const roleBlocks = getResumeContentBlocks(block)
+    return roleBlocks.length
+      ? roleBlocks.map((roleBlock) => ({ anchor: roleBlock, extent: roleBlock, canSplit: true }))
+      : [{ anchor: block, extent: block, canSplit: true }]
+  })
+}
+
+function getResumeContentBlocks(container: HTMLElement): HTMLElement[] {
+  const blocks = Array.from(container.querySelectorAll<HTMLElement>(
+    ".resume-role, .resume-item-topline, .resume-keywords, .resume-level, .resume-phone, .resume-link, .resume-rich-text > p, .resume-rich-text > ul > li, .resume-rich-text > ol > li, .resume-rich-text > div",
+  ))
+  const containerRole = container.classList.contains("resume-role") ? container : container.closest<HTMLElement>(".resume-role")
+
+  return blocks
+    .filter((block) => {
+      if (block.classList.contains("resume-role")) return !containerRole
+      return block.closest<HTMLElement>(".resume-role") === containerRole
+    })
+    .sort((left, right) => {
+      const position = left.compareDocumentPosition(right)
+      if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1
+      if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1
+      return 0
+    })
+}
+
+function applyResumePaginationCandidate(
+  candidate: ResumePaginationCandidate,
+  documentRect: DOMRect,
+  scale: number,
+  pageHeight: number,
+  pageMarginY: number,
+  usableHeight: number,
+) {
+  const anchorRect = candidate.anchor.getBoundingClientRect()
+  const extentRect = candidate.extent.getBoundingClientRect()
+  if (!anchorRect.height && !extentRect.height) return
+
+  const top = (anchorRect.top - documentRect.top) / scale
+  const bottom = (extentRect.bottom - documentRect.top) / scale
+  const candidateHeight = bottom - top
+
+  if (candidate.canSplit && candidateHeight > usableHeight + RESUME_PAGINATION_EPSILON) {
+    const blocks = getResumeContentBlocks(candidate.anchor)
+    const nestedCandidates = blocks.length
+      ? [
+          { anchor: candidate.anchor, extent: blocks[0], canSplit: true },
+          ...blocks.slice(1).map((block) => ({ anchor: block, extent: block, canSplit: true })),
+        ]
+      : []
+
+    if (nestedCandidates.length && !(nestedCandidates.length === 1 && nestedCandidates[0].anchor === candidate.anchor && nestedCandidates[0].extent === candidate.extent)) {
+      nestedCandidates.forEach((nestedCandidate) => {
+        applyResumePaginationCandidate(nestedCandidate, documentRect, scale, pageHeight, pageMarginY, usableHeight)
+      })
+    }
+    return
+  }
+
+  const pageIndex = Math.max(0, Math.floor(Math.max(0, top) / pageHeight))
+  const pageStart = pageIndex * pageHeight + pageMarginY
+  const pageEnd = (pageIndex + 1) * pageHeight - pageMarginY
+  let space = 0
+
+  if (top < pageStart - RESUME_PAGINATION_EPSILON) {
+    space = pageStart - top
+  } else if (bottom > pageEnd + RESUME_PAGINATION_EPSILON) {
+    space = (pageIndex + 1) * pageHeight + pageMarginY - top
+  }
+
+  if (space <= RESUME_PAGINATION_EPSILON) return
+  candidate.anchor.setAttribute(RESUME_PAGINATION_ATTRIBUTE, "true")
+  candidate.anchor.style.setProperty(RESUME_PAGINATION_SPACE, `${space}px`)
+}
+
+function getResumePageBoundaryBlocks(element: HTMLElement) {
+  const structuralBlocks = Array.from(element.querySelectorAll<HTMLElement>(
+    ".resume-section-heading, .resume-item-topline, .resume-role, .resume-keywords, .resume-level, .resume-phone, .resume-link, .resume-rich-text > p, .resume-rich-text > ul > li, .resume-rich-text > ol > li, .resume-rich-text > div",
+  ))
+  const hasStructuralContent = (item: HTMLElement) => item.querySelector(
+    ".resume-section-heading, .resume-item-topline, .resume-role, .resume-keywords, .resume-level, .resume-phone, .resume-link, .resume-rich-text > p, .resume-rich-text > ul > li, .resume-rich-text > ol > li, .resume-rich-text > div",
+  )
+  const emptyItems = Array.from(element.querySelectorAll<HTMLElement>(".resume-item")).filter((item) => !hasStructuralContent(item))
+  return [...structuralBlocks, ...emptyItems]
+    .filter((block) => !block.closest(".resume-page-guides"))
+    .sort((left, right) => {
+      const position = left.compareDocumentPosition(right)
+      if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1
+      if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1
+      return 0
+    })
+}
+
+function getResumePageBreakDetails(
+  element: HTMLElement,
+  pageHeight: number,
+  pageWidth: number,
+  pageMarginY: number,
+  pageCount: number,
+): ResumePageBreakDetail[] {
+  const documentRect = element.getBoundingClientRect()
+  const scale = documentRect.width > 0 && pageWidth > 0 ? documentRect.width / pageWidth : 1
+  const blocks = getResumePageBoundaryBlocks(element)
+
+  return Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => {
+    const boundary = pageHeight * (index + 1)
+    const contentBoundary = boundary - pageMarginY
+    const crossingSections = blocks
+      .filter((block) => {
+        const rect = block.getBoundingClientRect()
+        const top = (rect.top - documentRect.top) / scale
+        const bottom = (rect.bottom - documentRect.top) / scale
+        return (top < contentBoundary - RESUME_PAGINATION_EPSILON && bottom > contentBoundary + RESUME_PAGINATION_EPSILON)
+          || (top < boundary - RESUME_PAGINATION_EPSILON && bottom > boundary + RESUME_PAGINATION_EPSILON)
+      })
+      .map((block) => {
+        const section = block.closest<HTMLElement>(".resume-section[data-section-key]")
+        const heading = section?.querySelector<HTMLElement>(".resume-section-heading")?.textContent
+        return heading?.replace(/\s+/g, " ").trim() || "Untitled section"
+      })
+
+    return {
+      page: index + 1,
+      crossingSections: Array.from(new Set(crossingSections)),
+    }
+  })
+}
+
+function arePageBreakDetailsEqual(current: ResumePageBreakDetail[], next: ResumePageBreakDetail[]) {
+  if (current.length !== next.length) return false
+  return current.every((detail, index) => {
+    const nextDetail = next[index]
+    return detail.page === nextDetail.page
+      && detail.crossingSections.length === nextDetail.crossingSections.length
+      && detail.crossingSections.every((section, sectionIndex) => section === nextDetail.crossingSections[sectionIndex])
+  })
+}
+
+function formatPageBreakSections(sections: string[]) {
+  if (sections.length <= 2) return sections.join(" + ")
+  return `${sections.slice(0, 2).join(" + ")} + ${sections.length - 2} more`
 }

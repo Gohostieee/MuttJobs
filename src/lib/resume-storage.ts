@@ -29,6 +29,29 @@ export async function loadResumes(): Promise<ResumeFile[]> {
   }
 }
 
+export async function loadJobPrimaryResume(
+  jobId: number,
+  sourceFileName?: string | null,
+): Promise<ResumeFile> {
+  try {
+    const value = await invoke<unknown>("load_job_primary_resume", { jobId })
+    return normalizeResumeFile(value)
+  } catch (reason) {
+    // The browser preview has no Tauri command bridge. Mirror the selected
+    // source resume there so the workflow can still exercise the editor.
+    const fallback = (await loadResumes()).find((resume) => resume.fileName === sourceFileName)
+    if (fallback && (fallback.path === "Preview sample" || fallback.path === "Local preview")) {
+      return {
+        ...fallback,
+        id: "job-primary-resume-" + jobId,
+        fileName: "primary-resume.json",
+        path: "Local preview",
+      }
+    }
+    throw reason
+  }
+}
+
 export async function createResume(name: string): Promise<ResumeFile> {
   try {
     const value = await invoke<unknown>("create_resume", { name })
@@ -47,13 +70,35 @@ export async function createResume(name: string): Promise<ResumeFile> {
   }
 }
 
-export async function saveResume(file: ResumeFile, data: ResumeData): Promise<ResumeFile> {
+export async function createResumeFromPdf(pdfPath: string, name?: string): Promise<ResumeFile> {
+  const value = await invoke<unknown>("create_resume_from_pdf", {
+    pdfPath,
+    name: name?.trim() || null,
+  })
+  const file = normalizeResumeFile(value)
+
+  // Codex writes the imported document through the desktop boundary. Save the
+  // normalized schema once more so the stored file matches what the renderer
+  // and future loads see, including any defaults filled by the normalizer.
+  return saveResume(file, file.data)
+}
+
+export async function saveResume(
+  file: ResumeFile,
+  data: ResumeData,
+  options?: { jobId?: number },
+): Promise<ResumeFile> {
   const normalized = ensureResumeData(data)
   try {
-    const value = await invoke<unknown>("save_resume", {
-      path: file.path,
-      data: normalized,
-    })
+    const value = options?.jobId !== undefined
+      ? await invoke<unknown>("save_job_primary_resume", {
+          jobId: options.jobId,
+          data: normalized,
+        })
+      : await invoke<unknown>("save_resume", {
+          path: file.path,
+          data: normalized,
+        })
     return normalizeResumeFile(value)
   } catch (reason) {
     // The Vite preview has no Tauri command bridge. Keep the editing experience

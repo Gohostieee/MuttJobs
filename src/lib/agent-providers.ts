@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core"
 
-export type AgentProviderId = "codex"
+export type AgentProviderId = "codex" | "claude-code"
 
 export type ProviderHealthState =
   | "disabled"
@@ -21,21 +21,42 @@ export type CodexProviderSettings = {
   reasoningEffort: string | null
 }
 
+export type ClaudeCodeProviderSettings = CodexProviderSettings
+
+export type TheirStackProviderSettings = {
+  enabled: boolean
+  apiKey: string | null
+  healthIntervalSeconds: number
+}
+
 export type ProviderSettingsDocument = {
-  schemaVersion: 1
+  schemaVersion: 3
   providers: {
     codex: CodexProviderSettings
+    claudeCode: ClaudeCodeProviderSettings
+    theirStack: TheirStackProviderSettings
   }
 }
 
+export type TheirStackCreditBalance = {
+  apiCredits: number
+  usedApiCredits: number
+  earliestExpiration?: string
+}
+
 export type AgentProviderHealth = {
-  providerId: AgentProviderId
+  providerId: AgentProviderId | "theirstack"
   state: ProviderHealthState
   executablePath?: string
   version?: string
   authenticated?: boolean
   checkedAt: string
   message?: string
+  creditBalance?: TheirStackCreditBalance
+}
+
+export type ProviderHealthDocument = {
+  providers: AgentProviderHealth[]
 }
 
 export const getProviderSettings = () =>
@@ -44,8 +65,14 @@ export const getProviderSettings = () =>
 export const updateProviderSettings = (settings: CodexProviderSettings) =>
   invoke<ProviderSettingsDocument>("update_provider_settings", { settings })
 
+export const updateClaudeProviderSettings = (settings: ClaudeCodeProviderSettings) =>
+  invoke<ProviderSettingsDocument>("update_claude_provider_settings", { settings })
+
+export const updateTheirStackProviderSettings = (settings: TheirStackProviderSettings) =>
+  invoke<ProviderSettingsDocument>("update_their_stack_provider_settings", { settings })
+
 export const getProviderHealth = () =>
-  invoke<AgentProviderHealth>("get_provider_health")
+  invoke<ProviderHealthDocument>("get_provider_health")
 
 export const refreshProviderHealth = () =>
-  invoke<AgentProviderHealth>("refresh_provider_health")
+  invoke<ProviderHealthDocument>("refresh_provider_health")

@@ -8,7 +8,7 @@ use std::{
 use serde_json::{json, Value};
 use tauri::AppHandle;
 
-pub const PROTOCOL_VERSION: u32 = 1;
+pub const PROTOCOL_VERSION: u32 = 3;
 pub const SDK_VERSION: &str = "0.147.0";
 pub const MAX_MESSAGE_BYTES: usize = 2 * 1024 * 1024;
 
@@ -98,7 +98,8 @@ pub fn read_message(reader: &mut BufReader<impl std::io::Read>) -> Result<Value,
 
 pub fn initialize(
     child: &mut Child,
-    codex_path: &Path,
+    codex_path: Option<&Path>,
+    claude_path: Option<&Path>,
 ) -> Result<BufReader<std::process::ChildStdout>, String> {
     write_message(
         child,
@@ -106,7 +107,8 @@ pub fn initialize(
             "protocolVersion": PROTOCOL_VERSION,
             "requestId": "initialize",
             "type": "initialize",
-            "codexPath": codex_path.to_string_lossy()
+            "codexPath": codex_path.map(|path| path.to_string_lossy().into_owned()),
+            "claudePath": claude_path.map(|path| path.to_string_lossy().into_owned())
         }),
     )?;
     let stdout = child.stdout.take().ok_or("Worker stdout is unavailable.")?;
@@ -120,16 +122,22 @@ pub fn initialize(
     Ok(reader)
 }
 
-pub fn probe(app: &AppHandle, codex_path: &Path) -> Result<(), String> {
+pub fn probe(app: &AppHandle, provider: &str, executable: &Path) -> Result<(), String> {
     let mut child = spawn(app)?;
     let result = (|| {
-        let mut reader = initialize(&mut child, codex_path)?;
+        let (codex_path, claude_path) = match provider {
+            "codex" => (Some(executable), None),
+            "claude-code" => (None, Some(executable)),
+            _ => return Err("Unknown provider for worker health check.".into()),
+        };
+        let mut reader = initialize(&mut child, codex_path, claude_path)?;
         write_message(
             &mut child,
             &json!({
                 "protocolVersion": PROTOCOL_VERSION,
                 "requestId": "health",
-                "type": "health"
+                "type": "health",
+                "provider": provider
             }),
         )?;
         let response = read_message(&mut reader)?;

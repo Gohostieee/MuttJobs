@@ -25,7 +25,7 @@ pub fn check_health(app: &AppHandle, settings: &CodexSettings) -> ProviderHealth
         Err(message) => return health("not_found", None, None, Some(false), Some(&message)),
     };
 
-    if let Err(message) = worker::probe(app, &executable) {
+    if let Err(message) = worker::probe(app, "codex", &executable) {
         return health(
             "worker_unavailable",
             Some(&executable),
@@ -121,6 +121,7 @@ fn health(
         authenticated,
         checked_at: Utc::now().to_rfc3339(),
         message: message.map(str::to_owned),
+        credit_balance: None,
     }
 }
 

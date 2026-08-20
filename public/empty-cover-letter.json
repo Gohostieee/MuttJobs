@@ -1,0 +1,24 @@
+{
+  "metadata": {
+    "date": "2026-08-17",
+    "page": { "format": "letter", "marginX": 25.4, "marginY": 25.4 },
+    "typography": {
+      "body": { "fontFamily": "Georgia", "fontWeights": ["400"], "fontSize": 10, "lineHeight": 1.68 },
+      "heading": { "fontFamily": "Arial", "fontWeights": ["700"], "fontSize": 22, "lineHeight": 1.08 }
+    }
+  },
+  "applicant": {
+    "name": "",
+    "address": { "street": null, "street2": null, "city": null, "state": null, "postalCode": null, "country": null }
+  },
+  "recipient": {
+    "name": null,
+    "title": null,
+    "company": "",
+    "address": { "street": null, "street2": null, "city": null, "state": null, "postalCode": null, "country": null },
+    "salutation": "Dear Hiring Manager:"
+  },
+  "position": { "title": "", "source": null },
+  "content": { "opening": "", "body": [""], "closingParagraph": "" },
+  "closing": { "signOff": "Sincerely,", "name": "" }
+}

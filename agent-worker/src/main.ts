@@ -1,7 +1,9 @@
 import { createInterface } from "node:readline"
 
+import { ClaudeCodeJobRunner } from "./claude-provider.js"
 import { CodexJobRunner } from "./codex-provider.js"
 import {
+  type AgentProviderId,
   encodeMessage,
   MAX_MESSAGE_BYTES,
   PROTOCOL_VERSION,
@@ -11,7 +13,9 @@ import {
   type WorkerRequest,
 } from "./protocol.js"
 
-let runner: CodexJobRunner | null = null
+type JobRunner = CodexJobRunner | ClaudeCodeJobRunner
+
+const runners = new Map<AgentProviderId, JobRunner>()
 let shuttingDown = false
 
 function emit(event: WorkerEvent) {
@@ -33,7 +37,9 @@ async function handle(request: WorkerRequest) {
 
   switch (request.type) {
     case "initialize":
-      runner = new CodexJobRunner(request.codexPath)
+      runners.clear()
+      if (request.codexPath) runners.set("codex", new CodexJobRunner(request.codexPath))
+      if (request.claudePath) runners.set("claude-code", new ClaudeCodeJobRunner(request.claudePath))
       emit({
         protocolVersion: PROTOCOL_VERSION,
         requestId: request.requestId,
@@ -43,7 +49,7 @@ async function handle(request: WorkerRequest) {
       })
       break
     case "health":
-      if (!runner) return error(request.requestId, "Worker has not been initialized.")
+      if (!runners.size) return error(request.requestId, "Worker has not been initialized.")
       emit({
         protocolVersion: PROTOCOL_VERSION,
         requestId: request.requestId,
@@ -53,11 +59,14 @@ async function handle(request: WorkerRequest) {
       })
       break
     case "start_job":
-      if (!runner) return error(request.requestId, "Worker has not been initialized.")
-      void runner.run(request.requestId, request.job, emit)
+      {
+        const runner = runners.get(request.job.provider)
+        if (!runner) return error(request.requestId, `The ${request.job.provider} provider is not initialized.`)
+        void runner.run(request.requestId, request.job, emit)
+      }
       break
     case "cancel_job":
-      if (!runner?.cancel(request.jobId)) {
+      if (![...runners.values()].some((runner) => runner.cancel(request.jobId))) {
         error(request.requestId, "No matching active job.")
       }
       break

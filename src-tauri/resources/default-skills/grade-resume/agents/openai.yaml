@@ -1,0 +1,4 @@
+interface:
+  display_name: "Grade Resume"
+  short_description: "Score a senior engineering resume with evidence"
+  default_prompt: "Use $grade-resume to produce an evidence-based resume scorecard."

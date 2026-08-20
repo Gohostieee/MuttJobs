@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "date": "2026-08-17",
+    "page": { "format": "letter", "marginX": 25.4, "marginY": 25.4 },
+    "typography": {
+      "body": { "fontFamily": "Georgia", "fontWeights": ["400"], "fontSize": 10, "lineHeight": 1.68 },
+      "heading": { "fontFamily": "Arial", "fontWeights": ["700"], "fontSize": 22, "lineHeight": 1.08 }
+    }
+  },
+  "applicant": {
+    "name": "Jordan Lee",
+    "email": "jordan.lee@example.com",
+    "phone": "+1 555 014 8820",
+    "address": { "street": "120 Market Street", "street2": null, "city": "Philadelphia", "state": "PA", "postalCode": "19106", "country": "USA" }
+  },
+  "recipient": {
+    "name": "Avery Morgan",
+    "title": "Director of Product",
+    "company": "Northstar Labs",
+    "address": { "street": "500 Mission Street", "street2": null, "city": "San Francisco", "state": "CA", "postalCode": "94105", "country": "USA" },
+    "salutation": "Dear Avery Morgan:"
+  },
+  "position": { "title": "Senior Product Designer", "source": "Northstar Labs careers page" },
+  "content": {
+    "opening": "I am excited to apply for the <strong>Senior Product Designer</strong> position at Northstar Labs. Your focus on making complex collaboration feel simple closely matches the work I have led throughout my career.",
+    "body": [
+      "At Atlas Software, I led the redesign of a multi-team planning workflow used by enterprise customers. I mapped the end-to-end journey, tested a unified interaction model, and aligned product and engineering around a phased release. The result reduced time-to-completion by <strong>32%</strong> and lowered support volume."
+    ],
+    "closingParagraph": "I would welcome the opportunity to discuss how my experience could help Northstar turn ambitious workflow ideas into clear, durable experiences."
+  },
+  "closing": { "signOff": "Sincerely,", "name": "Jordan Lee" }
+}

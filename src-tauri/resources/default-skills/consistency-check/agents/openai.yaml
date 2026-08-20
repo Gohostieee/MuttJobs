@@ -1,0 +1,4 @@
+interface:
+  display_name: "Consistency Check"
+  short_description: "Find and optionally fix resume inconsistencies"
+  default_prompt: "Use $consistency-check to diagnose consistency problems without editing."

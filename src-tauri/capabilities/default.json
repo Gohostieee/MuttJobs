@@ -5,7 +5,9 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "dialog:default",
     "opener:default",
-    "store:default"
+    "store:default",
+    "process:allow-restart"
   ]
 }

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Edit Section"
+  short_description: "Edit one named resume section safely"
+  default_prompt: "Use $edit-section to revise only the Experience section for concision."
