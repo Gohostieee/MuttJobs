@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react"
 import type { ChatStatus } from "ai"
-import { Bot, CircleAlert, Sparkles } from "lucide-react"
+import { CircleAlert, Sparkles } from "lucide-react"
 
 import {
   Conversation,
@@ -24,6 +24,7 @@ import {
   type AgentActivity,
 } from "@/components/resume-ai-sidebar"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
+import { MuttJobsLogo } from "@/components/brand/muttjobs-logo"
 import {
   Message as UiMessage,
   MessageContent as UiMessageContent,
@@ -128,7 +129,7 @@ export function AgentWorkspace() {
     <main className="agent-workspace">
       <header className="agent-workspace-header">
         <div className="agent-workspace-title">
-          <span className="agent-workspace-mark"><Bot aria-hidden="true" /></span>
+          <MuttJobsLogo className="agent-workspace-mark" markClassName="size-full" />
           <div>
             <p>Workflow orchestration</p>
             <h1>MuttJobs Agent</h1>

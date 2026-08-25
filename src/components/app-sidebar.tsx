@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { MuttJobsLogo } from "@/components/brand/muttjobs-logo"
 import {
   Command,
   CommandDialog,
@@ -163,12 +164,11 @@ export function AppSidebar({ activeTab, onSelectTab }: AppSidebarProps) {
               </Button>
             ) : (
               <>
-                <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-foreground text-[11px] font-bold tracking-tighter text-background">
-                  MJ
-                </div>
-                <span className="truncate text-[15px] font-semibold tracking-tight">
-                  muttjobs
-                </span>
+                <MuttJobsLogo
+                  withWordmark
+                  markClassName="size-6"
+                  wordmarkClassName="text-[15px]"
+                />
                 <Button
                   variant="ghost"
                   size="icon-sm"
