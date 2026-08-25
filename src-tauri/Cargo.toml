@@ -1,6 +1,6 @@
 [package]
 name = "muttjobs"
-version = "0.1.0-1"
+version = "0.2.0-1"
 description = "A local-first desktop workspace for job search and applications"
 authors = ["Gohost"]
 edition = "2021"

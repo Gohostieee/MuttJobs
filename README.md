@@ -9,15 +9,17 @@ MuttJobs is a private, local-first Windows desktop workspace for managing a job 
 
 Download the newest Windows installer from [GitHub Releases](https://github.com/Gohostieee/MuttJobs/releases/latest).
 
-The first beta is distributed for 64-bit Windows. Because it is not yet code-signed, Windows may show a Microsoft Defender SmartScreen warning. Only install packages downloaded from this repository's Releases page.
+The current beta is distributed for 64-bit Windows. Because it is not yet code-signed, Windows may show a Microsoft Defender SmartScreen warning. Only install packages downloaded from this repository's Releases page.
 
 ## What it does
 
 - Search for jobs with TheirStack, save reusable searches, and reveal selected job details.
-- Track saved jobs on an Applications board from discovery through offer or rejection.
-- Import, create, edit, target, and export resumes with templates, typography, colors, paper controls, and structured skills.
-- Draft and edit job-specific cover letters.
-- Run multi-part company research and keep its evidence with the saved job.
+- Track saved jobs on an Applications board from discovery through offer, rejection, or a deliberate not-interested archive.
+- Keep a complete Career Profile as the durable source for job-specific primary resumes.
+- Import resumes into the Career Profile with selectable local model and reasoning controls.
+- Build, rebuild, edit, target, and export job-specific resumes with templates, typography, colors, paper controls, and structured skills.
+- Draft and edit job-specific cover letters in the same canonical document workspace.
+- Run Company Research and document generation for multiple selected jobs from the Applications board.
 - Use a general application agent to inspect saved jobs and coordinate company research.
 - Export and import a local backup of durable MuttJobs data.
 
