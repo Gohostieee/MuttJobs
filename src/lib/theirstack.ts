@@ -187,6 +187,7 @@ export const applicationStatusValues = [
   "interviewing",
   "offer",
   "denied",
+  "not_interested",
 ] as const
 
 export type ApplicationStatus = (typeof applicationStatusValues)[number]
@@ -226,6 +227,10 @@ const applicationStatusMetadataByValue: Record<ApplicationStatus, {
   denied: {
     label: "Denied",
     description: "Roles that are no longer moving forward.",
+  },
+  not_interested: {
+    label: "Not interested",
+    description: "Roles you have chosen not to pursue.",
   },
 }
 

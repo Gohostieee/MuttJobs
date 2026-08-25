@@ -15,11 +15,14 @@ import {
   CircleCheck,
   CircleX,
   Columns3,
+  FilePenLine,
   Inbox,
   LoaderCircle,
+  Mail,
   MapPin,
   Plus,
   RefreshCw,
+  Search,
   Sparkles,
 } from "lucide-react"
 import { format } from "date-fns"
@@ -33,6 +36,7 @@ import {
 } from "@/components/resume-ai-sidebar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Card,
   CardContent,
@@ -51,6 +55,22 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ALL_AGENT_MODELS } from "@/lib/agent-models"
+import { runCoverLetterAiJob } from "@/lib/cover-letter-ai"
+import {
+  hasDraftedJobCoverLetter,
+  loadOrCreateJobCoverLetter,
+} from "@/lib/cover-letter-storage"
+import {
+  createCompanyResearchRequest,
+  listCompanyResearchRuns,
+  startCompanyResearchRun,
+  type CompanyResearchRun,
+} from "@/lib/company-research"
+import { loadJobPrimaryResume } from "@/lib/resume-storage"
+import {
+  createPrimaryResumeGenerationRunId,
+  generatePrimaryResumeFromProfile,
+} from "@/lib/profile-resume-generation"
 import {
   listJobImportJobs,
   startJobUrlImport,
@@ -76,7 +96,31 @@ const statusDotClasses: Record<ApplicationStatus, string> = {
   interviewing: "bg-status-success",
   offer: "bg-status-success",
   denied: "bg-destructive",
+  not_interested: "bg-muted-foreground",
 }
+
+type BulkResearchStatus = "queued" | "running" | "completed" | "failed"
+
+type BulkResearchJobState = {
+  status: BulkResearchStatus
+  error?: string
+}
+
+const BULK_RESEARCH_CONCURRENCY = 2
+
+const AUTO_CREATE_COVER_LETTER_PROMPT = `Write a complete, polished cover letter for this exact role using the job's primary resume and the target job details supplied with this request.
+
+The job primary resume is the authoritative source for every candidate claim. Use the job description and Company Research to choose emphasis, vocabulary, and motivation, but never treat them as evidence that the candidate has a skill, responsibility, result, credential, or experience. Do not invent or infer candidate facts, metrics, hiring-manager details, addresses, or company facts.
+
+Replace the document's draft prose with a concise, role-specific letter:
+- Write a direct opening that names the role and establishes the strongest supported fit.
+- Use the body to connect the most relevant resume evidence to the job's actual priorities. Prefer specific supported examples over generic enthusiasm or a resume recap.
+- End with a confident, natural closing paragraph and call to action.
+- Keep the letter skimmable and approximately 250-400 words across the existing opening, body, and closingParagraph fields. Keep body within the schema's 1-4 paragraph limit.
+- Avoid placeholders, clichés, keyword stuffing, unsupported superlatives, and claims about company culture that are not supported by the supplied context.
+- Preserve the existing JSON contract, applicant contact details, recipient details, position metadata, typography, page settings, sign-off, and all other presentation fields unless a supplied job or resume value directly fills a blank identity field.
+
+Before saving, verify that every candidate claim is supported by the primary resume, the company and role are correct, the prose sounds human and specific, and the JSON remains a valid editable cover letter.`
 
 export function ApplicationsWorkspace({
   onDocumentViewerChange,
@@ -93,6 +137,31 @@ export function ApplicationsWorkspace({
   const [importSelection, setImportSelection] = useState(DEFAULT_RESUME_AI_SELECTION)
   const [isImporting, setIsImporting] = useState(false)
   const [importError, setImportError] = useState("")
+  const [selectedResearchJobIds, setSelectedResearchJobIds] = useState<Set<number>>(
+    () => new Set(),
+  )
+  const [researchSelection, setResearchSelection] = useState(DEFAULT_RESUME_AI_SELECTION)
+  const [bulkResearchByJobId, setBulkResearchByJobId] = useState<
+    Record<number, BulkResearchJobState>
+  >({})
+  const [isBulkResearching, setIsBulkResearching] = useState(false)
+  const [bulkResearchMessage, setBulkResearchMessage] = useState("")
+  const [successfulResearchByJobId, setSuccessfulResearchByJobId] = useState<
+    Record<number, boolean>
+  >({})
+  const [bulkCreationByJobId, setBulkCreationByJobId] = useState<
+    Record<number, BulkResearchJobState>
+  >({})
+  const [isBulkCreating, setIsBulkCreating] = useState(false)
+  const [bulkCreationMessage, setBulkCreationMessage] = useState("")
+  const [bulkCoverLetterByJobId, setBulkCoverLetterByJobId] = useState<
+    Record<number, BulkResearchJobState>
+  >({})
+  const [draftedCoverLetterByJobId, setDraftedCoverLetterByJobId] = useState<
+    Record<number, boolean>
+  >({})
+  const [isBulkCoverLetterCreating, setIsBulkCoverLetterCreating] = useState(false)
+  const [bulkCoverLetterMessage, setBulkCoverLetterMessage] = useState("")
   const [draggedJobId, setDraggedJobId] = useState<number | null>(null)
   const [dropTargetStatus, setDropTargetStatus] = useState<ApplicationStatus | null>(null)
   const [savingJobId, setSavingJobId] = useState<number | null>(null)
@@ -112,7 +181,24 @@ export function ApplicationsWorkspace({
         listSavedTheirStackJobs(),
         listJobImportJobs(),
       ])
+      const researchResults = await Promise.all(savedJobs.map(async (job) => {
+        try {
+          const runs = await listCompanyResearchRuns(job.id)
+          return [job.id, runs.some(isSuccessfulCompanyResearchRun)] as const
+        } catch {
+          return [job.id, false] as const
+        }
+      }))
+      const coverLetterResults = await Promise.all(savedJobs.map(async (job) => (
+        [job.id, await hasDraftedJobCoverLetter(job.id)] as const
+      )))
       setJobs(savedJobs)
+      setSuccessfulResearchByJobId(Object.fromEntries(researchResults))
+      setDraftedCoverLetterByJobId(Object.fromEntries(coverLetterResults))
+      const savedJobIds = new Set(savedJobs.map((job) => job.id))
+      setSelectedResearchJobIds((current) =>
+        new Set([...current].filter((jobId) => savedJobIds.has(jobId))),
+      )
       setJobImports(imports.filter((job) => job.status !== "completed"))
     } catch (cause) {
       setError(errorMessage(cause, "Saved jobs could not be loaded."))
@@ -311,6 +397,232 @@ export function ApplicationsWorkspace({
     return grouped
   }, [jobs])
 
+  const selectedResearchJobs = useMemo(
+    () => jobs.filter((job) => selectedResearchJobIds.has(job.id)),
+    [jobs, selectedResearchJobIds],
+  )
+  const completedBulkResearchCount = Object.values(bulkResearchByJobId).filter(
+    (state) => state.status === "completed" || state.status === "failed",
+  ).length
+  const completedBulkCreationCount = Object.values(bulkCreationByJobId).filter(
+    (state) => state.status === "completed" || state.status === "failed",
+  ).length
+  const completedBulkCoverLetterCount = Object.values(bulkCoverLetterByJobId).filter(
+    (state) => state.status === "completed" || state.status === "failed",
+  ).length
+  const isBulkActionRunning = isBulkResearching
+    || isBulkCreating
+    || isBulkCoverLetterCreating
+
+  function setJobResearchSelected(jobId: number, selected: boolean) {
+    setSelectedResearchJobIds((current) => {
+      const next = new Set(current)
+      if (selected) next.add(jobId)
+      else next.delete(jobId)
+      return next
+    })
+  }
+
+  async function runBulkCompanyResearch() {
+    if (isBulkActionRunning || selectedResearchJobs.length === 0) return
+
+    const jobsWithCompany = selectedResearchJobs.filter((job) => job.company?.trim())
+    const initialState = Object.fromEntries(selectedResearchJobs.map((job) => [
+      job.id,
+      job.company?.trim()
+        ? { status: "queued" as const }
+        : { status: "failed" as const, error: "Company name is missing." },
+    ]))
+    setBulkResearchByJobId(initialState)
+    setBulkResearchMessage("")
+    setIsBulkResearching(true)
+
+    let nextIndex = 0
+    let completedCount = 0
+    let failedCount = selectedResearchJobs.length - jobsWithCompany.length
+
+    async function researchNextJob() {
+      while (nextIndex < jobsWithCompany.length) {
+        const job = jobsWithCompany[nextIndex]
+        nextIndex += 1
+        setBulkResearchByJobId((current) => ({
+          ...current,
+          [job.id]: { status: "running" },
+        }))
+        try {
+          const run = await startCompanyResearchRun(
+            createCompanyResearchRequest(job, researchSelection),
+            () => undefined,
+          )
+          if (!isSuccessfulCompanyResearchRun(run)) {
+            throw new Error("Company research finished without a usable company ledger.")
+          }
+          completedCount += 1
+          setSuccessfulResearchByJobId((current) => ({
+            ...current,
+            [job.id]: true,
+          }))
+          setBulkResearchByJobId((current) => ({
+            ...current,
+            [job.id]: { status: "completed" },
+          }))
+        } catch (cause) {
+          failedCount += 1
+          setBulkResearchByJobId((current) => ({
+            ...current,
+            [job.id]: {
+              status: "failed",
+              error: errorMessage(cause, "Company research failed."),
+            },
+          }))
+        }
+      }
+    }
+
+    const workerCount = Math.min(BULK_RESEARCH_CONCURRENCY, jobsWithCompany.length)
+    await Promise.all(Array.from({ length: workerCount }, researchNextJob))
+    setIsBulkResearching(false)
+    setBulkResearchMessage(
+      failedCount === 0
+        ? `Company research finished for ${completedCount} ${completedCount === 1 ? "job" : "jobs"}.`
+        : `Company research finished for ${completedCount} ${completedCount === 1 ? "job" : "jobs"}; ${failedCount} failed.`,
+    )
+  }
+
+  async function runBulkResumeCreation() {
+    if (isBulkActionRunning || selectedResearchJobs.length === 0) return
+
+    const replacingCount = selectedResearchJobs.filter((job) => job.primaryResume).length
+    if (replacingCount > 0 && !window.confirm(
+      `${replacingCount} selected ${replacingCount === 1 ? "job already has a primary resume" : "jobs already have primary resumes"}. Successful generation will replace ${replacingCount === 1 ? "it" : "them"} with resumes built from the latest Career Profile. Continue?`,
+    )) return
+
+    const initialState = Object.fromEntries(selectedResearchJobs.map((job) => [
+      job.id,
+      { status: "queued" as const },
+    ]))
+    setBulkCreationByJobId(initialState)
+    setBulkCreationMessage("")
+    setIsBulkCreating(true)
+
+    let nextIndex = 0
+    let completedCount = 0
+    let failedCount = 0
+
+    async function createNextResume() {
+      while (nextIndex < selectedResearchJobs.length) {
+        const job = selectedResearchJobs[nextIndex]
+        nextIndex += 1
+        setBulkCreationByJobId((current) => ({
+          ...current,
+          [job.id]: { status: "running" },
+        }))
+        try {
+          const result = await generatePrimaryResumeFromProfile({
+            runId: createPrimaryResumeGenerationRunId(),
+            jobId: job.id,
+            provider: researchSelection.provider,
+            model: researchSelection.model,
+            effort: researchSelection.effort,
+          })
+          setJobs((currentJobs) => currentJobs.map((currentJob) =>
+            currentJob.id === job.id
+              ? { ...currentJob, primaryResume: result.primaryResume }
+              : currentJob,
+          ))
+
+          completedCount += 1
+          setBulkCreationByJobId((current) => ({
+            ...current,
+            [job.id]: { status: "completed" },
+          }))
+        } catch (cause) {
+          failedCount += 1
+          setBulkCreationByJobId((current) => ({
+            ...current,
+            [job.id]: {
+              status: "failed",
+              error: errorMessage(cause, "Resume creation failed. Complete your Career Profile and try again."),
+            },
+          }))
+        }
+      }
+    }
+
+    const workerCount = Math.min(BULK_RESEARCH_CONCURRENCY, selectedResearchJobs.length)
+    await Promise.all(Array.from({ length: workerCount }, createNextResume))
+    setIsBulkCreating(false)
+    setBulkCreationMessage(
+      failedCount === 0
+        ? `Tailored resumes finished for ${completedCount} ${completedCount === 1 ? "job" : "jobs"}.`
+        : `Tailored resumes finished for ${completedCount} ${completedCount === 1 ? "job" : "jobs"}; ${failedCount} failed.`,
+    )
+  }
+
+  async function runBulkCoverLetterCreation() {
+    if (isBulkActionRunning || selectedResearchJobs.length === 0) return
+
+    const initialState = Object.fromEntries(selectedResearchJobs.map((job) => [
+      job.id,
+      job.primaryResume
+        ? { status: "queued" as const }
+        : { status: "failed" as const, error: "Create this job's primary resume first." },
+    ]))
+    const jobsWithPrimaryResumes = selectedResearchJobs.filter((job) => job.primaryResume)
+    setBulkCoverLetterByJobId(initialState)
+    setBulkCoverLetterMessage("")
+    setIsBulkCoverLetterCreating(true)
+
+    let nextIndex = 0
+    let completedCount = 0
+    let failedCount = selectedResearchJobs.length - jobsWithPrimaryResumes.length
+
+    async function createNextCoverLetter() {
+      while (nextIndex < jobsWithPrimaryResumes.length) {
+        const job = jobsWithPrimaryResumes[nextIndex]
+        nextIndex += 1
+        setBulkCoverLetterByJobId((current) => ({
+          ...current,
+          [job.id]: { status: "running" },
+        }))
+        try {
+          await loadJobPrimaryResume(job.id, job.primaryResume!.sourceFileName)
+          const coverLetter = await loadOrCreateJobCoverLetter(job)
+          await runCoverLetterAiJob(
+            coverLetter.path,
+            AUTO_CREATE_COVER_LETTER_PROMPT,
+            researchSelection,
+            { targetJobId: job.id },
+          )
+          completedCount += 1
+          setDraftedCoverLetterByJobId((current) => ({ ...current, [job.id]: true }))
+          setBulkCoverLetterByJobId((current) => ({
+            ...current,
+            [job.id]: { status: "completed" },
+          }))
+        } catch (cause) {
+          failedCount += 1
+          setBulkCoverLetterByJobId((current) => ({
+            ...current,
+            [job.id]: {
+              status: "failed",
+              error: errorMessage(cause, "Cover letter creation failed."),
+            },
+          }))
+        }
+      }
+    }
+
+    const workerCount = Math.min(BULK_RESEARCH_CONCURRENCY, jobsWithPrimaryResumes.length)
+    await Promise.all(Array.from({ length: workerCount }, createNextCoverLetter))
+    setIsBulkCoverLetterCreating(false)
+    setBulkCoverLetterMessage(
+      failedCount === 0
+        ? `Cover letters finished for ${completedCount} ${completedCount === 1 ? "job" : "jobs"}.`
+        : `Cover letters finished for ${completedCount} ${completedCount === 1 ? "job" : "jobs"}; ${failedCount} failed.`,
+    )
+  }
+
   if (selectedJob) {
     return (
       <JobWorkspace
@@ -383,6 +695,80 @@ export function ApplicationsWorkspace({
             </div>
           ) : null}
 
+          {!isLoading && jobs.length ? (
+            <Card className="company-research-controls w-full gap-0 overflow-visible py-0">
+              <CardContent className="flex flex-col items-start gap-4 p-4">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-2 text-sm font-medium">
+                    <Search className="size-4 text-primary" />
+                    Bulk job automation
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground" aria-live="polite">
+                    {isBulkResearching
+                      ? `Researching selected jobs (${completedBulkResearchCount}/${selectedResearchJobs.length} finished).`
+                      : isBulkCreating
+                        ? `Creating Profile-based resumes for selected jobs (${completedBulkCreationCount}/${selectedResearchJobs.length} finished).`
+                          : isBulkCoverLetterCreating
+                            ? `Creating cover letters for selected jobs (${completedBulkCoverLetterCount}/${selectedResearchJobs.length} finished).`
+                            : bulkCoverLetterMessage || bulkCreationMessage || bulkResearchMessage || `${selectedResearchJobs.length} ${selectedResearchJobs.length === 1 ? "job" : "jobs"} selected.`}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-start gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedResearchJobIds(new Set(jobs.map((job) => job.id)))}
+                    disabled={isBulkActionRunning || selectedResearchJobIds.size === jobs.length}
+                  >
+                    Select all
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedResearchJobIds(new Set())}
+                    disabled={isBulkActionRunning || selectedResearchJobIds.size === 0}
+                  >
+                    Clear
+                  </Button>
+                  <ModelReasoningSelector
+                    value={researchSelection}
+                    onChange={setResearchSelection}
+                    disabled={isBulkActionRunning}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void runBulkCompanyResearch()}
+                    disabled={isBulkActionRunning || selectedResearchJobs.length === 0}
+                  >
+                    {isBulkResearching ? <LoaderCircle className="animate-spin" /> : <Search />}
+                    {isBulkResearching ? "Researching companies..." : "Company research"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void runBulkResumeCreation()}
+                    disabled={isBulkActionRunning || selectedResearchJobs.length === 0}
+                  >
+                    {isBulkCreating ? <LoaderCircle className="animate-spin" /> : <FilePenLine />}
+                    {isBulkCreating ? "Creating resumes..." : "Auto create resume"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void runBulkCoverLetterCreation()}
+                    disabled={isBulkActionRunning || selectedResearchJobs.length === 0}
+                  >
+                    {isBulkCoverLetterCreating ? <LoaderCircle className="animate-spin" /> : <Mail />}
+                    {isBulkCoverLetterCreating ? "Creating cover letters..." : "Auto create cover letter"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
           {jobImports.length ? (
             <div className="grid w-full gap-3 lg:grid-cols-2" aria-label="Job imports">
               {jobImports.map((job) => (
@@ -407,6 +793,14 @@ export function ApplicationsWorkspace({
                   dropTargetStatus={dropTargetStatus}
                   savingJobId={savingJobId}
                   onPointerDown={handlePointerDown}
+                  selectedResearchJobIds={selectedResearchJobIds}
+                  bulkResearchByJobId={bulkResearchByJobId}
+                  bulkCreationByJobId={bulkCreationByJobId}
+                  bulkCoverLetterByJobId={bulkCoverLetterByJobId}
+                  draftedCoverLetterByJobId={draftedCoverLetterByJobId}
+                  successfulResearchByJobId={successfulResearchByJobId}
+                  researchSelectionDisabled={isBulkActionRunning}
+                  onResearchSelectionChange={setJobResearchSelected}
                 />
               ))}
             </div>
@@ -492,6 +886,14 @@ function ApplicationColumn({
   dropTargetStatus,
   savingJobId,
   onPointerDown,
+  selectedResearchJobIds,
+  bulkResearchByJobId,
+  bulkCreationByJobId,
+  bulkCoverLetterByJobId,
+  draftedCoverLetterByJobId,
+  successfulResearchByJobId,
+  researchSelectionDisabled,
+  onResearchSelectionChange,
 }: {
   status: ApplicationStatus
   label: string
@@ -502,6 +904,14 @@ function ApplicationColumn({
   dropTargetStatus: ApplicationStatus | null
   savingJobId: number | null
   onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>, job: TheirStackJob) => void
+  selectedResearchJobIds: Set<number>
+  bulkResearchByJobId: Record<number, BulkResearchJobState>
+  bulkCreationByJobId: Record<number, BulkResearchJobState>
+  bulkCoverLetterByJobId: Record<number, BulkResearchJobState>
+  draftedCoverLetterByJobId: Record<number, boolean>
+  successfulResearchByJobId: Record<number, boolean>
+  researchSelectionDisabled: boolean
+  onResearchSelectionChange: (jobId: number, selected: boolean) => void
 }) {
   return (
     <Card
@@ -536,6 +946,14 @@ function ApplicationColumn({
                 isDragging={draggedJobId === job.id}
                 isSaving={savingJobId !== null}
                 onPointerDown={onPointerDown}
+                isSelectedForResearch={selectedResearchJobIds.has(job.id)}
+                researchState={bulkResearchByJobId[job.id]}
+                creationState={bulkCreationByJobId[job.id]}
+                coverLetterState={bulkCoverLetterByJobId[job.id]}
+                hasDraftedCoverLetter={draftedCoverLetterByJobId[job.id] === true}
+                hasSuccessfulResearch={successfulResearchByJobId[job.id] === true}
+                researchSelectionDisabled={researchSelectionDisabled}
+                onResearchSelectionChange={onResearchSelectionChange}
               />
             ))}
           </div>
@@ -544,7 +962,7 @@ function ApplicationColumn({
             <Inbox className="size-6 text-muted-foreground/70" />
             <p className="mt-3 text-sm font-medium">Nothing here yet</p>
             <p className="mt-1 max-w-52 text-xs leading-5 text-muted-foreground">
-              Revealed jobs will appear in this stage.
+              Jobs moved here will appear in this stage.
             </p>
           </div>
         )}
@@ -618,12 +1036,28 @@ function ApplicationJobCard({
   isDragging,
   isSaving,
   onPointerDown,
+  isSelectedForResearch,
+  researchState,
+  creationState,
+  coverLetterState,
+  hasDraftedCoverLetter,
+  hasSuccessfulResearch,
+  researchSelectionDisabled,
+  onResearchSelectionChange,
 }: {
   job: TheirStackJob
   onViewJob: (job: TheirStackJob) => void
   isDragging: boolean
   isSaving: boolean
   onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>, job: TheirStackJob) => void
+  isSelectedForResearch: boolean
+  researchState?: BulkResearchJobState
+  creationState?: BulkResearchJobState
+  coverLetterState?: BulkResearchJobState
+  hasDraftedCoverLetter: boolean
+  hasSuccessfulResearch: boolean
+  researchSelectionDisabled: boolean
+  onResearchSelectionChange: (jobId: number, selected: boolean) => void
 }) {
   const location = jobLocation(job)
   const salary = jobSalary(job)
@@ -633,6 +1067,7 @@ function ApplicationJobCard({
       className={cn(
         "relative rounded-lg border bg-background p-3 transition-[opacity,box-shadow] hover:shadow-md",
         isDragging && "opacity-50",
+        isSelectedForResearch && "border-primary/50 ring-2 ring-primary/20",
       )}
     >
       <button
@@ -644,6 +1079,13 @@ function ApplicationJobCard({
         disabled={isSaving}
       />
       <div className="flex min-w-0 items-start gap-3">
+        <Checkbox
+          className="mt-1"
+          checked={isSelectedForResearch}
+          onCheckedChange={(checked) => onResearchSelectionChange(job.id, checked === true)}
+          disabled={researchSelectionDisabled}
+          aria-label={`Select ${job.jobTitle} at ${job.company || "this company"} for bulk actions`}
+        />
         <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted text-sm font-semibold text-muted-foreground">
           {job.companyObject?.logo ? (
             <img src={job.companyObject.logo} alt="" className="size-full object-contain p-1" />
@@ -672,11 +1114,51 @@ function ApplicationJobCard({
         {salary ? <p className="truncate pl-5">{salary}</p> : null}
       </div>
 
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <JobStepBadge
+          satisfied={hasSuccessfulResearch || researchState?.status === "completed"}
+          failed={researchState?.status === "failed"}
+          label="Company research"
+          pendingLabel={researchState?.status === "running"
+            ? "Researching"
+            : researchState?.status === "queued"
+              ? "Research queued"
+              : undefined}
+          error={researchState?.error}
+        />
+        <JobStepBadge
+          satisfied={creationState
+            ? creationState.status === "completed"
+            : Boolean(job.primaryResume)}
+          failed={creationState?.status === "failed"}
+          label="Resume created"
+          pendingLabel={creationState?.status === "running"
+            ? "Creating resume"
+            : creationState?.status === "queued"
+              ? "Creation queued"
+              : undefined}
+          error={creationState?.error}
+        />
+        <JobStepBadge
+          satisfied={hasDraftedCoverLetter || coverLetterState?.status === "completed"}
+          failed={coverLetterState?.status === "failed"}
+          label="Cover letter created"
+          pendingLabel={coverLetterState?.status === "running"
+            ? "Creating cover letter"
+            : coverLetterState?.status === "queued"
+              ? "Cover letter queued"
+              : undefined}
+          error={coverLetterState?.error}
+        />
+      </div>
+
       <div className="mt-3 flex items-center justify-between gap-2 border-t pt-2.5">
-        <span className="flex min-w-0 items-center gap-1.5 truncate text-[11px] text-muted-foreground">
-          <CalendarDays className="size-3.5 shrink-0" />
-          {formatJobDate(job.datePosted)}
-        </span>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="flex min-w-0 items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+            <CalendarDays className="size-3.5 shrink-0" />
+            {formatJobDate(job.datePosted)}
+          </span>
+        </div>
         <Button
           variant="ghost"
           size="sm"
@@ -688,6 +1170,54 @@ function ApplicationJobCard({
         </Button>
       </div>
     </article>
+  )
+}
+
+function JobStepBadge({
+  satisfied,
+  failed,
+  label,
+  pendingLabel,
+  error,
+}: {
+  satisfied: boolean
+  failed: boolean
+  label: string
+  pendingLabel?: string
+  error?: string
+}) {
+  const isPending = Boolean(pendingLabel)
+  const isUnsatisfiedFailure = failed && !satisfied
+  const displayLabel = isUnsatisfiedFailure
+    ? `${label} failed`
+    : pendingLabel ?? (satisfied ? label : `${label} needed`)
+
+  return (
+    <Badge
+      variant={satisfied ? "default" : "destructive"}
+      className="h-5 px-1.5 text-[10px]"
+      title={isUnsatisfiedFailure && error
+        ? error
+        : satisfied
+          ? `${label} is complete.`
+          : `${label} has not been completed successfully.`}
+    >
+      {isPending ? (
+        <LoaderCircle className="animate-spin" />
+      ) : satisfied ? (
+        <CircleCheck />
+      ) : (
+        <CircleX />
+      )}
+      {displayLabel}
+    </Badge>
+  )
+}
+
+function isSuccessfulCompanyResearchRun(run: CompanyResearchRun) {
+  return (
+    (run.status === "completed" || run.status === "completed_with_gaps")
+    && Boolean(run.ledger)
   )
 }
 

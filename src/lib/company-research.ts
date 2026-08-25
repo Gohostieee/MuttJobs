@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 
 import type { ResumeAiSelection, ResumeAiStreamEvent } from "@/lib/resume-ai"
+import type { TheirStackJob } from "@/lib/theirstack"
 
 export const COMPANY_RESEARCH_AGENT_IDS = [
   "company_identity",
@@ -216,4 +217,24 @@ export function createCompanyResearchRunId() {
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`
   return `company-research-${suffix}`
+}
+
+export function createCompanyResearchRequest(
+  job: TheirStackJob,
+  selection: ResumeAiSelection,
+): StartCompanyResearchRequest {
+  return {
+    runId: createCompanyResearchRunId(),
+    jobId: job.id,
+    input: {
+      companyName: job.company?.trim() ?? "",
+      targetRole: job.jobTitle,
+      targetLocation: job.location ?? job.longLocation ?? job.shortLocation,
+      jobDescription: job.description,
+      jobPostingUrl: job.finalUrl ?? job.url ?? job.sourceUrl,
+    },
+    provider: selection.provider,
+    model: selection.model,
+    effort: selection.effort,
+  }
 }

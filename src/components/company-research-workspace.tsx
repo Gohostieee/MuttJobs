@@ -33,7 +33,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   cancelCompanyResearchRun,
-  createCompanyResearchRunId,
+  createCompanyResearchRequest,
   listCompanyResearchRuns,
   retryCompanyResearchAgent,
   retryCompanyResearchSynthesis,
@@ -149,26 +149,14 @@ export function CompanyResearchWorkspace({ job }: { job: TheirStackJob }) {
       }
       return
     }
-    const runId = createCompanyResearchRunId()
+    const request = createCompanyResearchRequest(job, selection)
+    const runId = request.runId
     setLoadError("")
     setLive(emptyLiveState())
     setActiveAgent(RESEARCH_AGENTS[0].id)
     setSelectedRunId(runId)
     try {
-      const run = await startCompanyResearchRun({
-        runId,
-        jobId: job.id,
-        input: {
-          companyName: job.company,
-          targetRole: job.jobTitle,
-          targetLocation: job.location ?? job.longLocation ?? job.shortLocation,
-          jobDescription: job.description,
-          jobPostingUrl: job.finalUrl ?? job.url ?? job.sourceUrl,
-        },
-        provider: selection.provider,
-        model: selection.model,
-        effort: selection.effort,
-      }, handleResearchEvent)
+      const run = await startCompanyResearchRun(request, handleResearchEvent)
       upsertRun(run)
     } catch (reason) {
       setLoadError(errorMessage(reason, "Company research could not be started."))

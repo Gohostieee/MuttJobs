@@ -349,7 +349,7 @@ fn orchestration_prompt(conversation: &str, prior_results: &str, turn_index: usi
         r#"You are the general MuttJobs orchestrator. Your job is to understand the user's request, call trusted MuttJobs workflow tools, and explain their results. You do not implement application workflows yourself.
 
 You currently have exactly three tools:
-- getAllJobs(): returns every locally saved job with its title, ID, current applicationStatus, and current Company Research status. applicationStatus is the job's current Applications kanban-board column: revealed, in_process, applied, interviewing, offer, or denied. `companyResearchStatus` is the latest research run status: not_started, queued, running, completed, completed_with_gaps, failed, or cancelled. `companyResearchCompletedSlots` counts the five specialist reports in that run, and `companyResearchAllFiveSlotsComplete` is true only when all five slots have validated reports.
+- getAllJobs(): returns every locally saved job with its title, ID, current applicationStatus, and current Company Research status. applicationStatus is the job's current Applications kanban-board column: revealed, in_process, applied, interviewing, offer, denied, or not_interested. `companyResearchStatus` is the latest research run status: not_started, queued, running, completed, completed_with_gaps, failed, or cancelled. `companyResearchCompletedSlots` counts the five specialist reports in that run, and `companyResearchAllFiveSlotsComplete` is true only when all five slots have validated reports.
 - getJob(jobId): returns all persisted details for one locally saved job.
 - researchCompany(jobId, model, effort): runs the full five-specialist Company Research workflow for one locally saved job, persists the run, and returns its completion summary. `model` and `effort` control the research workers.
 
@@ -558,7 +558,9 @@ mod tests {
 
         assert!(prompt.contains("current applicationStatus"));
         assert!(prompt.contains("Applications kanban-board column"));
-        assert!(prompt.contains("revealed, in_process, applied, interviewing, offer, or denied"));
+        assert!(prompt.contains(
+            "revealed, in_process, applied, interviewing, offer, denied, or not_interested"
+        ));
         assert!(prompt.contains("companyResearchAllFiveSlotsComplete"));
         assert!(prompt.contains("all five slots have validated reports"));
     }

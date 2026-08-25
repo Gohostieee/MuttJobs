@@ -28,6 +28,7 @@ pub enum ApplicationStatus {
     Interviewing,
     Offer,
     Denied,
+    NotInterested,
 }
 
 impl Default for ApplicationStatus {
@@ -876,6 +877,19 @@ mod tests {
         .expect("legacy saved jobs should deserialize without a status");
 
         assert_eq!(job.application_status, None);
+    }
+
+    #[test]
+    fn not_interested_application_status_round_trips() {
+        let status =
+            serde_json::from_value::<ApplicationStatus>(serde_json::json!("not_interested"))
+                .expect("not interested should deserialize");
+
+        assert_eq!(status, ApplicationStatus::NotInterested);
+        assert_eq!(
+            serde_json::to_value(status).expect("status should serialize"),
+            serde_json::json!("not_interested")
+        );
     }
 
     #[test]
