@@ -25,6 +25,8 @@ dist-ssr
 
 # Tauri and local worker build artifacts
 src-tauri/target
+/target/
+tmp/
 agent-worker/dist
 
 # Isolated verification build outputs
