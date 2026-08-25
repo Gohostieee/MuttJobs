@@ -26,7 +26,7 @@ import { openUrl } from "@tauri-apps/plugin-opener"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CompanyResearchWorkspace } from "@/components/company-research-workspace"
-import { ResumeMatchingWorkspace } from "@/components/resume-matching-workspace"
+import { CoverLetterCreationWorkspace } from "@/components/cover-letter-creation-workspace"
 import { ResumeCreationWorkspace } from "@/components/resume-creation-workspace"
 import {
   Card,
@@ -54,7 +54,6 @@ type JobWorkspaceProps = {
 type JobFlowStepId =
   | "description"
   | "company-data"
-  | "resume-matching"
   | "resume-creation"
   | "cover-letter"
 
@@ -69,30 +68,23 @@ type JobFlowStep = {
 const JOB_FLOW_STEPS: JobFlowStep[] = [
   {
     id: "description",
-    number: 0,
+    number: 1,
     label: "Description",
     description: "Review the role and pull out the signals that matter.",
     icon: FileText,
   },
   {
     id: "company-data",
-    number: 1,
+    number: 2,
     label: "Company data collection",
     description: "Capture the company context for the rest of the application.",
     icon: Building2,
   },
   {
-    id: "resume-matching",
-    number: 2,
-    label: "Resume matching",
-    description: "Compare the opportunity with your strongest resume signals.",
-    icon: Sparkles,
-  },
-  {
     id: "resume-creation",
     number: 3,
     label: "Resume creation",
-    description: "Shape a focused resume around the role and the match findings.",
+    description: "Build a focused primary resume from your saved Career Profile.",
     icon: FilePenLine,
   },
   {
@@ -103,13 +95,6 @@ const JOB_FLOW_STEPS: JobFlowStep[] = [
     icon: Mail,
   },
 ]
-
-const WORKFLOW_SCAFFOLD_SECTIONS: Record<Exclude<JobFlowStepId, "description">, string[]> = {
-  "company-data": ["Company profile", "Team and leadership", "Signals and context"],
-  "resume-matching": ["Match summary", "Strongest evidence", "Potential gaps"],
-  "resume-creation": ["Resume direction", "Tailored sections", "Final polish"],
-  "cover-letter": ["Letter outline", "Draft workspace", "Final review"],
-}
 
 export function JobWorkspace({
   job,
@@ -148,6 +133,27 @@ export function JobWorkspace({
     if (!job.description || !navigator.clipboard?.writeText) return
     await navigator.clipboard.writeText(job.description)
     setCopied(true)
+  }
+
+  if (activeStep.id === "resume-creation") {
+    return (
+      <ResumeCreationWorkspace
+        job={job}
+        onJobChange={onJobChange}
+        onEditorChange={onDocumentViewerChange}
+        onBackToJob={() => selectStep("description")}
+      />
+    )
+  }
+
+  if (activeStep.id === "cover-letter") {
+    return (
+      <CoverLetterCreationWorkspace
+        job={job}
+        onEditorChange={onDocumentViewerChange}
+        onBackToJob={() => selectStep("description")}
+      />
+    )
   }
 
   return (
@@ -306,11 +312,11 @@ export function JobWorkspace({
                 <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
                   <span>Progress</span>
                   <span className="font-medium tabular-nums text-foreground">
-                    {activeStep.number} / {JOB_FLOW_STEPS.length - 1}
+                    {activeStep.number} / {JOB_FLOW_STEPS.length}
                   </span>
                 </div>
                 <Progress
-                  value={(activeStepIndex / (JOB_FLOW_STEPS.length - 1)) * 100}
+                  value={((activeStepIndex + 1) / JOB_FLOW_STEPS.length) * 100}
                   className="h-1.5"
                 />
                 <div className="rounded-lg border bg-muted/20 px-3.5 py-3">
@@ -362,7 +368,7 @@ export function JobWorkspace({
           <div className="min-w-0 space-y-5">
             <section aria-labelledby="active-step-title" className="space-y-1">
               <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Step {activeStep.number} of {JOB_FLOW_STEPS.length - 1}
+                Step {activeStep.number} of {JOB_FLOW_STEPS.length}
               </p>
               <h2 id="active-step-title" className="text-2xl font-semibold tracking-tight">
                 {activeStep.label}
@@ -412,17 +418,7 @@ export function JobWorkspace({
               </>
             ) : activeStep.id === "company-data" ? (
               <CompanyResearchWorkspace job={job} />
-            ) : activeStep.id === "resume-matching" ? (
-              <ResumeMatchingWorkspace job={job} onJobChange={onJobChange} />
-            ) : activeStep.id === "resume-creation" ? (
-              <ResumeCreationWorkspace
-                job={job}
-                onEditorChange={onDocumentViewerChange}
-                onBackToJob={() => selectStep("description")}
-              />
-            ) : (
-              <WorkflowScaffoldCard step={activeStep} />
-            )}
+            ) : null}
 
             <div className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -452,52 +448,6 @@ export function JobWorkspace({
         </div>
       </div>
     </main>
-  )
-}
-
-function WorkflowScaffoldCard({ step }: { step: JobFlowStep }) {
-  const StepIcon = step.icon
-  const scaffoldSections =
-    step.id === "description" ? [] : WORKFLOW_SCAFFOLD_SECTIONS[step.id]
-
-  return (
-    <Card>
-      <CardHeader className="border-b">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <StepIcon className="size-4 text-muted-foreground" />
-          {step.label}
-        </CardTitle>
-        <CardDescription>
-          This stage is laid out and ready for its product workflow to be added.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pt-6">
-        <div className="flex min-h-[18rem] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-6 py-12 text-center">
-          <div className="flex size-11 items-center justify-center rounded-xl border bg-background">
-            <StepIcon className="size-5 text-muted-foreground" />
-          </div>
-          <Badge variant="secondary" className="mt-4 font-normal">
-            Scaffolded step
-          </Badge>
-          <h3 className="mt-3 text-base font-medium">{step.label} will live here</h3>
-          <p className="mt-1.5 max-w-md text-sm leading-6 text-muted-foreground">
-            The structure is ready for the controls, data, and guidance that will make this step
-            useful.
-          </p>
-          <div className="mt-8 grid w-full max-w-2xl gap-3 sm:grid-cols-3">
-            {scaffoldSections.map((section) => (
-              <div key={section} className="rounded-lg border bg-background px-3.5 py-3 text-left">
-                <div className="flex items-center gap-2">
-                  <span className="size-2 rounded-full bg-muted-foreground/40" />
-                  <p className="text-sm font-medium">{section}</p>
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">Coming in a later pass</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   )
 }
 

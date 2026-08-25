@@ -5,6 +5,7 @@ import sampleCoverLetter from "../../public/sample-cover-letter.json"
 import { createEmptyCoverLetter } from "@/lib/cover-letter-defaults"
 import type { CoverLetterData, CoverLetterFile } from "@/lib/cover-letter-types"
 import { normalizeAndValidateCoverLetter } from "@/lib/cover-letter-validation"
+import type { TheirStackJob } from "@/lib/theirstack"
 
 export async function loadCoverLetters(): Promise<CoverLetterFile[]> {
   try {
@@ -39,15 +40,54 @@ export async function createCoverLetter(name: string): Promise<CoverLetterFile> 
   }
 }
 
-export async function saveCoverLetter(file: CoverLetterFile, data: CoverLetterData): Promise<CoverLetterFile> {
+export async function loadOrCreateJobCoverLetter(job: TheirStackJob): Promise<CoverLetterFile> {
+  try {
+    return normalizeCoverLetterFile(await invoke<unknown>("load_or_create_job_cover_letter", { jobId: job.id }))
+  } catch (reason) {
+    // The browser preview has no Tauri command bridge. Keep the job workflow
+    // usable there with the same job-aware document shape used on desktop.
+    if (!("__TAURI_INTERNALS__" in window)) return createJobCoverLetterPreview(job)
+    throw reason
+  }
+}
+
+export async function hasDraftedJobCoverLetter(jobId: number): Promise<boolean> {
+  try {
+    return await invoke<boolean>("job_cover_letter_is_drafted", { jobId })
+  } catch {
+    return false
+  }
+}
+
+export async function saveCoverLetter(
+  file: CoverLetterFile,
+  data: CoverLetterData,
+  options?: { jobId?: number },
+): Promise<CoverLetterFile> {
   const normalized = normalizeAndValidateCoverLetter(data)
   try {
-    return normalizeCoverLetterFile(await invoke<unknown>("save_cover_letter", { path: file.path, data: normalized }))
+    const value = options?.jobId === undefined
+      ? await invoke<unknown>("save_cover_letter", { path: file.path, data: normalized })
+      : await invoke<unknown>("save_job_cover_letter", { jobId: options.jobId, data: normalized })
+    return normalizeCoverLetterFile(value)
   } catch (reason) {
     if (file.path === "Preview sample" || file.path === "Local preview") {
       return { ...file, data: normalized, updatedAt: Math.floor(Date.now() / 1000) }
     }
     throw reason
+  }
+}
+
+function createJobCoverLetterPreview(job: TheirStackJob): CoverLetterFile {
+  const data = createEmptyCoverLetter()
+  data.recipient.company = job.company?.trim() || ""
+  data.position.title = job.jobTitle
+  return {
+    id: `job-cover-letter-${job.id}`,
+    fileName: "cover-letter.json",
+    path: "Local preview",
+    updatedAt: 0,
+    data,
   }
 }
 

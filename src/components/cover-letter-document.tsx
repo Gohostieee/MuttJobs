@@ -177,6 +177,12 @@ export function CoverLetterDocument({
   } : undefined
 
   const contact = [letter.applicant.email, letter.applicant.phone].filter(Boolean).join(" · ")
+  const hasRecipientDetails = Boolean(
+    letter.recipient.name
+    || letter.recipient.title
+    || letter.recipient.company
+    || addressLines(letter.recipient.address).length,
+  )
 
   return (
     <article
@@ -257,12 +263,14 @@ export function CoverLetterDocument({
         <EditableText context={context} path={["metadata", "date"]} value={letter.metadata.date} placeholder="Date" />
       </div>
 
-      <section className="cover-letter-recipient" id="cover-letter-recipient">
-        <EditableText context={context} path={["recipient", "name"]} value={letter.recipient.name || ""} placeholder="Hiring manager name" />
-        <EditableText context={context} path={["recipient", "title"]} value={letter.recipient.title || ""} placeholder="Hiring manager title" />
-        <EditableText context={context} path={["recipient", "company"]} value={letter.recipient.company} placeholder="Company" />
-        <EditableAddress context={context} prefix={["recipient", "address"]} address={letter.recipient.address} label="Recipient address" />
-      </section>
+      {context || hasRecipientDetails ? (
+        <section className="cover-letter-recipient" id="cover-letter-recipient">
+          <EditableText context={context} path={["recipient", "name"]} value={letter.recipient.name || ""} placeholder="Hiring manager name" />
+          <EditableText context={context} path={["recipient", "title"]} value={letter.recipient.title || ""} placeholder="Hiring manager title" />
+          <EditableText context={context} path={["recipient", "company"]} value={letter.recipient.company} placeholder="Company" />
+          <EditableAddress context={context} prefix={["recipient", "address"]} address={letter.recipient.address} label="Recipient address" />
+        </section>
+      ) : null}
 
       <section className="cover-letter-content" id="cover-letter-content">
         <EditableText context={context} path={["recipient", "salutation"]} value={letter.recipient.salutation || ""} as="p" className="cover-letter-salutation" placeholder="Dear Hiring Manager:" />

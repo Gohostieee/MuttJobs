@@ -48,6 +48,7 @@ type ResumeDocumentProps = {
   resume: ResumeData
   compact?: boolean
   showPageGuides?: boolean
+  renderPageSurfaces?: boolean
   paginate?: boolean
   onChange?: (resume: ResumeData, meta?: ResumeChangeMeta) => void
   onEditStart?: (key: string) => void
@@ -234,6 +235,7 @@ export const ResumeDocument = memo(function ResumeDocument({
   resume,
   compact = false,
   showPageGuides,
+  renderPageSurfaces = true,
   paginate = true,
   onChange,
   onEditStart,
@@ -395,7 +397,7 @@ export const ResumeDocument = memo(function ResumeDocument({
       lang={page.locale}
       style={style}
     >
-      {pageHeight && !compact && paginate ? (
+      {pageHeight && !compact && paginate && renderPageSurfaces ? (
         <div className="resume-page-guides resume-page-surfaces" aria-hidden="true">
           {Array.from({ length: pageCount }, (_, index) => (
             <div

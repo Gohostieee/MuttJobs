@@ -73,7 +73,7 @@ export function normalizeCoverLetter(input: unknown): CoverLetterData {
 }
 
 function createCoverLetterPage() {
-  return { format: "letter" as const, marginX: 25.4, marginY: 25.4 }
+  return { format: "letter" as const, marginX: 25.4, marginY: 15 }
 }
 
 function normalizeCoverLetterPage(source: UnknownRecord): CoverLetterPage {

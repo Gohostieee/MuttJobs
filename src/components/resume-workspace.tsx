@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type WheelEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent } from "react"
 import { open, save } from "@tauri-apps/plugin-dialog"
 import { openPath } from "@tauri-apps/plugin-opener"
 import {
@@ -524,7 +524,9 @@ type ResumeViewerProps = {
   onBack: (file: ResumeFile) => void
   targetJobId?: number
   backLabel?: string
-  fullScreen?: boolean
+  rebuildLabel?: string
+  rebuildSelection?: ReactNode
+  onRebuild?: () => Promise<ResumeFile | null>
 }
 
 export function ResumeViewer({
@@ -532,7 +534,9 @@ export function ResumeViewer({
   onBack,
   targetJobId,
   backLabel = "Back to resume library",
-  fullScreen = false,
+  rebuildLabel = "Rebuild",
+  rebuildSelection,
+  onRebuild,
 }: ResumeViewerProps) {
   const [currentFile, setCurrentFile] = useState(file)
   const [zoom, setZoom] = useState(0.78)
@@ -547,6 +551,8 @@ export function ResumeViewer({
   const [saveError, setSaveError] = useState("")
   const [exportState, setExportState] = useState<"idle" | "exporting" | "exported" | "error">("idle")
   const [exportError, setExportError] = useState("")
+  const [isRebuilding, setIsRebuilding] = useState(false)
+  const [rebuildError, setRebuildError] = useState("")
   const [activeTextSelection, setActiveTextSelection] = useState<ResumeTextSelection | null>(null)
   const [selectionActionRequest, setSelectionActionRequest] = useState<ResumeSelectionActionRequest | null>(null)
   const [selectionResetKey, setSelectionResetKey] = useState(0)
@@ -988,6 +994,36 @@ export function ResumeViewer({
     }
   }, [flushPendingSave, onBack])
 
+  const handleRebuild = useCallback(async () => {
+    if (!onRebuild || isRebuilding) return
+    commitTextEdit()
+    setIsRebuilding(true)
+    setRebuildError("")
+    try {
+      await flushPendingSave()
+      const rebuilt = await onRebuild()
+      if (!rebuilt) return
+      revisionRef.current += 1
+      persistedRevisionRef.current = revisionRef.current
+      queuedSaveRevisionRef.current = revisionRef.current
+      latestFileRef.current = rebuilt
+      undoStackRef.current = []
+      redoStackRef.current = []
+      textEditRef.current = null
+      setCurrentFile(rebuilt)
+      setActiveTextSelection(null)
+      setSelectionResetKey((version) => version + 1)
+      setDocumentRevision((revision) => revision + 1)
+      setSaveState("saved")
+      setSaveError("")
+      refreshHistoryControls()
+    } catch (reason) {
+      setRebuildError(reason instanceof Error ? reason.message : "Could not rebuild this resume from the Career Profile.")
+    } finally {
+      setIsRebuilding(false)
+    }
+  }, [commitTextEdit, flushPendingSave, isRebuilding, onRebuild, refreshHistoryControls])
+
   const handleExport = useCallback(async () => {
     if (exportState === "exporting") return
     commitTextEdit()
@@ -1072,7 +1108,7 @@ export function ResumeViewer({
   } as CSSProperties
 
   return (
-    <main className={`resume-viewer ${fullScreen ? "fixed inset-0 z-50" : ""} ${aiSidebarOpen ? "has-ai-sidebar" : "is-ai-sidebar-collapsed"} ${sectionsSidebarOpen ? "has-sections-sidebar" : "is-sections-sidebar-collapsed"} ${isAiSidebarResizing ? "is-ai-sidebar-resizing" : ""} ${isSectionsSidebarResizing ? "is-sections-sidebar-resizing" : ""}`.trim()} style={viewerStyle}>
+    <main className={`resume-viewer ${aiSidebarOpen ? "has-ai-sidebar" : "is-ai-sidebar-collapsed"} ${sectionsSidebarOpen ? "has-sections-sidebar" : "is-sections-sidebar-collapsed"} ${isAiSidebarResizing ? "is-ai-sidebar-resizing" : ""} ${isSectionsSidebarResizing ? "is-sections-sidebar-resizing" : ""}`.trim()} style={viewerStyle}>
       <header className="resume-viewer-header">
         <Button variant="ghost" size="icon" onClick={() => void handleBack()} aria-label={backLabel}><ArrowLeft /></Button>
         {!aiSidebarOpen ? (
@@ -1092,6 +1128,22 @@ export function ResumeViewer({
         ) : null}
         <div className="resume-viewer-title"><h1>{name}</h1><p>{currentFile.fileName}</p></div>
         <div className="resume-viewer-actions">
+          {onRebuild ? (
+            <>
+              {rebuildSelection}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void handleRebuild()}
+                disabled={isRebuilding}
+                title={rebuildError || `${rebuildLabel} using the latest saved Career Profile`}
+              >
+                {isRebuilding ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
+                {isRebuilding ? "Rebuilding..." : rebuildLabel}
+              </Button>
+            </>
+          ) : null}
           <div className={`resume-save-state is-${saveState}`} role="status" aria-live="polite" title={saveError || undefined}>
             {saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Saved"}
           </div>
@@ -1255,7 +1307,7 @@ export function ResumeViewer({
         ) : null}
       </div>
       <div className="resume-export-root" aria-hidden="true">
-        <ResumeDocument resume={currentFile.data} showPageGuides={false} />
+        <ResumeDocument resume={currentFile.data} showPageGuides={false} renderPageSurfaces={false} />
       </div>
       {exportError ? <p id="resume-export-status" className="resume-export-error" role="alert">{exportError}</p> : null}
       <div className="resume-zoom-controls" role="toolbar" aria-label="Resume zoom controls">

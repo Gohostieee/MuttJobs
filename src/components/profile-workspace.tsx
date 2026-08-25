@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { open as openDialog } from "@tauri-apps/plugin-dialog"
 import {
   Briefcase,
   Check,
   CircleAlert,
+  FileUp,
   FileText,
   Heart,
   Link2,
+  LoaderCircle,
   Plus,
   Sparkles,
   Target,
@@ -14,6 +17,10 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
+import {
+  DEFAULT_RESUME_AI_SELECTION,
+  ModelReasoningSelector,
+} from "@/components/resume-ai-sidebar"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -26,6 +33,14 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
@@ -44,6 +59,7 @@ import {
   type ProfileContext,
   type ProfileDocument,
 } from "@/lib/profile-storage"
+import { importProfileFromResumePdf } from "@/lib/profile-import"
 
 type ProfileUpdater = (update: (profile: ProfileDocument) => ProfileDocument) => void
 type ProfileSectionKey = keyof Sections
@@ -251,6 +267,12 @@ export function ProfileWorkspace() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState("")
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved")
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [importPdfPath, setImportPdfPath] = useState("")
+  const [importSelection, setImportSelection] = useState(DEFAULT_RESUME_AI_SELECTION)
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState("")
+  const [importNotice, setImportNotice] = useState("")
   const profileRef = useRef<ProfileDocument | null>(null)
   const saveVersion = useRef(0)
 
@@ -300,6 +322,56 @@ export function ProfileWorkspace() {
       })
   }, [])
 
+  function openImportDialog() {
+    setImportPdfPath("")
+    setImportError("")
+    setImportDialogOpen(true)
+  }
+
+  async function chooseResumePdf() {
+    setImportError("")
+    try {
+      const selectedPath = await openDialog({
+        multiple: false,
+        directory: false,
+        filters: [{ name: "PDF resume", extensions: ["pdf"] }],
+      })
+      if (typeof selectedPath === "string") setImportPdfPath(selectedPath)
+    } catch (reason) {
+      setImportError(reason instanceof Error ? reason.message : "Could not choose a PDF resume.")
+    }
+  }
+
+  async function importResumeIntoProfile() {
+    const current = profileRef.current
+    if (!current || !importPdfPath || importing) return
+
+    let savingImportedProfile = false
+    setImporting(true)
+    setImportError("")
+    setImportNotice("")
+    try {
+      const result = await importProfileFromResumePdf(importPdfPath, current, importSelection)
+      const version = ++saveVersion.current
+      savingImportedProfile = true
+      setSaveState("saving")
+      const saved = await saveProfile(result.profile)
+      if (version === saveVersion.current) {
+        profileRef.current = saved
+        setProfile(saved)
+        setSaveState("saved")
+      }
+      setImportNotice(`Imported ${getFileName(importPdfPath)} into your Profile.`)
+      setImportDialogOpen(false)
+      setImportPdfPath("")
+    } catch (reason) {
+      setImportError(reason instanceof Error ? reason.message : "The resume could not be imported into your Profile.")
+      if (savingImportedProfile) setSaveState("error")
+    } finally {
+      setImporting(false)
+    }
+  }
+
   if (loading || !profile) return <ProfileLoading />
 
   const itemCount = SECTION_CONFIGS.reduce((count, config) => {
@@ -313,7 +385,10 @@ export function ProfileWorkspace() {
         <SidebarTrigger className="md:hidden" aria-label="Open sidebar" />
         <UserRound className="size-4 text-muted-foreground" />
         <span className="text-sm font-medium">Profile</span>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
+          <Button type="button" variant="outline" size="sm" onClick={openImportDialog}>
+            <FileUp /> Import resume
+          </Button>
           <SaveStatus state={saveState} />
         </div>
       </header>
@@ -350,6 +425,13 @@ export function ProfileWorkspace() {
             </div>
           ) : null}
 
+          {importNotice ? (
+            <div className="flex items-center gap-2 rounded-lg border border-status-success/40 bg-status-success/10 px-3 py-2 text-sm text-muted-foreground" role="status">
+              <Check className="size-4 text-status-success" />
+              <span>{importNotice} Profile-only preferences and presentation settings were preserved.</span>
+            </div>
+          ) : null}
+
           <BasicsEditor profile={profile} onUpdate={updateProfile} />
           <ContextEditor profile={profile} onUpdate={updateProfile} />
           <SummaryEditor profile={profile} onUpdate={updateProfile} />
@@ -369,8 +451,67 @@ export function ProfileWorkspace() {
           <MetadataEditor profile={profile} onUpdate={updateProfile} />
         </div>
       </div>
+
+      <Dialog
+        open={importDialogOpen}
+        onOpenChange={(open) => {
+          if (!importing) setImportDialogOpen(open)
+        }}
+      >
+        <DialogContent className="resume-create-dialog">
+          <form
+            className="grid min-w-0 gap-4"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void importResumeIntoProfile()
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Import a resume into Profile</DialogTitle>
+              <DialogDescription>
+                The agent will losslessly replace resume-backed Profile fields with facts from the PDF. Company-fit, culture, compensation, and presentation preferences stay intact.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="resume-import-selector grid min-w-0 gap-2">
+              <Label>Model and reasoning</Label>
+              <ModelReasoningSelector
+                value={importSelection}
+                onChange={setImportSelection}
+                disabled={importing}
+              />
+            </div>
+
+            <div className="grid min-w-0 gap-2">
+              <Label>PDF resume</Label>
+              <div className="flex min-w-0 items-center gap-2">
+                <Button type="button" variant="outline" onClick={() => void chooseResumePdf()} disabled={importing}>
+                  <FileUp /> Choose PDF
+                </Button>
+                <span className="min-w-0 truncate text-sm text-muted-foreground" title={importPdfPath || undefined}>
+                  {importPdfPath ? getFileName(importPdfPath) : "No PDF selected"}
+                </span>
+              </div>
+              {importError ? <p className="text-sm text-destructive" role="alert">{importError}</p> : null}
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setImportDialogOpen(false)} disabled={importing}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={importing || !importPdfPath}>
+                {importing ? <><LoaderCircle className="animate-spin" /> Importing profile...</> : <><FileUp /> Import into Profile</>}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </section>
   )
+}
+
+function getFileName(path: string) {
+  return path.split(/[\\/]/).pop() || path
 }
 
 function ProfileLoading() {

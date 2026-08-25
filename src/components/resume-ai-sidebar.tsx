@@ -214,6 +214,7 @@ export function ResumeAiSidebar<T = ResumeData>({
     }
     return null
   }, [messages, selection.provider])
+  const jobPrimaryResume = targetJob?.primaryResume ?? null
 
   const refreshSavedJobs = useCallback(async () => {
     setSavedJobsLoading(true)
@@ -632,6 +633,17 @@ export function ResumeAiSidebar<T = ResumeData>({
             >
               <X aria-hidden="true" />
             </Button>
+          </div>
+        ) : null}
+        {enableResumeTargeting && !targetResume && jobPrimaryResume ? (
+          <div className="resume-ai-job-context resume-ai-resume-context" role="status" aria-label={`Using the job primary resume, ${jobPrimaryResume.sourceFileName}, as resume context`}>
+            <div className="resume-ai-job-context-copy resume-ai-resume-context-copy">
+              <FileText aria-hidden="true" />
+              <span className="resume-ai-job-context-label">Resume context</span>
+              <span className="resume-ai-job-context-value" title={`Job primary resume · ${jobPrimaryResume.sourceFileName}`}>
+                Job primary resume <span>· {jobPrimaryResume.sourceFileName}</span>
+              </span>
+            </div>
           </div>
         ) : null}
         {enableJobTargeting && targetJob ? (

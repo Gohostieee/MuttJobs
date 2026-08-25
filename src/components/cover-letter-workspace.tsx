@@ -176,7 +176,19 @@ function CoverLetterCard({ file, onOpen }: { file: CoverLetterFile; onOpen: () =
   )
 }
 
-function CoverLetterViewer({ file, onBack }: { file: CoverLetterFile; onBack: (file: CoverLetterFile) => void }) {
+type CoverLetterViewerProps = {
+  file: CoverLetterFile
+  onBack: (file: CoverLetterFile) => void
+  targetJobId?: number
+  backLabel?: string
+}
+
+export function CoverLetterViewer({
+  file,
+  onBack,
+  targetJobId,
+  backLabel = "Back to cover letter library",
+}: CoverLetterViewerProps) {
   const [currentFile, setCurrentFile] = useState(file)
   const [zoom, setZoom] = useState(0.78)
   const [showPageGuides, setShowPageGuides] = useState(false)
@@ -218,7 +230,11 @@ function CoverLetterViewer({ file, onBack }: { file: CoverLetterFile; onBack: (f
   const enqueueSave = useCallback((snapshot: CoverLetterFile, revision: number) => {
     const task = saveQueueRef.current.then(async () => {
       try {
-        const saved = await saveCoverLetter(snapshot, snapshot.data)
+        const saved = await saveCoverLetter(
+          snapshot,
+          snapshot.data,
+          targetJobId === undefined ? undefined : { jobId: targetJobId },
+        )
         if (revisionRef.current === revision) {
           latestFileRef.current = saved
           setCurrentFile(saved)
@@ -236,7 +252,7 @@ function CoverLetterViewer({ file, onBack }: { file: CoverLetterFile; onBack: (f
     })
     saveQueueRef.current = task.catch(() => undefined)
     return task
-  }, [])
+  }, [targetJobId])
 
   const scheduleSave = useCallback(() => {
     if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
@@ -488,7 +504,7 @@ function CoverLetterViewer({ file, onBack }: { file: CoverLetterFile; onBack: (f
   return (
     <main className={`resume-viewer cover-letter-viewer ${aiSidebarOpen ? "has-ai-sidebar" : "is-ai-sidebar-collapsed"} ${inspectorOpen ? "has-sections-sidebar" : "is-sections-sidebar-collapsed"} ${isAiSidebarResizing ? "is-ai-sidebar-resizing" : ""} ${isInspectorResizing ? "is-sections-sidebar-resizing" : ""}`} style={viewerStyle}>
       <header className="resume-viewer-header">
-        <Button variant="ghost" size="icon" onClick={() => void handleBack()} aria-label="Back to cover letter library"><ArrowLeft /></Button>
+        <Button variant="ghost" size="icon" onClick={() => void handleBack()} aria-label={backLabel}><ArrowLeft /></Button>
         {!aiSidebarOpen ? <Button variant="ghost" size="sm" className="resume-ai-toggle" onClick={() => setAiSidebarOpen(true)}><PanelLeftOpen /><span>AI chat</span></Button> : null}
         <div className="resume-viewer-title"><h1>{name}</h1><p>{currentFile.fileName}</p></div>
         <div className="resume-viewer-actions">
@@ -532,6 +548,7 @@ function CoverLetterViewer({ file, onBack }: { file: CoverLetterFile; onBack: (f
           documentLabel="cover letter"
           enableJobTargeting
           enableResumeTargeting
+          targetJobId={targetJobId}
           suggestions={COVER_LETTER_AI_SUGGESTIONS}
           runJob={runCoverLetterAiJob}
           isOpen={aiSidebarOpen}
