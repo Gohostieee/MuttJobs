@@ -18,9 +18,10 @@ Require the job description text. If it is missing, too incomplete, or the targe
 3. Read [references/tailoring-rules.md](references/tailoring-rules.md).
 4. Build an internal requirement-to-evidence comparison before editing.
 5. Prefer the strongest supported evidence for required capabilities.
-6. Conservatively reorder emphasis and rephrase supported content.
-7. Save the same resume JSON only when every change is evidence-backed.
-8. Report the strategy, changed sections/items, retained gaps, and unsupported target terms not added.
+6. Conservatively reorder emphasis and rephrase supported content without removing any source fact.
+7. Compare the result to the source item by item and bullet by bullet; restore anything omitted or weakened.
+8. Save the same resume JSON only when every change is evidence-backed and every source fact remains represented.
+9. Report the strategy, changed sections/items, retained gaps, and unsupported target terms not added.
 
 ## Allowed changes
 
@@ -31,7 +32,8 @@ Require the job description text. If it is missing, too incomplete, or the targe
 
 ## Protected content
 
-- Preserve employers, positions, dates, role history, education, degrees, certifications, project identities, contact details, IDs, hidden states, unknown keys, and all design/layout metadata.
+- Preserve every source fact, section, item, bullet, skill, technology, responsibility, accomplishment, metric, qualifier, employer, position, date, role-history detail, education entry, degree, certification, project, contact detail, ID, hidden state, unknown key, and all design/layout metadata.
+- Do not delete or hide content, reduce bullet counts, or impose a one-page target. Concise rewriting may remove empty verbal padding or exact repetition only when no fact, nuance, scope, specificity, or attribution is lost.
 - Never add a technology, metric, ownership claim, leadership claim, team size, customer count, scale, reliability claim, revenue, cost, or outcome from the job description.
 - Preserve approximate evidence as approximate.
 - Preserve valid sanitized rich-text HTML and links.

@@ -56,6 +56,13 @@ struct ResumeImportJob {
     updated_at: String,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProfileResumeImportResult {
+    profile: Value,
+    response: String,
+}
+
 static RESUME_IMPORT_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 static ACTIVE_RESUME_IMPORTS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 
@@ -320,6 +327,211 @@ fn cover_letters_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(directory)
 }
 
+const JOB_FOCUSED_COVER_LETTER_FILE_NAME: &str = "cover-letter.json";
+
+fn job_focused_cover_letter_path(app: &AppHandle, job_id: i64) -> Result<PathBuf, String> {
+    if job_id <= 0 {
+        return Err("The job ID must be positive.".into());
+    }
+
+    let jobs_directory = providers::revealed_job_path(app, job_id)?
+        .parent()
+        .ok_or("The local jobs directory could not be determined.")?
+        .to_path_buf();
+    Ok(jobs_directory
+        .join(job_id.to_string())
+        .join(JOB_FOCUSED_COVER_LETTER_FILE_NAME))
+}
+
+fn load_job_document(app: &AppHandle, job_id: i64) -> Result<Value, String> {
+    let path = providers::revealed_job_path(app, job_id)?;
+    let content = fs::read_to_string(&path)
+        .map_err(|error| format!("The saved job could not be read: {error}"))?;
+    let job = serde_json::from_str::<Value>(&content)
+        .map_err(|error| format!("The saved job JSON is invalid: {error}"))?;
+    if job.get("id").and_then(Value::as_i64) != Some(job_id) {
+        return Err(format!(
+            "The saved job does not match the requested job ID {job_id}."
+        ));
+    }
+    Ok(job)
+}
+
+fn cover_letter_file_from_path(path: &Path) -> Result<ResumeFile, String> {
+    let content = fs::read_to_string(path)
+        .map_err(|error| format!("The job cover letter could not be read: {error}"))?;
+    let data = serde_json::from_str::<Value>(&content)
+        .map_err(|error| format!("The job cover letter is not valid JSON: {error}"))?;
+    if !data.is_object() {
+        return Err("The job cover letter must contain a JSON object.".into());
+    }
+
+    let path_string = path.to_string_lossy().to_string();
+    let file_name = path
+        .file_name()
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|| JOB_FOCUSED_COVER_LETTER_FILE_NAME.to_string());
+    let updated_at = fs::metadata(path)
+        .and_then(|metadata| metadata.modified())
+        .ok()
+        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+        .map_or(0, |duration| duration.as_secs());
+
+    Ok(ResumeFile {
+        id: path_string.clone(),
+        file_name,
+        path: path_string,
+        updated_at,
+        data,
+    })
+}
+
+fn is_job_cover_letter_path(app: &AppHandle, target: &Path, job_id: i64) -> Result<bool, String> {
+    let expected = fs::canonicalize(job_focused_cover_letter_path(app, job_id)?)
+        .map_err(|error| format!("The job cover letter could not be resolved: {error}"))?;
+    Ok(expected == target)
+}
+
+#[tauri::command]
+fn load_or_create_job_cover_letter(app: AppHandle, job_id: i64) -> Result<ResumeFile, String> {
+    let job = load_job_document(&app, job_id)?;
+    let path = job_focused_cover_letter_path(&app, job_id)?;
+    if path.is_file() {
+        return cover_letter_file_from_path(&path);
+    }
+
+    let directory = path
+        .parent()
+        .ok_or("The job cover letter directory could not be determined.")?;
+    fs::create_dir_all(directory)
+        .map_err(|error| format!("The job cover letter directory could not be created: {error}"))?;
+
+    let mut data: Value =
+        serde_json::from_str(include_str!("../../public/empty-cover-letter.json"))
+            .map_err(|error| error.to_string())?;
+    if let Some(company) = job
+        .get("company")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+    {
+        data["recipient"]["company"] = Value::String(company.trim().to_string());
+    }
+    if let Some(title) = job
+        .get("jobTitle")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+    {
+        data["position"]["title"] = Value::String(title.trim().to_string());
+    }
+
+    let primary_resume_path = directory.join("primary-resume.json");
+    if let Ok(resume_content) = fs::read_to_string(primary_resume_path) {
+        if let Ok(resume) = serde_json::from_str::<Value>(&resume_content) {
+            if let Some(basics) = resume.get("basics").and_then(Value::as_object) {
+                if let Some(name) = basics
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .filter(|value| !value.trim().is_empty())
+                {
+                    let name = Value::String(name.trim().to_string());
+                    data["applicant"]["name"] = name.clone();
+                    data["closing"]["name"] = name;
+                }
+                for key in ["email", "phone"] {
+                    if let Some(value) = basics
+                        .get(key)
+                        .and_then(Value::as_str)
+                        .filter(|value| !value.trim().is_empty())
+                    {
+                        data["applicant"][key] = Value::String(value.trim().to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    let content = serde_json::to_string_pretty(&data)
+        .map_err(|error| format!("The job cover letter could not be serialized: {error}"))?;
+    fs::write(&path, format!("{content}\n"))
+        .map_err(|error| format!("The job cover letter could not be saved: {error}"))?;
+    cover_letter_file_from_path(&path)
+}
+
+fn cover_letter_has_draft(data: &Value) -> bool {
+    let content = match data.get("content").and_then(Value::as_object) {
+        Some(content) => content,
+        None => return false,
+    };
+    let has_text = |value: Option<&Value>| {
+        value
+            .and_then(Value::as_str)
+            .is_some_and(|text| !text.trim().is_empty())
+    };
+
+    has_text(content.get("opening"))
+        || content
+            .get("body")
+            .and_then(Value::as_array)
+            .is_some_and(|body| body.iter().any(|paragraph| has_text(Some(paragraph))))
+        || has_text(content.get("closingParagraph"))
+}
+
+#[cfg(test)]
+mod cover_letter_draft_tests {
+    use super::cover_letter_has_draft;
+
+    #[test]
+    fn empty_cover_letter_scaffold_is_not_a_draft() {
+        let data = serde_json::json!({
+            "content": { "opening": "", "body": ["  "], "closingParagraph": "" }
+        });
+        assert!(!cover_letter_has_draft(&data));
+    }
+
+    #[test]
+    fn substantive_cover_letter_content_is_a_draft() {
+        let data = serde_json::json!({
+            "content": { "opening": "I am applying for this role.", "body": [""], "closingParagraph": "" }
+        });
+        assert!(cover_letter_has_draft(&data));
+    }
+}
+
+#[tauri::command]
+fn job_cover_letter_is_drafted(app: AppHandle, job_id: i64) -> Result<bool, String> {
+    let path = job_focused_cover_letter_path(&app, job_id)?;
+    if !path.is_file() {
+        return Ok(false);
+    }
+    let content = fs::read_to_string(&path)
+        .map_err(|error| format!("The job cover letter could not be read: {error}"))?;
+    let data = serde_json::from_str::<Value>(&content)
+        .map_err(|error| format!("The job cover letter is not valid JSON: {error}"))?;
+    Ok(cover_letter_has_draft(&data))
+}
+
+#[tauri::command]
+fn save_job_cover_letter(app: AppHandle, job_id: i64, data: Value) -> Result<ResumeFile, String> {
+    if !data.is_object() {
+        return Err("The job cover letter must contain a JSON object.".into());
+    }
+
+    let _job = load_job_document(&app, job_id)?;
+    let path = job_focused_cover_letter_path(&app, job_id)?;
+    if !path.is_file() {
+        return Err(
+            "The job cover letter is unavailable. Reopen the cover letter step to create it."
+                .into(),
+        );
+    }
+
+    let content = serde_json::to_string_pretty(&data)
+        .map_err(|error| format!("The job cover letter could not be serialized: {error}"))?;
+    fs::write(&path, format!("{content}\n"))
+        .map_err(|error| format!("The job cover letter could not be saved: {error}"))?;
+    cover_letter_file_from_path(&path)
+}
+
 #[tauri::command]
 fn get_resumes_directory(app: AppHandle) -> Result<String, String> {
     Ok(resumes_dir(&app)?.to_string_lossy().to_string())
@@ -557,6 +769,123 @@ fn create_resume_from_pdf_blocking(
         updated_at,
         data,
     })
+}
+
+#[tauri::command]
+async fn import_profile_from_resume_pdf(
+    app: AppHandle,
+    pdf_path: String,
+    profile: Value,
+    provider: Option<String>,
+    model: Option<String>,
+    effort: Option<String>,
+) -> Result<ProfileResumeImportResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        import_profile_from_resume_pdf_blocking(&app, &pdf_path, profile, provider, model, effort)
+    })
+    .await
+    .map_err(|error| format!("The Career Profile import task could not finish: {error}"))?
+}
+
+fn import_profile_from_resume_pdf_blocking(
+    app: &AppHandle,
+    pdf_path: &str,
+    profile: Value,
+    provider: Option<String>,
+    model: Option<String>,
+    effort: Option<String>,
+) -> Result<ProfileResumeImportResult, String> {
+    const MAX_IMPORT_BYTES: u64 = 25 * 1024 * 1024;
+    const PROFILE_ROOT_KEYS: [&str; 7] = [
+        "picture",
+        "basics",
+        "summary",
+        "sections",
+        "customSections",
+        "metadata",
+        "profile",
+    ];
+
+    let profile_object = profile
+        .as_object()
+        .ok_or("The current Career Profile must be a JSON object.")?;
+    if !PROFILE_ROOT_KEYS
+        .iter()
+        .all(|key| profile_object.contains_key(*key))
+        || !profile_object.get("profile").is_some_and(Value::is_object)
+    {
+        return Err("The current Career Profile does not match the required profile shape.".into());
+    }
+    let preserved_profile = profile["profile"].clone();
+    let preserved_picture = profile["picture"].clone();
+    let preserved_metadata = profile["metadata"].clone();
+
+    let source = fs::canonicalize(pdf_path)
+        .map_err(|error| format!("The selected PDF could not be opened: {error}"))?;
+    if !source.is_file()
+        || !source
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"))
+    {
+        return Err("Choose a PDF resume to import.".into());
+    }
+    let source_size = fs::metadata(&source)
+        .map_err(|error| format!("The selected PDF could not be inspected: {error}"))?
+        .len();
+    if source_size > MAX_IMPORT_BYTES {
+        return Err("That PDF is larger than 25 MB. Choose a smaller resume PDF.".into());
+    }
+
+    let provider_id = provider.unwrap_or_else(|| "codex".into());
+    if !matches!(provider_id.as_str(), "codex" | "claude-code") {
+        return Err("Choose a supported agent provider.".into());
+    }
+    let import_root = resume_import_directory(app)?;
+    let workspace = import_root.join(format!("profile-import-{}", import_nonce()));
+    fs::create_dir_all(&workspace).map_err(|error| {
+        format!("The Career Profile import workspace could not be created: {error}")
+    })?;
+
+    let target = workspace.join("profile.json");
+    let staged_pdf = workspace.join("resume.pdf");
+    let result = (|| {
+        let content = serde_json::to_string_pretty(&profile)
+            .map_err(|error| format!("The Career Profile could not be serialized: {error}"))?;
+        fs::write(&target, format!("{content}\n")).map_err(|error| {
+            format!("The Career Profile import target could not be prepared: {error}")
+        })?;
+        fs::copy(&source, &staged_pdf)
+            .map_err(|error| format!("The selected PDF could not be staged for import: {error}"))?;
+
+        let (imported, response, _changed) = providers::run_profile_pdf_import_with_options(
+            app,
+            &target,
+            &staged_pdf,
+            &provider_id,
+            clean_import_option(model),
+            clean_import_option(effort),
+        )?;
+        if imported.get("profile") != Some(&preserved_profile)
+            || imported.get("picture") != Some(&preserved_picture)
+            || imported.get("metadata") != Some(&preserved_metadata)
+        {
+            return Err(
+                "The agent changed protected Career Profile preferences or presentation settings; the import was discarded."
+                    .into(),
+            );
+        }
+        if !has_imported_resume_content(&imported) {
+            return Err("The agent did not find usable resume content in that PDF.".into());
+        }
+
+        Ok(ProfileResumeImportResult {
+            profile: imported,
+            response,
+        })
+    })();
+
+    let _ = fs::remove_dir_all(&workspace);
+    result
 }
 
 #[tauri::command]
@@ -1077,7 +1406,9 @@ async fn run_resume_ai_job(
         false
     } else {
         target_job_id
-            .map(|job_id| providers::resume_matching::is_job_primary_resume_path(&app, &target, job_id))
+            .map(|job_id| {
+                providers::resume_matching::is_job_primary_resume_path(&app, &target, job_id)
+            })
             .transpose()?
             .unwrap_or(false)
     };
@@ -1141,13 +1472,22 @@ async fn run_cover_letter_ai_job(
     let directory =
         fs::canonicalize(cover_letters_dir(&app)?).map_err(|error| error.to_string())?;
     let target = fs::canonicalize(PathBuf::from(&path)).map_err(|error| error.to_string())?;
-    if target.parent() != Some(directory.as_path())
+    let is_library_cover_letter = target.parent() == Some(directory.as_path());
+    let is_job_cover_letter = if is_library_cover_letter {
+        false
+    } else {
+        target_job_id
+            .map(|job_id| is_job_cover_letter_path(&app, &target, job_id))
+            .transpose()?
+            .unwrap_or(false)
+    };
+    if (!is_library_cover_letter && !is_job_cover_letter)
         || !target
             .extension()
             .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
     {
         return Err(
-            "Cover letter AI can only edit JSON files inside the cover letters directory.".into(),
+            "Cover letter AI can only edit JSON files inside the cover letter library or the selected job's cover letter.".into(),
         );
     }
 
@@ -1267,14 +1607,19 @@ pub fn run() {
             get_cover_letters_directory,
             create_resume,
             create_resume_from_pdf,
+            import_profile_from_resume_pdf,
             list_resume_import_jobs,
             start_resume_pdf_import,
             create_cover_letter,
+            load_or_create_job_cover_letter,
+            job_cover_letter_is_drafted,
             save_resume,
             providers::resume_matching::load_job_primary_resume,
             providers::resume_matching::save_job_primary_resume,
+            providers::profile_resume::generate_primary_resume_from_profile,
             export_resume_pdf,
             save_cover_letter,
+            save_job_cover_letter,
             data_backup::export_data_backup,
             data_backup::inspect_data_backup,
             data_backup::begin_data_import,

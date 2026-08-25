@@ -297,7 +297,7 @@ pub fn set_primary_resume_for_job(
     Ok(metadata)
 }
 
-fn job_focused_resume_path(app: &AppHandle, job_id: i64) -> Result<PathBuf, String> {
+pub(crate) fn job_focused_resume_path(app: &AppHandle, job_id: i64) -> Result<PathBuf, String> {
     let jobs_directory = super::revealed_job_path(app, job_id)?
         .parent()
         .ok_or("The local jobs directory could not be determined.")?
@@ -344,6 +344,35 @@ pub(crate) fn is_job_primary_resume_path(
     Ok(expected == target)
 }
 
+pub(crate) fn load_job_primary_resume_context(
+    app: &AppHandle,
+    job_id: i64,
+) -> Result<Option<(String, Value)>, String> {
+    if job_id <= 0 {
+        return Err("The job ID must be positive.".into());
+    }
+
+    let job = load_saved_job(app, job_id)?;
+    if job.primary_resume.is_none() {
+        return Ok(None);
+    }
+
+    let path = validated_job_primary_resume_path(app, job_id)?;
+    let content = fs::read_to_string(&path)
+        .map_err(|error| format!("The job primary resume could not be read: {error}"))?;
+    let resume = serde_json::from_str::<Value>(&content)
+        .map_err(|error| format!("The job primary resume is not valid JSON: {error}"))?;
+    if !resume.is_object() {
+        return Err("The job primary resume must contain a JSON object.".into());
+    }
+
+    let file_name = path
+        .file_name()
+        .map(|value| value.to_string_lossy().into_owned())
+        .unwrap_or_else(|| JOB_FOCUSED_RESUME_FILE_NAME.into());
+    Ok(Some((file_name, resume)))
+}
+
 fn validated_job_primary_resume_path(app: &AppHandle, job_id: i64) -> Result<PathBuf, String> {
     if job_id <= 0 {
         return Err("The job ID must be positive.".into());
@@ -365,7 +394,7 @@ fn validated_job_primary_resume_path(app: &AppHandle, job_id: i64) -> Result<Pat
     Ok(path)
 }
 
-fn resume_file_from_path(path: &Path) -> Result<crate::ResumeFile, String> {
+pub(crate) fn resume_file_from_path(path: &Path) -> Result<crate::ResumeFile, String> {
     let content = fs::read_to_string(path)
         .map_err(|error| format!("The job primary resume could not be read: {error}"))?;
     let data = serde_json::from_str::<Value>(&content)

@@ -582,7 +582,14 @@ pub(crate) fn latest_ledger_for_job(
 ) -> Result<Option<(String, CompanyLedger)>, String> {
     Ok(list_company_research_runs(app.clone(), job_id)?
         .into_iter()
-        .find_map(|run| run.ledger.map(|ledger| (run.id, ledger))))
+        .find(|run| {
+            matches!(
+                run.status,
+                ResearchRunStatus::Completed | ResearchRunStatus::CompletedWithGaps
+            ) && run.ledger_status == AgentRunStatus::Completed
+                && run.ledger.is_some()
+        })
+        .and_then(|run| run.ledger.map(|ledger| (run.id, ledger))))
 }
 
 #[tauri::command]
