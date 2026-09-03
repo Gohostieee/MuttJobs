@@ -13,7 +13,6 @@ use wait_timeout::ChildExt;
 use super::{worker, CodexSettings, ProviderHealth};
 
 pub const MIN_CODEX_VERSION: &str = "0.146.0";
-pub const MAX_CODEX_VERSION_EXCLUSIVE: &str = "0.148.0";
 
 pub fn check_health(app: &AppHandle, settings: &CodexSettings) -> ProviderHealth {
     if !settings.enabled {
@@ -56,14 +55,13 @@ pub fn check_health(app: &AppHandle, settings: &CodexSettings) -> ProviderHealth
     };
 
     let min = Version::parse(MIN_CODEX_VERSION).expect("valid Codex minimum version");
-    let max = Version::parse(MAX_CODEX_VERSION_EXCLUSIVE).expect("valid Codex maximum version");
-    if version < min || version >= max {
+    if version < min {
         return health(
             "unsupported_version",
             Some(&executable),
             Some(&version.to_string()),
             None,
-            Some("This Codex CLI version is outside the worker's tested compatibility range (>=0.146.0, <0.148.0)."),
+            Some("This Codex CLI version is too old for the worker (requires >=0.146.0)."),
         );
     }
 
@@ -222,11 +220,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn compatibility_range_is_valid() {
-        assert!(
-            Version::parse(MIN_CODEX_VERSION).unwrap()
-                < Version::parse(MAX_CODEX_VERSION_EXCLUSIVE).unwrap()
-        );
+    fn minimum_version_is_valid() {
+        assert!(Version::parse(MIN_CODEX_VERSION).is_ok());
     }
 
     #[cfg(windows)]

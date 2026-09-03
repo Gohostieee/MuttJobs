@@ -518,7 +518,7 @@ input {
 .resume-document > :not(.resume-page-guides) { position: relative; z-index: 5; }
 .resume-document > .resume-accent { position: absolute; z-index: 5; }
 .resume-document [data-resume-pagination-break="true"] { padding-top: var(--resume-pagination-space) !important; padding-block-start: var(--resume-pagination-space) !important; }
-.resume-section, .resume-item, .resume-role, .resume-rich-text p, .resume-rich-text li { break-inside: avoid; page-break-inside: avoid; }
+.resume-item, .resume-role, .resume-rich-text p, .resume-rich-text li { break-inside: avoid; page-break-inside: avoid; }
 .resume-section-heading, .resume-item-topline { break-after: avoid; page-break-after: avoid; }
 .resume-document[data-page-guides="hidden"] .resume-page-guides:not(.resume-page-surfaces) { display: none; }
 .resume-document[data-page-guides="hidden"]:not(.is-compact) { background: transparent; box-shadow: none; }
@@ -990,11 +990,11 @@ input {
   body:has([data-slot="sidebar"][data-state="collapsed"]) .job-detail-dialog { left: 4rem !important; }
 }
 
-@page resume-letter { size: Letter; margin: 0; }
-@page resume-a4 { size: A4; margin: 0; }
-@page resume-free-form { size: Letter; margin: 0; }
-@page cover-letter-letter { size: Letter; margin: 0; }
-@page cover-letter-a4 { size: A4; margin: 0; }
+@page resume-letter { size: Letter; margin: 0; background: white; }
+@page resume-a4 { size: A4; margin: 0; background: white; }
+@page resume-free-form { size: Letter; margin: 0; background: white; }
+@page cover-letter-letter { size: Letter; margin: 0; background: white; }
+@page cover-letter-a4 { size: A4; margin: 0; background: white; }
 .resume-document[data-format="letter"] { page: resume-letter; }
 .resume-document[data-format="a4"] { page: resume-a4; }
 .resume-document[data-format="free-form"] { page: resume-free-form; }
@@ -1002,13 +1002,15 @@ input {
 .cover-letter-document[data-format="a4"] { page: cover-letter-a4; }
 
 @media print {
+  html { color-scheme: only light !important; }
   html, body, #root, .resume-viewer { width: auto !important; min-width: 0 !important; height: auto !important; min-height: 0 !important; overflow: visible !important; background: white !important; }
   body { margin: 0 !important; }
   .resume-viewer > :not(.resume-export-root) { display: none !important; }
   .resume-export-root { position: static !important; display: block !important; width: auto !important; visibility: visible !important; }
-  .resume-export-root .resume-document { position: static !important; top: auto !important; left: auto !important; box-sizing: border-box !important; width: var(--resume-page-width) !important; min-height: var(--resume-page-height) !important; overflow: visible !important; background: var(--resume-paper) !important; box-shadow: none !important; zoom: 1 !important; }
-  .resume-export-root .cover-letter-document { position: static !important; top: auto !important; left: auto !important; box-sizing: border-box !important; width: var(--resume-page-width) !important; min-height: var(--resume-page-height) !important; overflow: visible !important; background: var(--resume-paper) !important; box-shadow: none !important; zoom: 1 !important; }
-  .resume-export-root .resume-document [data-resume-pagination-break="true"] { margin-top: 0 !important; margin-block-start: 0 !important; padding-top: 0 !important; padding-block-start: 0 !important; break-before: page !important; page-break-before: always !important; }
+  .resume-export-root .resume-document { position: static !important; top: auto !important; left: auto !important; box-sizing: border-box !important; width: auto !important; min-height: 0 !important; overflow: visible !important; padding: 0 !important; background: var(--resume-paper) !important; box-shadow: none !important; zoom: 1 !important; }
+  .resume-export-root .cover-letter-document { position: static !important; top: auto !important; left: auto !important; box-sizing: border-box !important; width: auto !important; min-height: 0 !important; overflow: visible !important; padding: 0 !important; background: var(--resume-paper) !important; box-shadow: none !important; zoom: 1 !important; }
+  .resume-export-root .resume-document::after { display: none !important; }
+  .resume-export-root [data-resume-pagination-break="true"] { margin-top: 0 !important; margin-block-start: 0 !important; padding-top: 0 !important; padding-block-start: 0 !important; }
   .resume-export-root .resume-page-guides,
   .resume-export-root .resume-page-surfaces { display: none !important; }
 }

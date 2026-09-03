@@ -581,7 +581,7 @@ export function CoverLetterViewer({
         {inspectorOpen ? <CoverLetterInspector letter={currentFile.data} onChange={handleCoverLetterChange} onEditStart={beginTextEdit} onEditEnd={finishTextEdit} onToggle={() => setInspectorOpen(false)} /> : null}
       </div>
       <div className="resume-export-root cover-letter-export-root" aria-hidden="true">
-        <CoverLetterDocument letter={currentFile.data} showPageGuides={false} paginate={false} />
+        <CoverLetterDocument letter={currentFile.data} showPageGuides={false} />
       </div>
       {exportError ? <p id="cover-letter-export-status" className="resume-export-error" role="alert">{exportError}</p> : null}
       <div className="resume-zoom-controls" role="toolbar" aria-label="Cover letter zoom controls"><Button variant="ghost" size="icon" onClick={() => changeZoom(1 / 1.2)} aria-label="Zoom out"><Minus /></Button><output>{Math.round(zoom * 100)}%</output><Button variant="ghost" size="icon" onClick={() => changeZoom(1.2)} aria-label="Zoom in"><Plus /></Button><span className="resume-control-separator" /><Button variant="ghost" size="icon" onClick={fit} aria-label="Fit cover letter to width"><Maximize2 /></Button></div>

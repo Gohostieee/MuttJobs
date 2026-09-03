@@ -366,8 +366,13 @@ fn send_job_request(
             }
         })?;
     let status = response.status();
-    if status.as_u16() == 401 || status.as_u16() == 403 {
+    if status.as_u16() == 401 {
         return Err("The TheirStack API key was rejected. Check it in Provider Settings.".into());
+    }
+    if status.as_u16() == 403 {
+        return Err(api_error_message(response).unwrap_or_else(|| {
+            "TheirStack denied this request even though the API key was accepted.".into()
+        }));
     }
     if status.as_u16() == 402 {
         return Err(
@@ -424,8 +429,13 @@ pub fn search_locations(
         }
     })?;
     let status = response.status();
-    if status.as_u16() == 401 || status.as_u16() == 403 {
+    if status.as_u16() == 401 {
         return Err("The TheirStack API key was rejected. Check it in Provider Settings.".into());
+    }
+    if status.as_u16() == 403 {
+        return Err(api_error_message(response).unwrap_or_else(|| {
+            "TheirStack denied this request even though the API key was accepted.".into()
+        }));
     }
     if !status.is_success() {
         let message = api_error_message(response)
@@ -557,8 +567,13 @@ fn send_catalog_request<T: DeserializeOwned>(
         }
     })?;
     let status = response.status();
-    if status.as_u16() == 401 || status.as_u16() == 403 {
+    if status.as_u16() == 401 {
         return Err("The TheirStack API key was rejected. Check it in Provider Settings.".into());
+    }
+    if status.as_u16() == 403 {
+        return Err(api_error_message(response).unwrap_or_else(|| {
+            "TheirStack denied this request even though the API key was accepted.".into()
+        }));
     }
     if !status.is_success() {
         let message = api_error_message(response)
@@ -619,13 +634,19 @@ pub fn check_health(settings: &TheirStackSettings) -> ProviderHealth {
     };
 
     let status = response.status();
-    if status.as_u16() == 401 || status.as_u16() == 403 {
+    if status.as_u16() == 401 {
         return health(
             "authentication_required",
             Some(false),
             None,
             "The TheirStack API key was rejected. Check or replace the key.",
         );
+    }
+    if status.as_u16() == 403 {
+        let message = api_error_message(response).unwrap_or_else(|| {
+            "TheirStack denied the account check even though the API key was accepted.".into()
+        });
+        return health("unhealthy", Some(true), None, &message);
     }
     if !status.is_success() {
         let message = api_error_message(response)

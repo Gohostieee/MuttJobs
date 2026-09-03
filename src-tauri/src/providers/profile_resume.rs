@@ -17,7 +17,7 @@ const PROFILE_SOURCE_FILE_NAME: &str = "profile.json";
 const PRIMARY_RESUME_FILE_NAME: &str = "primary-resume.json";
 const GENERATION_PROMPT: &str = r#"Build the strongest truthful primary resume for this exact saved job from the complete Career Profile supplied with this request.
 
-Use the Career Profile as an inventory: select the most relevant supported evidence, create a concise one-page resume, and leave the Career Profile itself unchanged. Follow the profile-derived resume generation standard exactly. Do not use the saved job or Company Research as evidence of candidate experience. Save only the generated canonical resume JSON to the staged primary-resume.json file."#;
+Use the Career Profile as VERIFIED_CANDIDATE_EVIDENCE: select the most relevant supported evidence, create a concise one-page resume, and leave the Career Profile itself unchanged. Follow the universal resume guide exactly. Do not use the saved job or Company Research as evidence of candidate experience. Save only the generated canonical resume JSON to the staged primary-resume.json file."#;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -319,21 +319,13 @@ fn generation_validation_errors(resume: &Value) -> Vec<String> {
         errors.push("the private root field `profile` must not be saved".into());
     }
 
-    let headline_words = resume
-        .pointer("/basics/headline")
-        .and_then(Value::as_str)
-        .map(word_count)
-        .unwrap_or_default();
-    if headline_words == 0 || headline_words >= 10 {
-        errors.push("the professional headline must contain 1-9 words".into());
-    }
     let summary_words = resume
         .pointer("/summary/content")
         .and_then(Value::as_str)
         .map(|value| word_count(&plain_text(value)))
         .unwrap_or_default();
-    if summary_words == 0 || summary_words >= 50 {
-        errors.push("the professional summary must contain 1-49 words".into());
+    if summary_words > 40 {
+        errors.push("the optional professional summary must contain no more than 40 words".into());
     }
     let layout_page_count = resume
         .pointer("/metadata/layout/pages")
@@ -342,6 +334,12 @@ fn generation_validation_errors(resume: &Value) -> Vec<String> {
         .unwrap_or_default();
     if layout_page_count != 1 {
         errors.push("metadata.layout.pages must contain exactly one page".into());
+    }
+    let resume_words = visible_resume_word_count(resume);
+    if resume_words > 500 {
+        errors.push(format!(
+            "the ONE_PAGE resume contains {resume_words} words; the universal guide allows at most 500"
+        ));
     }
     for path in [
         "/metadata/typography/body/fontSize",
@@ -359,83 +357,100 @@ fn generation_validation_errors(resume: &Value) -> Vec<String> {
             errors.push(format!("`{path}` must be at least 10 pt"));
         }
     }
-    errors.extend(experience_bullet_errors(resume));
+    collect_bullet_word_errors(resume, "resume", &mut errors);
     errors
 }
 
-fn experience_bullet_errors(resume: &Value) -> Vec<String> {
-    let Some(experience) = resume
-        .pointer("/sections/experience")
-        .and_then(Value::as_object)
-    else {
-        return vec!["sections.experience must be an object".into()];
-    };
-    if experience.get("enabled") == Some(&Value::Bool(false))
-        || experience.get("hidden") == Some(&Value::Bool(true))
-    {
-        return Vec::new();
+fn visible_resume_word_count(resume: &Value) -> usize {
+    ["basics", "summary", "sections", "customSections"]
+        .into_iter()
+        .filter_map(|key| resume.get(key))
+        .map(|value| visible_value_word_count(value, None))
+        .sum()
+}
+
+fn visible_value_word_count(value: &Value, key: Option<&str>) -> usize {
+    if matches!(key, Some("id" | "icon" | "url" | "link")) {
+        return 0;
     }
-    let Some(items) = experience.get("items").and_then(Value::as_array) else {
-        return vec!["sections.experience.items must be an array".into()];
-    };
-    let mut errors = Vec::new();
-    for (item_index, item) in items.iter().enumerate() {
-        if item.get("hidden") == Some(&Value::Bool(true)) {
+    match value {
+        Value::String(text) => word_count(&plain_text(text)),
+        Value::Array(items) => items
+            .iter()
+            .map(|item| visible_value_word_count(item, None))
+            .sum(),
+        Value::Object(object) => {
+            if object.get("hidden") == Some(&Value::Bool(true))
+                || object.get("enabled") == Some(&Value::Bool(false))
+            {
+                return 0;
+            }
+            object
+                .iter()
+                .map(|(child_key, child)| visible_value_word_count(child, Some(child_key)))
+                .sum()
+        }
+        _ => 0,
+    }
+}
+
+fn collect_bullet_word_errors(value: &Value, path: &str, errors: &mut Vec<String>) {
+    match value {
+        Value::String(html) => {
+            for (index, bullet) in html_list_items(html).into_iter().enumerate() {
+                let words = word_count(&plain_text(bullet));
+                if words > 30 {
+                    errors.push(format!(
+                        "{path} bullet {} contains {words} words; the universal guide allows at most 30",
+                        index + 1
+                    ));
+                }
+            }
+        }
+        Value::Array(items) => {
+            for (index, item) in items.iter().enumerate() {
+                collect_bullet_word_errors(item, &format!("{path}[{index}]"), errors);
+            }
+        }
+        Value::Object(object) => {
+            for (key, child) in object {
+                collect_bullet_word_errors(child, &format!("{path}.{key}"), errors);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn html_list_items(html: &str) -> Vec<&str> {
+    let lowercase = html.to_ascii_lowercase();
+    let mut items = Vec::new();
+    let mut cursor = 0;
+    while let Some(relative_start) = lowercase[cursor..].find("<li") {
+        let start = cursor + relative_start;
+        let Some(next) = lowercase.as_bytes().get(start + 3) else {
+            break;
+        };
+        if *next != b'>' && !next.is_ascii_whitespace() {
+            cursor = start + 3;
             continue;
         }
-        let roles = item
-            .get("roles")
-            .and_then(Value::as_array)
-            .map_or(&[][..], Vec::as_slice);
-        let description = item
-            .get("description")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        if roles.is_empty() || !plain_text(description).is_empty() {
-            validate_bullet_block(
-                &mut errors,
-                &format!("experience item {}", item_index + 1),
-                description,
-            );
-        }
-        for (role_index, role) in roles.iter().enumerate() {
-            validate_bullet_block(
-                &mut errors,
-                &format!("experience item {} role {}", item_index + 1, role_index + 1),
-                role.get("description")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default(),
-            );
-        }
+        let Some(relative_tag_end) = lowercase[start..].find('>') else {
+            break;
+        };
+        let content_start = start + relative_tag_end + 1;
+        let Some(relative_end) = lowercase[content_start..].find("</li>") else {
+            break;
+        };
+        let content_end = content_start + relative_end;
+        items.push(&html[content_start..content_end]);
+        cursor = content_end + "</li>".len();
     }
-    errors
-}
-
-fn validate_bullet_block(errors: &mut Vec<String>, label: &str, html: &str) {
-    let count = html_list_item_count(html);
-    if !(3..=4).contains(&count) {
-        errors.push(format!(
-            "{label} must contain 3-4 `<li>` bullets, found {count}"
-        ));
-    }
-}
-
-fn html_list_item_count(html: &str) -> usize {
-    let lowercase = html.to_ascii_lowercase();
-    let bytes = lowercase.as_bytes();
-    lowercase
-        .match_indices("<li")
-        .filter(|(index, _)| {
-            bytes
-                .get(index + 3)
-                .is_some_and(|next| *next == b'>' || next.is_ascii_whitespace())
-        })
-        .count()
+    items
 }
 
 fn correction_prompt(errors: &[String]) -> String {
     format!(
-        "Correct only the generated resume's structural quality violations listed below while continuing to follow the complete Career Profile generation contract. Do not invent or add unsupported facts. Omit a job or role when it cannot truthfully support three bullets. Save the corrected canonical JSON to the same staged file.\n\nViolations:\n- {}",
+        "Correct only the generated resume's structural quality violations listed below while continuing to follow the universal resume guide and Career Profile evidence boundary. Do not invent or add unsupported facts. Save the corrected canonical JSON to the same staged file.\n\nViolations:\n- {}",
         errors.join("\n- ")
     )
 }
@@ -661,60 +676,53 @@ mod tests {
     }
 
     #[test]
-    fn bullet_validation_accepts_three_and_four_and_rejects_other_counts() {
+    fn bullet_validation_enforces_the_universal_thirty_word_limit() {
         assert_eq!(
-            html_list_item_count("<ul><li>A</li><li>B</li><li>C</li></ul>"),
+            html_list_items("<ul><li>A</li><li>B</li><li>C</li></ul>").len(),
             3
         );
-        assert_eq!(
-            html_list_item_count("<li>A</li><li>B</li><li>C</li><li>D</li>"),
-            4
-        );
-        assert_eq!(html_list_item_count("<li>A</li><li>B</li>"), 2);
         let mut fixture = profile_fixture();
         fixture["sections"]["experience"]["items"][0]["description"] =
-            Value::String("<ul><li>A</li><li>B</li></ul>".into());
-        assert!(experience_bullet_errors(&fixture)
-            .iter()
-            .any(|error| error.contains("found 2")));
+            Value::String(format!("<ul><li>{}</li></ul>", vec!["word"; 31].join(" ")));
+        let mut errors = Vec::new();
+        collect_bullet_word_errors(&fixture, "resume", &mut errors);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].contains("31 words"));
     }
 
     #[test]
-    fn nested_roles_are_validated_individually() {
+    fn nested_role_bullets_are_validated_individually() {
         let mut fixture = profile_fixture();
         fixture["sections"]["experience"]["items"][0]["description"] = Value::String(String::new());
         fixture["sections"]["experience"]["items"][0]["roles"] = serde_json::json!([
-            {"description": "<ul><li>A</li><li>B</li><li>C</li></ul>"},
-            {"description": "<ul><li>A</li><li>B</li><li>C</li><li>D</li><li>E</li></ul>"}
+            {"description": "<ul><li>A concise supported accomplishment</li></ul>"},
+            {"description": format!("<ul><li>{}</li></ul>", vec!["word"; 31].join(" "))}
         ]);
-        let errors = experience_bullet_errors(&fixture);
+        let mut errors = Vec::new();
+        collect_bullet_word_errors(&fixture, "resume", &mut errors);
         assert_eq!(errors.len(), 1);
-        assert!(errors[0].contains("role 2"));
+        assert!(errors[0].contains("roles[1]"));
     }
 
     #[test]
-    fn generation_contract_contains_handbook_and_user_rules() {
+    fn generation_contract_contains_the_universal_resume_guide() {
         let context = super::super::profile_resume_generation_prompt_context();
         for phrase in [
-            "Tech Interview Handbook",
-            "one focused page",
-            "10 pt or larger",
-            "fewer than 10 words",
-            "under 50 words",
-            "exactly 3 or 4",
-            "approximately 20 words or fewer",
-            "approximately 35 words",
-            "at least two relevant projects",
-            "never keyword-stuff",
-            "Never invent or infer",
+            "UNIVERSAL RESUME GUIDE",
+            "VERIFIED_CANDIDATE_EVIDENCE",
+            "PAGE_MODE ONE_PAGE",
+            "Primary objective:** maximize truthful, job-relevant engineering evidence per word",
+            "Never invent, infer, estimate, round, or embellish",
+            "Usually **18–30 words**",
+            "A summary is optional and limited to **40 words**",
         ] {
             assert!(
                 context.contains(phrase),
                 "missing generation guidance: {phrase}"
             );
         }
-        assert!(!super::super::resume_import_prompt_context().contains("exactly 3 or 4"));
-        assert!(!super::super::resume_schema_prompt_context().contains("exactly 3 or 4"));
+        assert!(super::super::resume_import_prompt_context().contains("UNIVERSAL RESUME GUIDE"));
+        assert!(super::super::resume_schema_prompt_context().contains("UNIVERSAL RESUME GUIDE"));
     }
 
     #[test]

@@ -369,6 +369,8 @@ export const ResumeDocument = memo(function ResumeDocument({
     "--resume-gap-x": `${page.gapX * 3.78}px`,
     "--resume-gap-y": `${page.gapY * 3.78}px`,
   } as CSSProperties
+  const printPageName = `resume-${page.format}`
+  const printPageSize = page.format === "a4" ? "A4" : "Letter"
 
   const renderSection = (key: string) => {
     const descriptor = getSectionDescriptor(resume, key)
@@ -397,6 +399,9 @@ export const ResumeDocument = memo(function ResumeDocument({
       lang={page.locale}
       style={style}
     >
+      {!compact ? (
+        <style media="print">{`@page ${printPageName} { size: ${printPageSize}; margin: ${page.marginY}mm ${page.marginX}mm; }`}</style>
+      ) : null}
       {pageHeight && !compact && paginate && renderPageSurfaces ? (
         <div className="resume-page-guides resume-page-surfaces" aria-hidden="true">
           {Array.from({ length: pageCount }, (_, index) => (

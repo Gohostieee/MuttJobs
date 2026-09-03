@@ -765,7 +765,7 @@ mod tests {
     }
 
     #[test]
-    fn bundled_install_installs_all_skills_and_nested_resources() {
+    fn bundled_install_installs_all_skills_with_universal_guide_contracts() {
         let directory = tempdir().unwrap();
         install_bundled_skills_at(directory.path()).unwrap();
 
@@ -782,10 +782,11 @@ mod tests {
             .path()
             .join("improve-bullets/agents/openai.yaml")
             .is_file());
-        assert!(directory
-            .path()
-            .join("improve-bullets/references/bullet-framework.md")
-            .is_file());
+        assert!(
+            fs::read_to_string(directory.path().join("improve-bullets/SKILL.md"))
+                .unwrap()
+                .contains("single authoritative standard")
+        );
         assert!(!directory.path().join(LEGACY_BAZINGA_NAME).exists());
     }
 
@@ -844,41 +845,16 @@ mod tests {
     }
 
     #[test]
-    fn bundled_skill_contracts_declare_write_and_safety_boundaries() {
-        for name in [
-            "ats-review",
-            "consistency-check",
-            "grade-resume",
-            "job-match",
-            "prioritize-compress",
-            "quantify-impact",
-            "seniority-signal-audit",
-        ] {
+    fn bundled_skill_contracts_all_defer_to_the_universal_guide() {
+        for name in PRODUCTION_SKILLS {
             let document = embedded_text(embedded_skill(name), "SKILL.md");
             assert!(
-                document
-                    .to_ascii_lowercase()
-                    .contains("do not write, touch, reformat, or resave"),
-                "{name} does not declare its read-only boundary"
+                document.contains("complete `resume-guide.md`"),
+                "{name} does not identify the universal guide"
             );
-        }
-
-        for name in [
-            "edit-section",
-            "edit-selection",
-            "improve-bullets",
-            "resume-summary",
-            "tailor-to-job",
-        ] {
-            let document = embedded_text(embedded_skill(name), "SKILL.md");
             assert!(
-                document.contains("Preserve"),
-                "{name} lacks preservation rules"
-            );
-            assert!(document.contains("Never"), "{name} lacks factuality rules");
-            assert!(
-                document.contains("rich-text") || document.contains("rich text"),
-                "{name} lacks rich-text preservation rules"
+                document.contains("single authoritative standard"),
+                "{name} does not defer to the universal guide"
             );
         }
     }

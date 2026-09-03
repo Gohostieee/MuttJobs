@@ -35,6 +35,7 @@ const APPLICATION_STATUS_STORE_FILE: &str = "application-statuses.json";
 const APPLICATION_STATUS_STORE_KEY: &str = "statuses";
 const RESUME_SCHEMA_JSON: &str = include_str!("../../../public/resume.schema.json");
 const COVER_LETTER_SCHEMA_JSON: &str = include_str!("../../../public/cover-letter.schema.json");
+pub(crate) const UNIVERSAL_RESUME_GUIDE: &str = include_str!("../../../resume-guide.md");
 const RESUME_DOCUMENT_GUIDANCE: &str = r#"
 Resume document semantics (these are resume fields, not local agent skills such as `#(name)` or `$name`):
 
@@ -71,67 +72,6 @@ Custom sections and metadata:
 Evidence and editing rules:
 - Import only facts supported by the source. Do not invent employers, dates, credentials, technologies, metrics, categories, keywords, proficiency, or URLs.
 - For a targeted edit, change only the requested field/section and preserve every unrelated JSON path exactly. Keep required empty strings/arrays and schema defaults when the source has no value.
-"#;
-
-// Editorial source: https://careerservices.fas.harvard.edu/resources/hes-create-impactful-resumes-and-cover-letters/
-const RESUME_WRITING_GUIDANCE: &str = r#"
-Resume writing standard (adapted from Harvard Career Services guidance):
-
-Purpose, targeting, and authenticity:
-- Treat the resume as a clear, informative account of the candidate's abilities, education, and experience relevant to the target role. Highlight the strongest relevant assets and differentiators. When tailoring an existing resume, preserve every source fact unless the user explicitly asks to remove content; achieve focus through ordering, emphasis, and concise rephrasing rather than omission.
-- Tailor emphasis, keywords, section order, and examples to the specific position and industry. When target-job context is available, identify the employer's stated needs and prioritize truthful evidence that answers them. Never keyword-stuff or claim a requirement the candidate has not demonstrated.
-- The document must authentically represent the candidate. Improve, organize, and sharpen supported material; do not replace it with generic AI prose. If a useful metric, result, or fact is missing, do not fabricate it. Preserve the supported statement or explain what information the user could add.
-
-Language and accomplishment writing:
-- Write specific rather than general, active rather than passive, clear and direct rather than embellished, and fact-based rather than promotional. Make the result easy to scan quickly.
-- Lead bullets with accurate action verbs and show impact or achievement, not duties alone. Use a compact pattern such as action + task/context + result. Quantify or qualify scope and outcomes when the document or user supplies evidence.
-- Choose verbs that fit the actual work. Useful families include leadership (led, directed, coordinated, improved, launched, supervised), communication (authored, collaborated, negotiated, presented, recruited), research (analyzed, evaluated, investigated, modeled, tested), technical (built, designed, engineered, optimized, programmed, streamlined), teaching/helping (advised, coached, facilitated, guided, trained), quantitative (audited, budgeted, calculated, forecasted, projected), creative (created, designed, established, introduced, revised), and organizational (implemented, monitored, organized, simplified, systematized, validated). Avoid repeating one verb mechanically.
-- Correct spelling and grammar. Remove vague filler, unsupported superlatives, redundancy, slang, colloquialisms, and narrative-style paragraphs where concise bullets work better.
-- Do not use first-person pronouns such as `I`, `me`, or `my` in resume content. Avoid abbreviations unless they are industry-standard or written out on first use.
-
-Content and organization checks:
-- Include accurate contact information. Do not add a photo, age, gender, or references unless the user explicitly requests them and the applicable context makes them appropriate.
-- Keep formatting and content consistent. Balance text with white space; preserve consistent spacing, capitalization, bold, and italics. Do not change design settings during a content-only request.
-- Put the sections most important to the target role first when the user asks for restructuring. Within time-based sections, use reverse chronological order unless the user requests another defensible format. Do not begin every bullet or content line with a date.
-- Write for both human readers and applicant-tracking systems: use recognizable headings, plain role-relevant terminology, and text-based evidence; avoid decorative wording or structures that obscure meaning. Keep PDF conversion and fast scanning in mind.
-- Know and preserve the source material precisely. Dates, credentials, employers, technologies, results, and contact details must remain accurate.
-- During full-resume tailoring, do not delete or hide source sections, entries, bullets, skills, projects, credentials, responsibilities, accomplishments, metrics, or other factual evidence unless the user explicitly requests removal. Shortening may remove verbal padding, but it must preserve every factual clause and meaningful qualification.
-- For Harvard Extension School education, never obscure the school or degree identity. Preserve the exact source wording. If the source clearly supports a Harvard Extension School ALB or ALM, represent it accurately as a Bachelor/Master of Liberal Arts with the applicable field or with `in Extension Studies` when the school name omits `Extension School`; do not infer enrollment, awards, grades, or degree completion.
-
-Final quality gate:
-- Before saving, check that the result is tailored, concise, skimmable, active, specific, error-free, consistently formatted, and demonstrably results-focused. Check every new claim against candidate evidence and remove or soften anything unsupported.
-"#;
-
-// Editorial source: https://www.techinterviewhandbook.org/resume/
-const PROFILE_RESUME_GENERATION_GUIDANCE: &str = r#"
-Profile-derived resume generation standard (adapted from the Tech Interview Handbook resume guide):
-
-Source boundaries and truthfulness:
-- The complete Career Profile supplied with this request is the sole source of candidate facts. The saved job and latest Company Research ledger may guide relevance, terminology, and ordering, but they are not evidence that the candidate has a skill, responsibility, result, credential, or experience.
-- Never invent or infer employers, roles, dates, credentials, technologies, contact details, responsibilities, results, metrics, URLs, or qualifications. Quantify impact only when the Career Profile supplies the number or supported outcome.
-- The Career Profile is an inventory, not the output document. Select the strongest supported content for this exact role; omission from this generated resume must never modify the Career Profile.
-- Career preferences such as compensation, work arrangement, management style, motivation, non-negotiables, deal-breakers, values, and preferred environments are private targeting context. Never copy them into the resume. A stated strength is not resume evidence unless the resume-shaped Profile content supports it.
-
-ATS structure and one-page target:
-- Produce one focused page. Keep exactly one configured layout page and select evidence instead of shrinking the document into an unreadable layout.
-- Keep all visible typography at 10 pt or larger. Preserve the Profile's template and colors as the baseline, but use recognizable section headings, a clear hierarchy, text-based evidence, and ATS-friendly terminology without symbols in headings.
-- Order content for fast scanning: professional headline and summary, contact information, skills, Work Experience, Education, Projects, then relevant optional sections. Education may precede experience for a student or candidate with less than three years of experience.
-- Order work and education in reverse chronology. Use the Profile's existing dates exactly; never manufacture or normalize an uncertain date.
-
-Headline, summary, contact, and skills:
-- Write a supported professional headline of fewer than 10 words. Keep the professional summary under 50 words, begin with the candidate's role or professional identity, use active voice, and explain the strongest supported fit for this target role.
-- Include only contact and professional-profile details already present in the Career Profile. Never guess a phone number, address, email, LinkedIn URL, GitHub URL, portfolio, or coding-profile achievement.
-- Organize skills into clear categories. Analyze must-have and preferred job requirements, use matching terms only when the Profile demonstrates them, write out a useful abbreviation on first use, and never keyword-stuff.
-
-Experience, projects, and evidence:
-- Every included experience description, and every rendered nested role description, must contain exactly 3 or 4 sanitized HTML `<li>` bullets. Omit a job or role that cannot support three truthful bullets instead of padding it with generic or invented claims.
-- Make ordinary bullets approximately 20 words or fewer so they are likely to render on one line. The first or most directly targeted bullet may use up to approximately 35 words when its additional supported context materially improves job alignment.
-- Lead with varied, accurate action verbs and prefer action + task/context + supported result. Preserve supplied metrics, scope, technologies, qualifiers, and attribution. Do not split one fact into repetitive filler merely to reach the bullet minimum.
-- Prefer a few strong accomplishments over many average statements. Include at least two relevant projects when the Profile supplies at least two supported projects and they materially strengthen the application; include their supported contributions and links.
-- Keep education, credentials, awards, and other optional evidence only when it improves the application. Include GPA, rankings, awards, links, or other measurements only when explicitly supplied and relevant.
-
-Final quality gate:
-- Before saving, confirm the document uses the canonical MuttJobs resume schema, contains no root-level `profile` object, fits the one-page content strategy, uses truthful job terminology without stuffing, contains exactly 3-4 bullets in every rendered experience or role block, and is concise, active, specific, grammatically clean, consistently formatted, and easy to scan.
 "#;
 
 // Editorial source: https://capd.mit.edu/resources/how-to-write-an-effective-cover-letter/
@@ -176,7 +116,7 @@ Lossless PDF import contract:
 - Use schema-required IDs, wrappers, and empty/default fields only as structural representation; they must not change source content. Do not add facts or links.
 - `sections.skills` may require grouping terms into category items for schema compatibility, but preserve every source category and skill term exactly once; do not summarize or discard terms.
 - Before saving, compare the imported content against the extracted text and check that no source section, job, bullet, or paragraph was lost. If extraction is incomplete or ambiguous, preserve the text in the target and report the limitation.
-- The normal resume-writing guidance does not apply to this import.
+- Because this is lossless import rather than writing mode, preserve source content whenever a writing recommendation would rewrite, compress, reorder, or omit it.
 "#;
 
 const PROFILE_IMPORT_GUIDANCE: &str = r#"
@@ -196,30 +136,34 @@ enum DocumentPromptMode {
 
 fn resume_schema_prompt_context() -> String {
     format!(
-        "The following JSON Schema is the canonical schema for the resume JSON file. Use it as the document contract; it is separate from the structured response schema for this job. Do not replace the existing document with another resume format.\n\n```json\n{}\n```\n{}\n{}",
-        RESUME_SCHEMA_JSON, RESUME_DOCUMENT_GUIDANCE, RESUME_WRITING_GUIDANCE
+        "The following JSON Schema is the canonical schema for the resume JSON file. Use it as the document contract; it is separate from the structured response schema for this job. Do not replace the existing document with another resume format.\n\n```json\n{}\n```\n{}\n\nUNIVERSAL RESUME GUIDE\nThe guide below is the single editorial standard for every resume operation. Apply the portions relevant to the requested writing, tailoring, matching, or audit mode. Treat the existing resume plus explicit user facts as VERIFIED_CANDIDATE_EVIDENCE. Derive PAGE_MODE from the current configured page count, and use TARGET_ROLE, LEVEL, and JOB_DESCRIPTION only when the user or saved-job context supplies them. Preserve current positioning when those inputs are absent; never invent them. Do not use any alternate resume-writing guide.\n\n{}",
+        RESUME_SCHEMA_JSON, RESUME_DOCUMENT_GUIDANCE, UNIVERSAL_RESUME_GUIDE
     )
 }
 
 fn resume_import_prompt_context() -> String {
     format!(
-        "The following JSON Schema is the canonical schema for the resume JSON file. Use it as the document contract; it is separate from the structured response schema for this job. Do not replace the existing document with another resume format.\n\n```json\n{}\n```\n{}\n{}",
-        RESUME_SCHEMA_JSON, RESUME_DOCUMENT_GUIDANCE, RESUME_IMPORT_GUIDANCE
+        "The following JSON Schema is the canonical schema for the resume JSON file. Use it as the document contract; it is separate from the structured response schema for this job. Do not replace the existing document with another resume format.\n\n```json\n{}\n```\n{}\n\nUNIVERSAL RESUME GUIDE\nThe guide below is the single editorial standard for every resume operation. This request is a lossless import, so the transcription contract that follows controls where writing-mode guidance would alter source content. Do not use any alternate resume-writing guide.\n\n{}\n{}",
+        RESUME_SCHEMA_JSON,
+        RESUME_DOCUMENT_GUIDANCE,
+        UNIVERSAL_RESUME_GUIDE,
+        RESUME_IMPORT_GUIDANCE,
     )
 }
 
 fn profile_resume_generation_prompt_context() -> String {
     format!(
-        "The following JSON Schema is the canonical schema for the generated primary resume JSON file. Use it as the document contract; it is separate from the structured response schema for this job. Do not add the Career Profile's private `profile` root object to the resume.\n\n```json\n{}\n```\n{}\n{}",
-        RESUME_SCHEMA_JSON, RESUME_DOCUMENT_GUIDANCE, PROFILE_RESUME_GENERATION_GUIDANCE
+        "The following JSON Schema is the canonical schema for the generated primary resume JSON file. Use it as the document contract; it is separate from the structured response schema for this job. Do not add the Career Profile's private `profile` root object to the resume.\n\n```json\n{}\n```\n{}\n\nUNIVERSAL RESUME GUIDE\nThe guide below is the single editorial standard for this generation. Use the Career Profile's resume-shaped fields as VERIFIED_CANDIDATE_EVIDENCE, the saved job as JOB_DESCRIPTION and TARGET_ROLE context, and PAGE_MODE ONE_PAGE. Derive LEVEL only from explicit saved-job seniority/title context or verified Profile evidence; do not infer it from years alone. Do not use any alternate resume-writing guide.\n\n{}",
+        RESUME_SCHEMA_JSON, RESUME_DOCUMENT_GUIDANCE, UNIVERSAL_RESUME_GUIDE
     )
 }
 
 fn profile_import_prompt_context() -> String {
     format!(
-        "The following JSON Schema defines the resume-shaped portion of the Career Profile JSON file. The target intentionally has one additional required root object named `profile`; preserve it exactly and do not convert this file to another format.\n\n```json\n{}\n```\n{}\n{}\n{}",
+        "The following JSON Schema defines the resume-shaped portion of the Career Profile JSON file. The target intentionally has one additional required root object named `profile`; preserve it exactly and do not convert this file to another format.\n\n```json\n{}\n```\n{}\n\nUNIVERSAL RESUME GUIDE\nThe guide below is the single editorial standard for every resume operation. This request is a lossless import, so the transcription contracts that follow control where writing-mode guidance would alter source content. Do not use any alternate resume-writing guide.\n\n{}\n{}\n{}",
         RESUME_SCHEMA_JSON,
         RESUME_DOCUMENT_GUIDANCE,
+        UNIVERSAL_RESUME_GUIDE,
         RESUME_IMPORT_GUIDANCE,
         PROFILE_IMPORT_GUIDANCE,
     )
@@ -1767,22 +1711,20 @@ mod tests {
             "`customSections` contains explicitly user-created sections",
             "`metadata.template` selects the renderer",
             "Import only facts supported by the source",
-            "specific rather than general",
-            "action + task/context + result",
-            "Do not use first-person pronouns",
-            "applicant-tracking systems",
-            "reverse chronological order",
-            "authentically represent the candidate",
-            "preserve every source fact",
-            "do not delete or hide source sections",
-            "Harvard Extension School education",
+            "UNIVERSAL RESUME GUIDE",
+            "Primary objective:** maximize truthful, job-relevant engineering evidence per word",
+            "Truth > relevance > measurable evidence",
+            "Never invent, infer, estimate, round, or embellish",
+            "Usually **18–30 words**",
+            "A summary is optional and limited to **40 words**",
+            "Do not optimize for a fictional universal “ATS score.”",
         ] {
             assert!(prompt_context.contains(phrase), "missing resume guidance: {phrase}");
         }
     }
 
     #[test]
-    fn resume_import_prompt_requires_lossless_transcription_without_writing_guidance() {
+    fn resume_import_prompt_combines_universal_guide_with_lossless_contract() {
         let prompt_context = document_prompt_context("resume", DocumentPromptMode::LosslessImport);
 
         for phrase in [
@@ -1791,16 +1733,14 @@ mod tests {
             "never combine multiple bullets into a summary paragraph",
             "preserve every source category and skill term exactly once",
             "check that no source section, job, bullet, or paragraph was lost",
+            "UNIVERSAL RESUME GUIDE",
+            "Primary objective:** maximize truthful, job-relevant engineering evidence per word",
         ] {
             assert!(
                 prompt_context.contains(phrase),
                 "missing import guidance: {phrase}"
             );
         }
-        assert!(
-            !prompt_context.contains("do not try to include everything merely because it exists")
-        );
-        assert!(!prompt_context.contains("specific rather than general"));
     }
 
     #[test]

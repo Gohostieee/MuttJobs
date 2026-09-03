@@ -151,6 +151,8 @@ export function CoverLetterDocument({
     "--cover-letter-heading-leading": heading.lineHeight,
     "--cover-letter-heading-weight": headingWeight,
   } as CSSProperties
+  const printPageName = `cover-letter-${letter.metadata.page.format}`
+  const printPageSize = letter.metadata.page.format === "a4" ? "A4" : "Letter"
 
   const context: EditContext | undefined = onChange ? {
     activeKey,
@@ -194,6 +196,9 @@ export function CoverLetterDocument({
       style={style}
       aria-label={`Cover letter for ${letter.position.title || "an open position"}`}
     >
+      {!compact ? (
+        <style media="print">{`@page ${printPageName} { size: ${printPageSize}; margin: ${letter.metadata.page.marginY}mm ${letter.metadata.page.marginX}mm; }`}</style>
+      ) : null}
       {pageHeight && !compact && paginate ? (
         <div className="resume-page-guides resume-page-surfaces" aria-hidden="true">
           {Array.from({ length: pageCount }, (_, index) => (
