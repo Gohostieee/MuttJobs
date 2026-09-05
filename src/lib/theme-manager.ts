@@ -101,7 +101,7 @@ function serializeTokens(tokens: ThemeTokenMap, indent = "    ") {
 }
 
 function createThemeCss(light: ThemeTokenMap, dark: ThemeTokenMap) {
-  const darkTokens = Object.keys(dark).length > 0 ? dark : light
+  const darkTokens = dark
   // Keep applied themes unlayered so they can override the app's static
   // unlayered :root and .dark token declarations. A layered rule always has
   // lower precedence than an unlayered rule, regardless of source order.
@@ -115,8 +115,8 @@ function createPreset(
   light: PaletteMode,
   dark: PaletteMode,
 ): ShadcnTheme {
-  const lightTokens = makeTokens(light)
-  const darkTokens = makeTokens(dark)
+  const lightTokens = accessibleTokens(light)
+  const darkTokens = accessibleTokens(dark)
 
   return {
     id,
@@ -129,16 +129,99 @@ function createPreset(
   }
 }
 
-// newsite defines each theme as one palette rather than paired shadcn
-// light/dark exports. Keep those source palettes in both slots so changing
-// MuttJobs' mode does not silently replace the selected source design.
-function createSinglePalettePreset(
+// Preserve each theme's hue and material while giving the opposite mode its
+// own surfaces. Contrast correction below is limited to our authored presets.
+function createPairedPreset(
   id: string,
   name: string,
   description: string,
   palette: PaletteMode,
 ) {
-  return createPreset(id, name, description, palette, palette)
+  const sourceIsDark = luminance(palette.background) < 0.5
+  const tint = palette.background
+  const companion: PaletteMode = {
+    background: mix(tint, sourceIsDark ? "#ffffff" : "#000000", 0.96),
+    foreground: sourceIsDark ? "#17202a" : "#f0f4f8",
+    card: mix(tint, sourceIsDark ? "#ffffff" : "#000000", sourceIsDark ? 0.99 : 0.88),
+    primary: palette.primary,
+    primaryForeground: "#ffffff",
+    secondary: mix(tint, sourceIsDark ? "#ffffff" : "#000000", sourceIsDark ? 0.86 : 0.80),
+    secondaryForeground: sourceIsDark ? "#17202a" : "#f0f4f8",
+    muted: mix(tint, sourceIsDark ? "#ffffff" : "#000000", sourceIsDark ? 0.91 : 0.85),
+    mutedForeground: sourceIsDark ? "#505b66" : "#b4bec8",
+    accent: mix(palette.primary, sourceIsDark ? "#ffffff" : "#000000", sourceIsDark ? 0.88 : 0.78),
+    accentForeground: sourceIsDark ? "#17202a" : "#f0f4f8",
+    destructive: sourceIsDark ? "#b42332" : "#ff8b96",
+    border: "#808080",
+    sidebar: mix(tint, sourceIsDark ? "#ffffff" : "#000000", sourceIsDark ? 0.92 : 0.94),
+    charts: palette.charts,
+    radius: palette.radius,
+  }
+  return sourceIsDark
+    ? createPreset(id, name, description, companion, palette)
+    : createPreset(id, name, description, palette, companion)
+}
+
+function channels(hex: string) {
+  return [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16))
+}
+
+function luminance(hex: string) {
+  const [r, g, b] = channels(hex).map((channel) => {
+    const value = channel / 255
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+function contrast(a: string, b: string) {
+  const values = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (values[0] + 0.05) / (values[1] + 0.05)
+}
+
+function mix(a: string, b: string, amount: number) {
+  const target = channels(b)
+  return "#" + channels(a).map((value, index) =>
+    Math.round(value + (target[index] - value) * amount).toString(16).padStart(2, "0"),
+  ).join("")
+}
+
+function readable(color: string, surfaces: string[], minimum = 4.5) {
+  const target = luminance(surfaces[0]) < 0.5 ? "#ffffff" : "#000000"
+  for (let step = 0; step <= 100; step += 1) {
+    const candidate = mix(color, target, step / 100)
+    if (surfaces.every((surface) => contrast(candidate, surface) >= minimum)) return candidate
+  }
+  return target
+}
+
+function accessibleTokens(mode: PaletteMode): ThemeTokenMap {
+  const tokens = makeTokens(mode)
+  const surfaces = [mode.background, mode.card ?? mode.background, mode.muted, mode.secondary, mode.sidebar ?? mode.card ?? mode.background]
+  for (const [foreground, background] of [
+    ["foreground", "background"], ["card-foreground", "card"],
+    ["popover-foreground", "popover"], ["secondary-foreground", "secondary"],
+    ["accent-foreground", "accent"], ["sidebar-foreground", "sidebar"],
+    ["sidebar-accent-foreground", "sidebar-accent"],
+  ]) tokens[`--${foreground}`] = readable(tokens[`--${foreground}`], [tokens[`--${background}`]])
+  tokens["--muted-foreground"] = readable(mode.mutedForeground, surfaces)
+  for (const role of ["primary", "sidebar-primary", "destructive"]) {
+    const fill = readable(tokens[`--${role}`], surfaces)
+    tokens[`--${role}`] = fill
+    tokens[`--${role}-foreground`] = contrast(fill, "#ffffff") >= 4.5 ? "#ffffff" : "#000000"
+  }
+  const dark = luminance(mode.background) < 0.5
+  tokens["--status-success"] = readable(dark ? "#75dba1" : "#18713d", surfaces)
+  tokens["--status-warning"] = readable(dark ? "#f0c46a" : "#895500", surfaces)
+  tokens["--ring"] = readable(mode.primary, surfaces, 3)
+  tokens["--sidebar-ring"] = tokens["--ring"]
+  tokens["--border"] = mix(mode.background, mode.foreground, dark ? 0.28 : 0.24)
+  tokens["--sidebar-border"] = tokens["--border"]
+  tokens["--input"] = readable(tokens["--border"], surfaces, 3)
+  for (let index = 1; index <= 5; index += 1) {
+    tokens[`--chart-${index}`] = readable(tokens[`--chart-${index}`], surfaces, 3)
+  }
+  return tokens
 }
 
 export const PRESET_THEMES: ShadcnTheme[] = [
@@ -203,7 +286,7 @@ export const PRESET_THEMES: ShadcnTheme[] = [
       sidebarRing: "#00e5ff",
     },
   ),
-  createSinglePalettePreset(
+  createPairedPreset(
     "cathode-blue",
     "Cathode Blue",
     "newsite's cold CRT blue on deep space black.",
@@ -236,7 +319,7 @@ export const PRESET_THEMES: ShadcnTheme[] = [
       sidebarRing: "rgba(152, 203, 255, 0.35)",
     },
   ),
-  createSinglePalettePreset(
+  createPairedPreset(
     "amber-monitor",
     "Amber Monitor",
     "newsite's warm monochrome amber terminal glow.",
@@ -269,7 +352,7 @@ export const PRESET_THEMES: ShadcnTheme[] = [
       sidebarRing: "rgba(255, 180, 84, 0.38)",
     },
   ),
-  createSinglePalettePreset(
+  createPairedPreset(
     "phosphor-green",
     "Phosphor Green",
     "newsite's classic green phosphor tube.",
@@ -302,7 +385,7 @@ export const PRESET_THEMES: ShadcnTheme[] = [
       sidebarRing: "rgba(108, 255, 160, 0.36)",
     },
   ),
-  createSinglePalettePreset(
+  createPairedPreset(
     "vapor-plum",
     "Vapor Plum",
     "newsite's magenta and cyan late-night synth palette.",
@@ -335,7 +418,7 @@ export const PRESET_THEMES: ShadcnTheme[] = [
       sidebarRing: "rgba(255, 138, 226, 0.38)",
     },
   ),
-  createSinglePalettePreset(
+  createPairedPreset(
     "paper-terminal",
     "Paper Terminal",
     "newsite's light workstation palette: ink on warm newsprint.",
@@ -368,7 +451,7 @@ export const PRESET_THEMES: ShadcnTheme[] = [
       sidebarRing: "rgba(31, 79, 143, 0.4)",
     },
   ),
-  createSinglePalettePreset(
+  createPairedPreset(
     "big-env",
     "Big Env",
     "newsite's brutalist monochrome with a single red signal accent.",
@@ -401,7 +484,7 @@ export const PRESET_THEMES: ShadcnTheme[] = [
       sidebarRing: "rgba(241, 238, 229, 0.4)",
     },
   ),
-  createSinglePalettePreset(
+  createPairedPreset(
     "deepwater-station",
     "Deepwater Station",
     "newsite's sun-bleached sand and shallow-water teal palette.",
@@ -434,7 +517,7 @@ export const PRESET_THEMES: ShadcnTheme[] = [
       sidebarRing: "rgba(13, 127, 140, 0.42)",
     },
   ),
-  createSinglePalettePreset(
+  createPairedPreset(
     "bliss-blue",
     "Bliss Blue",
     "newsite's XP-inspired sky, grass, and blue desktop palette.",
@@ -577,7 +660,7 @@ export function parseThemeCss(css: string) {
     if (header.startsWith("@")) return
     const selector = header.replace(/\s+/g, " ")
     const tokens = parseDeclarations(body)
-    if (isLightSelector(selector)) Object.assign(light, tokens)
+    if (isLightSelector(selector) && !isDarkSelector(selector)) Object.assign(light, tokens)
     if (isDarkSelector(selector)) Object.assign(dark, tokens)
   })
 
@@ -589,7 +672,11 @@ export function parseThemeCss(css: string) {
     throw new Error("This does not look like a complete shadcn theme. Include --background, --foreground, and --primary.")
   }
 
-  return { light, dark }
+  if (!light["--background"] || !light["--foreground"] || !light["--primary"] ||
+      !dark["--background"] || !dark["--foreground"] || !dark["--primary"]) {
+    throw new Error("Include separate :root and .dark palettes, each with --background, --foreground, and --primary.")
+  }
+  return { light: { ...PRESET_THEMES[0].light, ...light }, dark: { ...PRESET_THEMES[0].dark, ...dark } }
 }
 
 export function createImportedTheme(name: string, css: string): ShadcnTheme {
@@ -706,7 +793,7 @@ export function applyTheme(theme: ShadcnTheme | null, mode: ThemeMode) {
       style.id = ACTIVE_STYLE_ID
       document.head.appendChild(style)
     }
-    style.textContent = createThemeCss(theme.light, theme.dark)
+    style.textContent = createThemeCss({ ...PRESET_THEMES[0].light, ...theme.light }, { ...PRESET_THEMES[0].dark, ...theme.dark })
     document.documentElement.dataset.muttjobsTheme = theme.id
   }
 
@@ -733,5 +820,8 @@ export function themeSwatches(theme: ShadcnTheme) {
     tokenToCssColor(theme.light["--primary"]),
     tokenToCssColor(theme.light["--secondary"]),
     tokenToCssColor(theme.light["--accent"]),
+    tokenToCssColor(theme.dark["--primary"]),
+    tokenToCssColor(theme.dark["--secondary"]),
+    tokenToCssColor(theme.dark["--accent"]),
   ]
 }

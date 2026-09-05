@@ -70,6 +70,28 @@ export async function createResume(name: string): Promise<ResumeFile> {
   }
 }
 
+export async function duplicateResume(file: ResumeFile, name?: string): Promise<ResumeFile> {
+  const sourceName = file.data.basics?.name?.trim() || file.fileName.replace(/\.json$/i, "")
+  const displayName = name?.trim() || `${sourceName} copy`
+  try {
+    const value = await invoke<unknown>("duplicate_resume", { path: file.path, name: displayName })
+    return normalizeResumeFile(value)
+  } catch (reason) {
+    // The Vite preview has no Tauri command bridge. Keep duplication usable
+    // there while real desktop builds still surface actual errors.
+    if (file.path !== "Preview sample" && file.path !== "Local preview") throw reason
+    const timestamp = Date.now()
+    const fileStem = displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "untitled-resume"
+    return {
+      id: `local-duplicate-resume-${timestamp}`,
+      fileName: `${fileStem}-${timestamp}.json`,
+      path: "Local preview",
+      updatedAt: Math.floor(timestamp / 1000),
+      data: ensureResumeData({ ...file.data, basics: { ...file.data.basics, name: displayName } }),
+    }
+  }
+}
+
 export async function createResumeFromPdf(pdfPath: string, name?: string): Promise<ResumeFile> {
   const value = await invoke<unknown>("create_resume_from_pdf", {
     pdfPath,

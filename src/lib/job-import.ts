@@ -37,9 +37,10 @@ export async function listJobImportJobs() {
   }
 }
 
-export function startJobUrlImport(url: string, selection: ResumeAiSelection) {
+export function startJobUrlImport(url: string, selection: ResumeAiSelection, description?: string) {
   return invoke<JobImportJob>("start_job_url_import", {
     url,
+    description,
     provider: selection.provider,
     model: selection.model,
     effort: selection.effort,

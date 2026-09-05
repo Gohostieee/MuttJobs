@@ -1,3 +1,4 @@
+import { ImportStatus, useImportDismissals } from "@/components/import-status"
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent } from "react"
 import { open, save } from "@tauri-apps/plugin-dialog"
 import { openPath } from "@tauri-apps/plugin-opener"
@@ -7,9 +8,7 @@ import {
   AlignLeft,
   AlignRight,
   Check,
-  CircleAlert,
   CircleCheck,
-  CircleX,
   ChevronDown,
   ChevronRight,
   Columns3,
@@ -31,9 +30,9 @@ import {
   PanelRightOpen,
   Plus,
   RefreshCw,
+  Copy,
   Ruler,
   Search,
-  Sparkles,
   Trash2,
   Undo2,
   Redo2,
@@ -50,7 +49,6 @@ import {
 import { ResumeDesignPanel } from "@/components/resume-design-panel"
 import { ResumeSkillsSection } from "@/components/resume-skills-section"
 import {
-  AgentActivityTrace,
   DEFAULT_RESUME_AI_SELECTION,
   ModelReasoningSelector,
   ResumeAiSidebar,
@@ -70,7 +68,7 @@ import { Input } from "@/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
-import { createResume, getResumesDirectory, loadResumes, saveResume } from "@/lib/resume-storage"
+import { createResume, duplicateResume, getResumesDirectory, loadResumes, saveResume } from "@/lib/resume-storage"
 import { exportResumePdf } from "@/lib/resume-export"
 import {
   listResumeImportJobs,
@@ -138,11 +136,13 @@ export function ResumeWorkspace({ onViewerChange }: { onViewerChange?: (open: bo
   const [query, setQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [resumeCreationMode, setResumeCreationMode] = useState<ResumeCreationMode>("blank")
   const [resumeName, setResumeName] = useState("")
   const [resumePdfPath, setResumePdfPath] = useState("")
   const [resumeImportSelection, setResumeImportSelection] = useState(DEFAULT_RESUME_AI_SELECTION)
+  const { isDismissed, dismiss, dismissError } = useImportDismissals("resume")
   const [resumeImports, setResumeImports] = useState<ResumeImportJob[]>([])
   const [createError, setCreateError] = useState("")
   const [error, setError] = useState("")
@@ -198,12 +198,13 @@ export function ResumeWorkspace({ onViewerChange }: { onViewerChange?: (open: bo
       .some((value) => value?.toLowerCase().includes(needle)))
   }, [query, resumes])
 
-  const filteredImports = useMemo(() => {
+  const searchedImports = useMemo(() => {
     const needle = query.trim().toLowerCase()
     if (!needle) return resumeImports
     return resumeImports.filter((job) => [job.pdfFileName, job.resumeName, job.stage]
       .some((value) => value?.toLowerCase().includes(needle)))
   }, [query, resumeImports])
+  const filteredImports = searchedImports.filter((job) => !isDismissed(job.jobId))
 
   async function openFolder() {
     const directory = await getResumesDirectory()
@@ -266,6 +267,20 @@ export function ResumeWorkspace({ onViewerChange }: { onViewerChange?: (open: bo
     }
   }
 
+  async function duplicateSelectedResume(resume: ResumeFile) {
+    if (duplicatingId) return
+    setDuplicatingId(resume.id)
+    setError("")
+    try {
+      const copy = await duplicateResume(resume)
+      setResumes((current) => [copy, ...current])
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not duplicate resume.")
+    } finally {
+      setDuplicatingId(null)
+    }
+  }
+
   if (selected) {
     return (
       <ResumeViewer
@@ -302,18 +317,29 @@ export function ResumeWorkspace({ onViewerChange }: { onViewerChange?: (open: bo
             <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
             <InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search resumes" aria-label="Search resumes" />
           </InputGroup>
-        <div className="resume-count"><Grid2X2 aria-hidden="true" /> {filtered.length + filteredImports.length} {filtered.length + filteredImports.length === 1 ? "resume" : "resumes"}</div>
+        <div className="resume-count"><Grid2X2 aria-hidden="true" /> {filtered.length} {filtered.length === 1 ? "resume" : "resumes"}</div>
       </div>
 
+        {dismissError && <p role="alert" className="text-xs text-destructive">{dismissError}</p>}
+        {!loading && !error && filteredImports.length > 0 && <div className="import-status-list" aria-label="Resume imports">
+          {filteredImports.map((job) => <ResumeImportCard key={job.jobId} job={job} onDismiss={() => dismiss(job.jobId)} />)}
+        </div>}
         {loading ? <ResumeSkeletons /> : null}
         {error ? <div className="resume-empty"><h2>Something went wrong</h2><p>{error}</p></div> : null}
-        {!loading && !error && (filtered.length || filteredImports.length) ? (
+        {!loading && !error && filtered.length > 0 ? (
           <div className="resume-grid">
-            {filteredImports.map((job) => <ResumeImportCard key={job.jobId} job={job} />)}
-            {filtered.map((resume) => <ResumeCard key={resume.id} file={resume} onOpen={() => {
-              onViewerChange?.(true)
-              setSelected(resume)
-            }} />)}
+            {filtered.map((resume) => (
+              <ResumeCard
+                key={resume.id}
+                file={resume}
+                duplicating={duplicatingId === resume.id}
+                onDuplicate={() => void duplicateSelectedResume(resume)}
+                onOpen={() => {
+                  onViewerChange?.(true)
+                  setSelected(resume)
+                }}
+              />
+            ))}
           </div>
         ) : null}
         {!loading && !error && !filtered.length && !filteredImports.length ? (
@@ -419,74 +445,48 @@ function getFileName(path: string) {
   return path.split(/[\\/]/).pop() || path
 }
 
-function ResumeCard({ file, onOpen }: { file: ResumeFile; onOpen: () => void }) {
+function ResumeCard({
+  file,
+  onOpen,
+  onDuplicate,
+  duplicating,
+}: {
+  file: ResumeFile
+  onOpen: () => void
+  onDuplicate: () => void
+  duplicating: boolean
+}) {
   const name = file.data.basics?.name || file.fileName.replace(/\.json$/i, "")
   const updated = file.updatedAt ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(file.updatedAt * 1000) : "Local preview"
   return (
-    <Button variant="ghost" className="resume-card h-auto w-full p-0 font-normal" onClick={onOpen} aria-label={`Open ${name}`}>
-      <div className="resume-card-preview" aria-hidden="true">
-        <div className="resume-card-document" style={{ width: getResumePageWidth(file.data) }}><ResumeDocument resume={file.data} compact /></div>
-      </div>
-      <div className="resume-card-info">
-        <div><h2>{name}</h2><p>Updated {updated}</p></div>
-        <span>View <span aria-hidden="true">↗</span></span>
-      </div>
-    </Button>
+    <div className="resume-card-shell">
+      <Button variant="ghost" className="resume-card h-auto w-full p-0 font-normal" onClick={onOpen} aria-label={`Open ${name}`}>
+        <div className="resume-card-preview" aria-hidden="true">
+          <div className="resume-card-document" style={{ width: getResumePageWidth(file.data) }}><ResumeDocument resume={file.data} compact /></div>
+        </div>
+        <div className="resume-card-info">
+          <div><h2>{name}</h2><p>Updated {updated}</p></div>
+          <span>View <span aria-hidden="true">↗</span></span>
+        </div>
+      </Button>
+      <Button
+        variant="outline"
+        size="icon-sm"
+        className="resume-card-duplicate"
+        onClick={onDuplicate}
+        disabled={duplicating}
+        aria-label={`Duplicate ${name}`}
+        title={`Duplicate ${name}`}
+      >
+        {duplicating ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Copy aria-hidden="true" />}
+      </Button>
+    </div>
   )
 }
 
-function ResumeImportCard({ job }: { job: ResumeImportJob }) {
-  const isRunning = job.status === "queued" || job.status === "running"
-  const activities = resumeImportActivities(job)
-  const title = job.resumeName || job.pdfFileName
-  const statusLabel = job.status === "failed"
-    ? "Import failed"
-    : isRunning
-      ? "Importing"
-      : "Imported"
-
-  return (
-    <article className={`resume-card resume-import-card is-${job.status}`} aria-label={`${title}: ${statusLabel}`}>
-      <div className="resume-import-card-preview">
-        <div className="resume-import-card-heading">
-          <div className="resume-import-card-kicker">
-            {job.status === "failed" ? <CircleX aria-hidden="true" /> : isRunning ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <CircleCheck aria-hidden="true" />}
-            <span>{statusLabel}</span>
-          </div>
-          <Sparkles aria-hidden="true" />
-        </div>
-        <div className="resume-import-card-file">
-          <FileUp aria-hidden="true" />
-          <div>
-            <strong>{job.pdfFileName}</strong>
-            <span>{job.stage}</span>
-          </div>
-        </div>
-        {activities.length ? (
-          <div className="resume-import-card-trace">
-            <AgentActivityTrace activities={activities} isStreaming={isRunning} />
-          </div>
-        ) : (
-          <div className="resume-import-card-empty" role="status">
-            {isRunning ? "Preparing the import activity…" : "No activity was recorded."}
-          </div>
-        )}
-        {job.error ? (
-          <p className="resume-import-card-error" role="alert">
-            <CircleAlert aria-hidden="true" />
-            <span>{job.error}</span>
-          </p>
-        ) : null}
-      </div>
-      <div className="resume-card-info">
-        <div>
-          <h2>{title}</h2>
-          <p>{modelLabel(job)} · {formatImportEffort(job.effort)}</p>
-        </div>
-        <span>{isRunning ? "Background" : statusLabel}</span>
-      </div>
-    </article>
-  )
+function ResumeImportCard({ job, onDismiss }: { job: ResumeImportJob; onDismiss: () => void }) {
+  return <ImportStatus title={job.resumeName || job.pdfFileName} status={job.status} stage={job.stage}
+    metadata={`${modelLabel(job)} / ${formatImportEffort(job.effort)}`} error={job.error} activities={resumeImportActivities(job)} onDismiss={onDismiss} />
 }
 
 function resumeImportActivities(job: ResumeImportJob): AgentActivity[] {

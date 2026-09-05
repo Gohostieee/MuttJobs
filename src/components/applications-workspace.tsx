@@ -1,3 +1,4 @@
+import { ImportStatus, useImportDismissals } from "@/components/import-status"
 import {
   useCallback,
   useEffect,
@@ -29,7 +30,6 @@ import { format } from "date-fns"
 
 import { JobWorkspace } from "@/components/job-workspace"
 import {
-  AgentActivityTrace,
   DEFAULT_RESUME_AI_SELECTION,
   ModelReasoningSelector,
   type AgentActivity,
@@ -131,9 +131,11 @@ export function ApplicationsWorkspace({
   const [selectedJob, setSelectedJob] = useState<TheirStackJob | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { isDismissed, dismiss, dismissError } = useImportDismissals("job")
   const [jobImports, setJobImports] = useState<JobImportJob[]>([])
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [importUrl, setImportUrl] = useState("")
+  const [importDescription, setImportDescription] = useState("")
   const [importSelection, setImportSelection] = useState(DEFAULT_RESUME_AI_SELECTION)
   const [isImporting, setIsImporting] = useState(false)
   const [importError, setImportError] = useState("")
@@ -238,6 +240,7 @@ export function ApplicationsWorkspace({
 
   function openImportDialog() {
     setImportUrl("")
+    setImportDescription("")
     setImportError("")
     setImportDialogOpen(true)
   }
@@ -247,13 +250,14 @@ export function ApplicationsWorkspace({
     if (isImporting) return
 
     const url = importUrl.trim()
-    if (!url) {
-      setImportError("Enter a job posting URL first.")
+    const description = importDescription.trim()
+    if (!url && !description) {
+      setImportError("Enter a job posting URL or paste a job description first.")
       return
     }
     try {
-      const parsed = new URL(url)
-      if (!matchesHttpUrl(parsed)) throw new Error("Enter a valid http or https job posting URL.")
+      const parsed = url ? new URL(url) : null
+      if (parsed && !matchesHttpUrl(parsed)) throw new Error("Enter a valid http or https job posting URL.")
     } catch (cause) {
       setImportError(cause instanceof Error ? cause.message : "Enter a valid job posting URL.")
       return
@@ -262,13 +266,14 @@ export function ApplicationsWorkspace({
     setIsImporting(true)
     setImportError("")
     try {
-      const job = await startJobUrlImport(url, importSelection)
+      const job = await startJobUrlImport(url, importSelection, description || undefined)
       setJobImports((current) => upsertJobImport(current, job))
       setImportDialogOpen(false)
       setImportUrl("")
+      setImportDescription("")
       void loadSavedJobs(false)
     } catch (cause) {
-      setImportError(cause instanceof Error ? cause.message : "The job import could not be started.")
+      setImportError(cause instanceof Error ? cause.message : typeof cause === "string" ? cause : "The job import could not be started.")
     } finally {
       setIsImporting(false)
     }
@@ -638,7 +643,7 @@ export function ApplicationsWorkspace({
   }
 
   return (
-    <main className="flex min-h-svh flex-1 flex-col overflow-hidden bg-muted/20">
+    <main className="flex min-h-svh min-w-0 flex-1 flex-col overflow-hidden bg-muted/20">
       <header className="border-b bg-background px-5 py-5 md:px-8 md:py-7">
         <div className="mx-auto flex max-w-[1800px] flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
@@ -684,8 +689,8 @@ export function ApplicationsWorkspace({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-auto">
-        <div className="mx-auto flex w-max min-w-full max-w-[1800px] flex-col gap-5 px-5 py-5 md:px-8 md:py-7">
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+        <div className="mx-auto flex w-full min-w-0 max-w-[1800px] flex-col gap-5 px-5 py-5 md:px-8 md:py-7">
           {error ? (
             <div
               role="alert"
@@ -696,7 +701,7 @@ export function ApplicationsWorkspace({
           ) : null}
 
           {!isLoading && jobs.length ? (
-            <Card className="company-research-controls w-full gap-0 overflow-visible py-0">
+            <Card className="company-research-controls min-w-0 w-full gap-0 overflow-visible py-0">
               <CardContent className="flex flex-col items-start gap-4 p-4">
                 <div className="min-w-0">
                   <p className="flex items-center gap-2 text-sm font-medium">
@@ -713,7 +718,7 @@ export function ApplicationsWorkspace({
                             : bulkCoverLetterMessage || bulkCreationMessage || bulkResearchMessage || `${selectedResearchJobs.length} ${selectedResearchJobs.length === 1 ? "job" : "jobs"} selected.`}
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center justify-start gap-2">
+                <div className="flex min-w-0 max-w-full flex-wrap items-center justify-start gap-2">
                   <Button
                     type="button"
                     size="sm"
@@ -769,10 +774,11 @@ export function ApplicationsWorkspace({
             </Card>
           ) : null}
 
-          {jobImports.length ? (
-            <div className="grid w-full gap-3 lg:grid-cols-2" aria-label="Job imports">
-              {jobImports.map((job) => (
-                <JobImportActivityCard key={job.jobId} job={job} />
+          {dismissError && <p role="alert" className="text-xs text-destructive">{dismissError}</p>}
+          {jobImports.some((job) => !isDismissed(job.jobId)) ? (
+            <div className="import-status-list" aria-label="Job imports">
+              {jobImports.filter((job) => !isDismissed(job.jobId)).map((job) => (
+                <JobImportActivityCard key={job.jobId} job={job} onDismiss={() => dismiss(job.jobId)} />
               ))}
             </div>
           ) : null}
@@ -780,7 +786,7 @@ export function ApplicationsWorkspace({
           {isLoading ? (
             <ApplicationsBoardSkeleton />
           ) : (
-            <div className="grid auto-cols-[minmax(18rem,21rem)] grid-flow-col gap-4">
+            <div className="grid w-full min-w-0 auto-cols-[minmax(18rem,21rem)] grid-flow-col gap-4 overflow-x-auto pb-3">
               {applicationStatusMetadata.map((status) => (
                 <ApplicationColumn
                   key={status.value}
@@ -814,12 +820,12 @@ export function ApplicationsWorkspace({
             <DialogHeader>
               <DialogTitle>Import a job</DialogTitle>
               <DialogDescription>
-                Paste a job posting URL and MuttJobs will extract it in the background.
+                Paste a job posting URL or job description. MuttJobs will extract it in the background.
               </DialogDescription>
             </DialogHeader>
 
             <div className="grid min-w-0 gap-2">
-              <Label htmlFor="job-import-url">Job posting URL</Label>
+              <Label htmlFor="job-import-url">Job posting URL {importDescription.trim() ? "(optional)" : ""}</Label>
               <Input
                 id="job-import-url"
                 type="url"
@@ -832,6 +838,24 @@ export function ApplicationsWorkspace({
                 autoFocus
                 disabled={isImporting}
               />
+            </div>
+
+            <div className="grid min-w-0 gap-2">
+              <Label htmlFor="job-import-description">Job description</Label>
+              <textarea
+                id="job-import-description"
+                className="min-h-40 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={importDescription}
+                onChange={(event) => {
+                  setImportDescription(event.target.value)
+                  setImportError("")
+                }}
+                placeholder="Paste the job title, company, responsibilities, and requirements..."
+                disabled={isImporting}
+              />
+              <p className="text-xs text-muted-foreground">
+                When a description is provided, we import that text. Add a URL to keep a link to the posting.
+              </p>
             </div>
 
             <div className="resume-import-selector job-import-selector grid min-w-0 gap-2">
@@ -864,7 +888,7 @@ export function ApplicationsWorkspace({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isImporting || !importUrl.trim()}>
+              <Button type="submit" disabled={isImporting || (!importUrl.trim() && !importDescription.trim())}>
                 {isImporting ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
                 {isImporting ? "Starting import..." : "Start import"}
               </Button>
@@ -971,63 +995,9 @@ function ApplicationColumn({
   )
 }
 
-function JobImportActivityCard({ job }: { job: JobImportJob }) {
-  const isRunning = job.status === "queued" || job.status === "running"
-  const activities = jobImportActivities(job)
-  const statusLabel = job.status === "failed"
-    ? "Import failed"
-    : isRunning
-      ? "Importing job"
-      : "Imported"
-
-  return (
-    <Card className={cn("overflow-hidden py-0", job.status === "failed" && "border-destructive/30")}>
-      <CardHeader className="border-b px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <CardTitle className="flex min-w-0 items-center gap-2 text-sm">
-            {job.status === "failed" ? (
-              <CircleX className="size-4 shrink-0 text-destructive" />
-            ) : isRunning ? (
-              <LoaderCircle className="size-4 shrink-0 animate-spin text-primary" />
-            ) : (
-              <CircleCheck className="size-4 shrink-0 text-status-success" />
-            )}
-            <span className="truncate">{statusLabel}</span>
-          </CardTitle>
-          <Badge variant="secondary" className="shrink-0">
-            Background
-          </Badge>
-        </div>
-        <CardDescription className="truncate text-xs" title={job.url}>
-          {job.url}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-3 p-4">
-        <div className="flex min-w-0 items-start gap-3 rounded-lg bg-muted/35 px-3 py-2.5">
-          <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{job.stage}</p>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              {jobImportModelLabel(job)} · {formatJobImportEffort(job.effort)} reasoning
-            </p>
-          </div>
-        </div>
-        {activities.length ? (
-          <AgentActivityTrace activities={activities} isStreaming={isRunning} />
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            {isRunning ? "Preparing the import activity…" : "No activity was recorded."}
-          </p>
-        )}
-        {job.error ? (
-          <p className="flex items-start gap-2 text-xs text-destructive" role="alert">
-            <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
-            <span>{job.error}</span>
-          </p>
-        ) : null}
-      </CardContent>
-    </Card>
-  )
+function JobImportActivityCard({ job, onDismiss }: { job: JobImportJob; onDismiss: () => void }) {
+  return <ImportStatus title={job.url || "Pasted job description"} status={job.status} stage={job.stage}
+    metadata={`${jobImportModelLabel(job)} / ${formatJobImportEffort(job.effort)}`} error={job.error} activities={jobImportActivities(job)} onDismiss={onDismiss} />
 }
 
 function ApplicationJobCard({
@@ -1223,7 +1193,7 @@ function isSuccessfulCompanyResearchRun(run: CompanyResearchRun) {
 
 function ApplicationsBoardSkeleton() {
   return (
-    <div className="grid auto-cols-[minmax(18rem,21rem)] grid-flow-col gap-4">
+    <div className="grid w-full min-w-0 auto-cols-[minmax(18rem,21rem)] grid-flow-col gap-4 overflow-x-auto pb-3">
       {Array.from({ length: applicationStatusMetadata.length }, (_, index) => (
         <Card key={index} className="flex min-h-[32rem] flex-col gap-0 overflow-hidden py-0">
           <CardHeader className="space-y-2 border-b px-4 py-3">

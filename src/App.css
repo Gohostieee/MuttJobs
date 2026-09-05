@@ -203,38 +203,31 @@ input {
 .resume-card:focus-visible { outline: 3px solid color-mix(in oklab, var(--ring) 35%, transparent); outline-offset: 2px; }
 .resume-card-selected { border-color: var(--ring); box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 22%, transparent), 0 14px 32px color-mix(in oklab, var(--foreground) 10%, transparent); }
 .resume-card-selected:hover { border-color: var(--ring); }
-.resume-card-preview { position: relative; height: 23.5rem; overflow: hidden; background: #dadbd8; pointer-events: none; }
+.resume-card-preview { position: relative; height: 23.5rem; overflow: hidden; background: var(--muted); pointer-events: none; }
 .resume-card-preview::after { position: absolute; inset: auto 0 0; height: 4.5rem; content: ""; background: linear-gradient(transparent, rgb(20 29 26 / 14%)); }
 .resume-card-document { position: absolute; top: 1rem; left: 50%; width: 794px; transform: translateX(-50%) scale(.39); transform-origin: top center; box-shadow: 0 4px 18px rgb(0 0 0 / 12%); }
 .resume-card-info { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.05rem 1.1rem; }
 .resume-card-info h2 { overflow: hidden; font-size: .95rem; font-weight: 620; letter-spacing: -.015em; text-overflow: ellipsis; white-space: nowrap; }
 .resume-card-info p { margin-top: .25rem; color: var(--muted-foreground); font-size: .72rem; }
 .resume-card-info > span { flex-shrink: 0; color: var(--muted-foreground); font-size: .73rem; }
-.resume-import-card { cursor: default; }
-.resume-import-card:hover { translate: none; border-color: var(--border); box-shadow: 0 1px 2px color-mix(in oklab, var(--foreground) 5%, transparent); }
-.resume-import-card-preview { position: relative; display: flex; height: 23.5rem; overflow: hidden; flex-direction: column; gap: .9rem; padding: 1.15rem 1rem 1rem; background: color-mix(in oklab, var(--muted) 72%, var(--background)); color: var(--foreground); }
-.resume-import-card-preview::after { position: absolute; inset: auto 0 0; height: 4.5rem; content: ""; background: linear-gradient(transparent, color-mix(in oklab, var(--foreground) 12%, transparent)); pointer-events: none; }
-.resume-import-card-heading { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
-.resume-import-card-heading > svg { width: 1.05rem; color: var(--primary); }
-.resume-import-card-kicker { display: inline-flex; align-items: center; gap: .4rem; color: var(--muted-foreground); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.resume-import-card-kicker svg { width: .9rem; height: .9rem; color: var(--primary); }
-.resume-import-card.is-failed .resume-import-card-kicker svg { color: var(--destructive); }
-.resume-import-card.is-failed .resume-import-card-heading > svg { color: var(--destructive); }
-.resume-import-card-file { position: relative; z-index: 1; display: flex; align-items: flex-start; gap: .65rem; min-width: 0; padding-bottom: .85rem; border-bottom: 1px solid color-mix(in oklab, var(--border) 80%, transparent); }
-.resume-import-card-file > svg { width: 1.15rem; height: 1.15rem; flex: 0 0 auto; margin-top: .1rem; color: var(--primary); }
-.resume-import-card-file > div { display: grid; min-width: 0; gap: .25rem; }
-.resume-import-card-file strong { overflow: hidden; font-size: .86rem; font-weight: 650; letter-spacing: -.02em; text-overflow: ellipsis; white-space: nowrap; }
-.resume-import-card-file span { overflow: hidden; color: var(--muted-foreground); font-size: .7rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
-.resume-import-card-trace { position: relative; z-index: 1; min-height: 0; overflow: auto; padding-right: .1rem; scrollbar-color: var(--border) transparent; }
-.resume-import-card-trace .resume-ai-trace { margin: 0; }
-.resume-import-card-trace .resume-ai-tool > summary,
-.resume-import-card-trace .resume-ai-trace-status-row { min-height: 1.6rem; padding: .1rem .2rem; font-size: .68rem; }
-.resume-import-card-trace .resume-ai-tool-details { margin-left: 1.45rem; padding: .35rem .45rem; }
-.resume-import-card-trace .resume-ai-trace-data pre { max-height: 7rem; font-size: .61rem; }
-.resume-import-card-empty { position: relative; z-index: 1; display: flex; min-height: 4rem; align-items: center; justify-content: center; color: var(--muted-foreground); font-size: .72rem; text-align: center; }
-.resume-import-card-error { position: relative; z-index: 1; display: flex; align-items: flex-start; gap: .4rem; margin: auto 0 0; color: var(--destructive); font-size: .68rem; line-height: 1.4; }
-.resume-import-card-error svg { width: .9rem; height: .9rem; flex: 0 0 auto; margin-top: .05rem; }
-.resume-import-card .resume-card-info { position: relative; z-index: 1; }
+/* Compact background import activity, separate from document previews. */
+.import-status-list { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; width: 100%; max-width: 100%; gap: .5rem; margin-bottom: 1rem; }
+.import-status { min-width: 0; max-width: 100%; border: 1px solid var(--border); border-radius: .65rem; background: var(--card); }
+.import-status-row { display: flex; align-items: center; gap: .75rem; padding: .75rem .85rem .35rem; }
+.import-status-icon { flex: 0 0 auto; color: var(--primary); }
+.import-status-icon svg { width: 1rem; height: 1rem; }
+.import-status.is-failed .import-status-icon { color: var(--destructive); }
+.import-status-copy { flex: 1; min-width: 0; }
+.import-status-heading { display: flex; align-items: baseline; gap: .75rem; min-width: 0; }
+.import-status-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; font-weight: 600; }
+.import-status-heading span { flex-shrink: 0; color: var(--muted-foreground); font-size: .65rem; }
+.import-status-copy > p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: .2rem 0 0; color: var(--muted-foreground); font-size: .72rem; }
+.import-status-details { padding: 0 .85rem .5rem 2.6rem; }
+.import-status-details > summary { width: fit-content; cursor: pointer; color: var(--muted-foreground); font-size: .65rem; padding: .15rem 0; }
+.import-status-details > summary:hover { color: var(--foreground); }
+.import-status-detail-body { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: .6rem; max-height: 16rem; overflow: auto; overflow-wrap: anywhere; padding: .65rem 0; }
+@media (max-width: 540px) { .import-status-heading { flex-direction: column; gap: .1rem; } .import-status-heading strong { max-width: 100%; } }
+
 .resume-card-select-indicator { display: grid; width: 1.45rem; height: 1.45rem; place-items: center; border: 1px solid var(--border); border-radius: 999px; background: var(--background); transition: background 160ms ease, border-color 160ms ease, color 160ms ease; }
 .resume-card-select-indicator.is-selected { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); }
 .resume-card-select-indicator svg { width: .85rem; height: .85rem; }
@@ -255,7 +248,7 @@ input {
 .resume-match-dimensions strong { color: var(--foreground); font-size: .67rem; font-weight: 650; }
 .resume-matching-summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; border: 1px solid color-mix(in oklab, var(--primary) 18%, var(--border)); border-radius: .75rem; background: color-mix(in oklab, var(--primary) 5%, var(--background)); }
 .resume-card-skeleton { height: 29rem; cursor: default; }
-.resume-card-skeleton > div { height: 23.5rem; background: linear-gradient(90deg, var(--muted) 25%, color-mix(in oklab, var(--muted) 65%, white) 50%, var(--muted) 75%); background-size: 200% 100%; animation: resume-shimmer 1.5s infinite; }
+.resume-card-skeleton > div { height: 23.5rem; background: linear-gradient(90deg, var(--muted) 25%, color-mix(in oklab, var(--muted) 65%, var(--foreground)) 50%, var(--muted) 75%); background-size: 200% 100%; animation: resume-shimmer 1.5s infinite; }
 .resume-card-skeleton > span { display: block; width: 45%; height: .8rem; margin: 1.35rem 1rem; border-radius: 1rem; background: var(--muted); }
 @keyframes resume-shimmer { to { background-position: -200% 0; } }
 .resume-empty { display: flex; min-height: 22rem; align-items: center; justify-content: center; flex-direction: column; border: 1px dashed var(--border); border-radius: 1rem; color: var(--muted-foreground); text-align: center; }
@@ -1217,9 +1210,9 @@ html:not(.dark) .resume-ai-provider-logo[src$="/openai_dark.svg"] { filter: brig
 .resume-ai-model-rail-button.is-active::after { position: absolute; top: .3rem; right: -.4rem; bottom: .3rem; width: 2px; border-radius: 3px; background: var(--ring); content: ""; }
 .resume-ai-model-rail-button svg { width: 1.2rem; height: 1.2rem; }
 .resume-ai-model-provider .resume-ai-provider-logo { width: 1.35rem; height: 1.35rem; }
-.resume-ai-model-provider-claude-code { color: #d97757; }
-.resume-ai-model-provider-claude-code:hover { color: #f08a6b; }
-.resume-ai-model-provider-claude-code.is-active { color: #f08a6b; }
+.resume-ai-model-provider-claude-code { color: var(--primary); }
+.resume-ai-model-provider-claude-code:hover { color: var(--primary); }
+.resume-ai-model-provider-claude-code.is-active { color: var(--primary); }
 .resume-ai-model-main { display: flex; min-width: 0; min-height: 0; flex-direction: column; }
 .resume-ai-model-search { display: flex; height: 3.5rem; align-items: center; gap: .65rem; margin: 0 .65rem; border-bottom: 1px solid var(--border); color: var(--muted-foreground); }
 .resume-ai-model-search:focus-within { border-bottom-color: var(--ring); color: var(--popover-foreground); }
@@ -1302,3 +1295,9 @@ html:not(.dark) .resume-ai-provider-logo[src$="/openai_dark.svg"] { filter: brig
   .resume-selection-toolbar { right: .4rem; left: .4rem !important; max-width: none; justify-content: center; }
   .resume-selection-action { flex: 1 1 auto; min-width: 0; }
 }
+
+.resume-card-shell { position: relative; }
+.resume-card-duplicate { position: absolute; top: .6rem; right: .6rem; opacity: 0; background: var(--card); transition: opacity 160ms ease; }
+.resume-card-shell:hover .resume-card-duplicate,
+.resume-card-duplicate:focus-visible { opacity: 1; }
+@media (hover: none) { .resume-card-duplicate { opacity: 1; } }

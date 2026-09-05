@@ -118,8 +118,11 @@ struct CatalogResponse<T> {
 pub struct JobLocation {
     pub id: i64,
     pub name: Option<String>,
+    #[serde(alias = "displayName")]
     pub display_name: Option<String>,
+    #[serde(alias = "countryCode")]
     pub country_code: Option<String>,
+    #[serde(alias = "countryName")]
     pub country_name: Option<String>,
     pub state: Option<String>,
 }
@@ -127,8 +130,10 @@ pub struct JobLocation {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all(serialize = "camelCase", deserialize = "snake_case"))]
 pub struct HiringTeamMember {
+    #[serde(alias = "fullName")]
     pub full_name: Option<String>,
     pub role: Option<String>,
+    #[serde(alias = "linkedinUrl")]
     pub linkedin_url: Option<String>,
 }
 
@@ -150,6 +155,7 @@ pub struct PrimaryResumeMetadata {
 #[serde(rename_all(serialize = "camelCase", deserialize = "snake_case"))]
 pub struct JobRecord {
     pub id: i64,
+    #[serde(alias = "jobTitle")]
     pub job_title: String,
     #[serde(
         rename = "applicationStatus",
@@ -159,42 +165,63 @@ pub struct JobRecord {
     )]
     pub application_status: Option<ApplicationStatus>,
     pub company: Option<String>,
+    #[serde(alias = "datePosted")]
     pub date_posted: Option<String>,
+    #[serde(alias = "discoveredAt")]
     pub discovered_at: Option<String>,
+    #[serde(alias = "closedAt")]
     pub closed_at: Option<String>,
     pub url: Option<String>,
+    #[serde(alias = "finalUrl")]
     pub final_url: Option<String>,
+    #[serde(alias = "sourceUrl")]
     pub source_url: Option<String>,
     pub description: Option<String>,
+    #[serde(alias = "easyApply")]
     pub easy_apply: Option<bool>,
     pub seniority: Option<String>,
+    #[serde(alias = "companyObject")]
     pub company_object: Option<JobCompany>,
     pub country: Option<String>,
+    #[serde(alias = "countryCode")]
     pub country_code: Option<String>,
     pub remote: Option<bool>,
     pub hybrid: Option<bool>,
     pub location: Option<String>,
+    #[serde(alias = "longLocation")]
     pub long_location: Option<String>,
+    #[serde(alias = "shortLocation")]
     pub short_location: Option<String>,
     #[serde(default)]
     pub locations: Vec<JobLocation>,
+    #[serde(alias = "salaryString")]
     pub salary_string: Option<String>,
+    #[serde(alias = "minAnnualSalaryUsd")]
     pub min_annual_salary_usd: Option<f64>,
+    #[serde(alias = "maxAnnualSalaryUsd")]
     pub max_annual_salary_usd: Option<f64>,
+    #[serde(alias = "avgAnnualSalaryUsd")]
     pub avg_annual_salary_usd: Option<f64>,
     #[serde(default)]
+    #[serde(alias = "hiringTeam")]
     pub hiring_team: Vec<HiringTeamMember>,
     #[serde(default)]
+    #[serde(alias = "managerRoles")]
     pub manager_roles: Vec<String>,
     #[serde(default)]
+    #[serde(alias = "employmentStatuses")]
     pub employment_statuses: Vec<String>,
     #[serde(default)]
+    #[serde(alias = "matchingPhrases")]
     pub matching_phrases: Vec<String>,
     #[serde(default)]
+    #[serde(alias = "technologySlugs")]
     pub technology_slugs: Vec<String>,
     #[serde(default)]
+    #[serde(alias = "keywordSlugs")]
     pub keyword_slugs: Vec<String>,
     #[serde(default)]
+    #[serde(alias = "hasBlurredData")]
     pub has_blurred_data: bool,
     #[serde(
         rename = "resumeMatching",
@@ -700,6 +727,26 @@ fn health(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn saved_import_round_trips_without_losing_fields() {
+        let raw = serde_json::json!({
+            "id": 8300862656034459_i64,
+            "job_title": "Software Engineer I",
+            "date_posted": "2026-09-02",
+            "source_url": "https://example.com/job",
+            "min_annual_salary_usd": 97500.0,
+            "technology_slugs": ["java"],
+            "has_blurred_data": true,
+            "locations": [{"id": 1, "display_name": "Boston", "country_code": "US"}],
+            "hiring_team": [{"full_name": "Example Recruiter", "linkedin_url": "https://example.com/recruiter"}]
+        });
+        let original: super::JobRecord = serde_json::from_value(raw).unwrap();
+        let saved = serde_json::to_value(&original).unwrap();
+        let reloaded: super::JobRecord = serde_json::from_value(saved.clone()).unwrap();
+        assert_eq!(serde_json::to_value(reloaded).unwrap(), saved);
+    }
+
+
     use super::*;
 
     #[test]
