@@ -68,7 +68,7 @@ export async function saveCoverLetter(
   try {
     const value = options?.jobId === undefined
       ? await invoke<unknown>("save_cover_letter", { path: file.path, data: normalized })
-      : await invoke<unknown>("save_job_cover_letter", { jobId: options.jobId, data: normalized })
+      : await invoke<unknown>("save_job_cover_letter", { jobId: options.jobId, data: normalized, expectedRevision: file.revision ?? "" })
     return normalizeCoverLetterFile(value)
   } catch (reason) {
     if (file.path === "Preview sample" || file.path === "Local preview") {
@@ -102,6 +102,7 @@ function normalizeCoverLetterFile(value: unknown): CoverLetterFile {
     fileName: stringValue(source.fileName, "untitled-cover-letter.json"),
     path: stringValue(source.path, ""),
     updatedAt: numberValue(source.updatedAt),
+    revision: typeof source.revision === "string" ? source.revision : undefined,
     data: normalizeAndValidateCoverLetter(source.data === undefined ? emptyCoverLetter : source.data),
   }
 }

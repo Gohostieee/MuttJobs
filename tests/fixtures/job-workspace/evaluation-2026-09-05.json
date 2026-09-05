@@ -1,0 +1,577 @@
+{
+  "evaluatedOn": "2026-09-05",
+  "model": "gpt-5.6-luna",
+  "reasoningEffort": "max",
+  "configurationOverride": "model_reasoning_effort=max",
+  "substitutedSettings": false,
+  "allFixturesAccepted": false,
+  "note": "Latest outcomes across the complete run and focused retests after completeness validation changes. Chewy timed out after 600 seconds; no completed Chewy analysis was accepted.",
+  "manualObservations": [
+    "Non-engineering alternatives and preferred Spanish remain distinct. One-year wording is retained although the numeric minimum field was null.",
+    "The repetitive fixture retains all asks but splits API development, reliability, and language evidence into overlapping targets. This grouping warrants user review.",
+    "These bounded fixture checks are not proof of universal semantic accuracy."
+  ],
+  "results": [
+    {
+      "fixture": "chewy",
+      "automatedChecksPassed": false,
+      "error": {
+        "code": "provider",
+        "message": "Live worker failed; see provider diagnostics. No model or effort substitution was made."
+      },
+      "missingAnnotatedPassages": null,
+      "prohibitedInferences": null,
+      "incompleteLabelCorrect": null,
+      "analysis": null
+    },
+    {
+      "fixture": "non-engineering",
+      "automatedChecksPassed": true,
+      "error": null,
+      "missingAnnotatedPassages": [],
+      "prohibitedInferences": [],
+      "incompleteLabelCorrect": true,
+      "analysis": {
+        "completeness": "Complete",
+        "ledger": [
+          {
+            "classification": "role-fact",
+            "paragraphId": "p1",
+            "reason": "This is the role title and does not state a candidate requirement or responsibility.",
+            "targetIds": []
+          },
+          {
+            "classification": "target",
+            "paragraphId": "p2",
+            "reason": "This explicitly labels two distinct work activities as required; they are mapped to separate preparation targets.",
+            "targetIds": [
+              "83739fb7feb4002c72f5b36f",
+              "38c0b5903c17372df356129b"
+            ]
+          },
+          {
+            "classification": "target",
+            "paragraphId": "p3",
+            "reason": "This explicitly states a collaboration activity involving warehouse and billing colleagues.",
+            "targetIds": [
+              "c3afd49b844c0fb2e2be3118"
+            ]
+          },
+          {
+            "classification": "target",
+            "paragraphId": "p4",
+            "reason": "This explicitly states a minimum qualification and its alternative.",
+            "targetIds": [
+              "bcaf9d518a7ed3b8d81e78f5"
+            ]
+          },
+          {
+            "classification": "target",
+            "paragraphId": "p5",
+            "reason": "This explicitly labels Spanish language skills as preferred.",
+            "targetIds": [
+              "f09910cc762a8bcbe4c30a3e"
+            ]
+          },
+          {
+            "classification": "role-fact",
+            "paragraphId": "p6",
+            "reason": "This states the job location, which is role context rather than candidate evidence.",
+            "targetIds": []
+          }
+        ],
+        "sourceRevision": "0d88aa5f98d79a81fb96cd07e05b548aca406f02b2ef72f6e0cd33f3c51b13c1",
+        "targets": [
+          {
+            "category": "Ownership and operations",
+            "criteria": [],
+            "evidenceExpectations": [
+              "A concise example showing how a customer concern was diagnosed and resolved, including the outcome."
+            ],
+            "grounding": "Explicit",
+            "id": "83739fb7feb4002c72f5b36f",
+            "interpretation": "Handle and resolve issues raised by customers.",
+            "priority": "Must hit",
+            "rationale": "The posting explicitly marks resolving customer concerns as required.",
+            "requirementClass": "Core responsibility",
+            "sources": [
+              {
+                "occurrence": 0,
+                "paragraphId": "p2",
+                "quote": "Required: Resolve customer concerns and maintain accurate case records."
+              }
+            ],
+            "title": "Resolve customer concerns"
+          },
+          {
+            "category": "Ownership and operations",
+            "criteria": [],
+            "evidenceExpectations": [
+              "An example of maintaining case or service records accurately, including the process used to check completeness or correctness."
+            ],
+            "grounding": "Explicit",
+            "id": "38c0b5903c17372df356129b",
+            "interpretation": "Keep customer case records accurate.",
+            "priority": "Must hit",
+            "rationale": "The posting explicitly marks maintaining accurate case records as required.",
+            "requirementClass": "Core responsibility",
+            "sources": [
+              {
+                "occurrence": 0,
+                "paragraphId": "p2",
+                "quote": "Required: Resolve customer concerns and maintain accurate case records."
+              }
+            ],
+            "title": "Maintain accurate case records"
+          },
+          {
+            "category": "Collaboration",
+            "criteria": [],
+            "evidenceExpectations": [
+              "An example of coordinating with warehouse and billing colleagues to progress or resolve a customer issue."
+            ],
+            "grounding": "Explicit",
+            "id": "c3afd49b844c0fb2e2be3118",
+            "interpretation": "Coordinate with colleagues in warehouse and billing functions.",
+            "priority": "High",
+            "rationale": "The posting explicitly instructs the coordinator to work with warehouse and billing colleagues.",
+            "requirementClass": "Core responsibility",
+            "sources": [
+              {
+                "occurrence": 0,
+                "paragraphId": "p3",
+                "quote": "Work with warehouse and billing colleagues."
+              }
+            ],
+            "title": "Collaborate with warehouse and billing colleagues"
+          },
+          {
+            "category": "Qualifications",
+            "criteria": [
+              {
+                "alternatives": [
+                  "One year of customer service experience",
+                  "equivalent volunteer experience"
+                ],
+                "label": "Customer service experience or equivalent volunteer experience",
+                "minimum": null,
+                "relationship": "any-of",
+                "unit": "year"
+              }
+            ],
+            "evidenceExpectations": [
+              "A resume or other evidence showing one year of customer service experience, or evidence of equivalent volunteer experience."
+            ],
+            "grounding": "Explicit",
+            "id": "bcaf9d518a7ed3b8d81e78f5",
+            "interpretation": "Have one year of customer service experience or equivalent volunteer experience.",
+            "priority": "Must hit",
+            "rationale": "The posting explicitly requires one year of customer service experience or equivalent volunteer experience.",
+            "requirementClass": "Required qualification",
+            "sources": [
+              {
+                "occurrence": 0,
+                "paragraphId": "p4",
+                "quote": "One year of customer service experience or equivalent volunteer experience."
+              }
+            ],
+            "title": "Demonstrate one year of customer service experience or equivalent volunteer experience"
+          },
+          {
+            "category": "Qualifications",
+            "criteria": [
+              {
+                "alternatives": [
+                  "Spanish language skills"
+                ],
+                "label": "Spanish language skills",
+                "minimum": null,
+                "relationship": "all-of",
+                "unit": null
+              }
+            ],
+            "evidenceExpectations": [
+              "A concrete example demonstrating Spanish language ability, such as customer communication or service work conducted in Spanish."
+            ],
+            "grounding": "Explicit",
+            "id": "f09910cc762a8bcbe4c30a3e",
+            "interpretation": "Spanish language ability is a preferred qualification.",
+            "priority": "Bonus",
+            "rationale": "The posting explicitly labels Spanish language skills as preferred.",
+            "requirementClass": "Preferred qualification",
+            "sources": [
+              {
+                "occurrence": 0,
+                "paragraphId": "p5",
+                "quote": "Preferred: Spanish language skills."
+              }
+            ],
+            "title": "Demonstrate Spanish language skills"
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "fixture": "sparse",
+      "automatedChecksPassed": true,
+      "error": null,
+      "missingAnnotatedPassages": [],
+      "prohibitedInferences": [],
+      "incompleteLabelCorrect": true,
+      "analysis": {
+        "completeness": "Incomplete",
+        "ledger": [
+          {
+            "classification": "ambiguous",
+            "paragraphId": "p1",
+            "reason": "The paragraph identifies the role as \"Operations Assistant\" but also states that more details are coming soon. It contains no actionable qualifications, responsibilities, or other preparation targets; the placeholder is excluded as boilerplate.",
+            "targetIds": []
+          }
+        ],
+        "sourceRevision": "05cf8ed2d4a10134835604c9a6b46f90b37d3d1c00f91d0c867b78773d3a9ff1",
+        "targets": [],
+        "warnings": [
+          "The posting is incomplete, so responsibilities, qualifications, technologies, and other requirements cannot be determined without invention."
+        ]
+      }
+    },
+    {
+      "fixture": "repetitive",
+      "automatedChecksPassed": true,
+      "error": null,
+      "missingAnnotatedPassages": [],
+      "prohibitedInferences": [],
+      "incompleteLabelCorrect": true,
+      "analysis": {
+        "completeness": "Complete",
+        "ledger": [
+          {
+            "classification": "role-fact",
+            "paragraphId": "p1",
+            "reason": "Role title/context only; it does not state a concrete preparation requirement.",
+            "targetIds": []
+          },
+          {
+            "classification": "target",
+            "paragraphId": "p2",
+            "reason": "Explicit core API-building responsibility.",
+            "targetIds": [
+              "442ac0ff400db0303777a444"
+            ]
+          },
+          {
+            "classification": "target",
+            "paragraphId": "p3",
+            "reason": "Explicit ongoing API reliability and availability responsibility.",
+            "targetIds": [
+              "a7b8ab33b473658f9eb91b7b"
+            ]
+          },
+          {
+            "classification": "target",
+            "paragraphId": "p4",
+            "reason": "Explicit required API-building responsibility and language alternatives.",
+            "targetIds": [
+              "442ac0ff400db0303777a444",
+              "8f026cddf1f12a42926c0d63"
+            ]
+          },
+          {
+            "classification": "target",
+            "paragraphId": "p5",
+            "reason": "Explicit preferred technology qualification.",
+            "targetIds": [
+              "0cd04df2ca6877dc50e3d8be"
+            ]
+          }
+        ],
+        "sourceRevision": "8fa6e567143ec918dde6a3d01973a6836c566d0df04813b679076c34260910d3",
+        "targets": [
+          {
+            "category": "engineering quality",
+            "criteria": [
+              {
+                "alternatives": [
+                  "reliable APIs"
+                ],
+                "label": "API reliability",
+                "minimum": null,
+                "relationship": "all-of",
+                "unit": null
+              }
+            ],
+            "evidenceExpectations": [
+              "API examples showing reliability mechanisms and failure handling",
+              "Tests, monitoring, or incident work tied to API reliability"
+            ],
+            "grounding": "Explicit",
+            "id": "442ac0ff400db0303777a444",
+            "interpretation": "Build APIs with reliability as an explicit quality expectation.",
+            "priority": "Must hit",
+            "rationale": "p2 directly instructs building reliable APIs, and p4 repeats that responsibility.",
+            "requirementClass": "Core responsibility",
+            "sources": [
+              {
+                "occurrence": 0,
+                "paragraphId": "p2",
+                "quote": "Build reliable APIs."
+              },
+              {
+                "occurrence": 0,
+                "paragraphId": "p4",
+                "quote": "Build reliable APIs"
+              }
+            ],
+            "title": "Build reliable APIs"
+          },
+          {
+            "category": "ownership and operations",
+            "criteria": [
+              {
+                "alternatives": [
+                  "API reliability and availability"
+                ],
+                "label": "Operational API quality",
+                "minimum": null,
+                "relationship": "all-of",
+                "unit": null
+              }
+            ],
+            "evidenceExpectations": [
+              "Examples of API monitoring, alerting, incident response, capacity, or availability work",
+              "Runbooks or postmortems demonstrating ongoing reliability ownership"
+            ],
+            "grounding": "Explicit",
+            "id": "a7b8ab33b473658f9eb91b7b",
+            "interpretation": "Maintain ongoing API reliability and availability.",
+            "priority": "Must hit",
+            "rationale": "p3 explicitly calls for maintaining API reliability and availability, distinct from initial API construction.",
+            "requirementClass": "Core responsibility",
+            "sources": [
+              {
+                "occurrence": 0,
+                "paragraphId": "p3",
+                "quote": "Maintain API reliability and availability."
+              }
+            ],
+            "title": "Maintain API reliability and availability"
+          },
+          {
+            "category": "technologies",
+            "criteria": [
+              {
+                "alternatives": [
+                  "Java",
+                  "Python"
+                ],
+                "label": "Implementation language",
+                "minimum": null,
+                "relationship": "any-of",
+                "unit": null
+              }
+            ],
+            "evidenceExpectations": [
+              "Code or project examples showing reliable API implementation in Java or Python",
+              "Repository history, tests, or technical documentation identifying the language used"
+            ],
+            "grounding": "Explicit",
+            "id": "8f026cddf1f12a42926c0d63",
+            "interpretation": "Use either Java or Python when building reliable APIs; both are not required by the wording.",
+            "priority": "Must hit",
+            "rationale": "p4 labels the requirement as Required and explicitly provides Java or Python as alternatives.",
+            "requirementClass": "Required qualification",
+            "sources": [
+              {
+                "occurrence": 0,
+                "paragraphId": "p4",
+                "quote": "using Java or Python"
+              }
+            ],
+            "title": "Build reliable APIs using Java or Python"
+          },
+          {
+            "category": "technologies",
+            "criteria": [
+              {
+                "alternatives": [
+                  "Kubernetes"
+                ],
+                "label": "Kubernetes experience",
+                "minimum": null,
+                "relationship": "optional",
+                "unit": null
+              }
+            ],
+            "evidenceExpectations": [
+              "Concrete Kubernetes work such as deployments, manifests, debugging, or operations",
+              "Related tools may be presented as transferable evidence, but should be labeled separately from Kubernetes experience"
+            ],
+            "grounding": "Explicit",
+            "id": "0cd04df2ca6877dc50e3d8be",
+            "interpretation": "Kubernetes experience is preferred rather than stated as required.",
+            "priority": "Bonus",
+            "rationale": "p5 explicitly labels experience with Kubernetes as Preferred.",
+            "requirementClass": "Preferred qualification",
+            "sources": [
+              {
+                "occurrence": 0,
+                "paragraphId": "p5",
+                "quote": "Experience with Kubernetes"
+              }
+            ],
+            "title": "Work with Kubernetes"
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "fixture": "contradictory",
+      "automatedChecksPassed": true,
+      "error": null,
+      "missingAnnotatedPassages": [],
+      "prohibitedInferences": [],
+      "incompleteLabelCorrect": true,
+      "analysis": {
+        "completeness": "Incomplete",
+        "ledger": [
+          {
+            "classification": "role-fact",
+            "paragraphId": "p1",
+            "reason": "Role title/context; not a preparation target.",
+            "targetIds": []
+          },
+          {
+            "classification": "ambiguous",
+            "paragraphId": "p2",
+            "reason": "Location statement conflicts with p3, so the work-location requirement cannot be resolved.",
+            "targetIds": []
+          },
+          {
+            "classification": "ambiguous",
+            "paragraphId": "p3",
+            "reason": "Location statement conflicts with p2, so the work-location requirement cannot be resolved.",
+            "targetIds": []
+          },
+          {
+            "classification": "target",
+            "paragraphId": "p4",
+            "reason": "Explicit required responsibility to maintain accurate support records.",
+            "targetIds": [
+              "95f3919222b24dd497f4b1be"
+            ]
+          }
+        ],
+        "sourceRevision": "5859848980546e36c68f13572c93a83b76b898aed65e94cb79c1d0e235a1c5ba",
+        "targets": [
+          {
+            "category": "ownership and operations",
+            "criteria": [
+              {
+                "alternatives": [
+                  "Maintain accurate support records."
+                ],
+                "label": "Accurate support records",
+                "minimum": null,
+                "relationship": "all-of",
+                "unit": null
+              }
+            ],
+            "evidenceExpectations": [
+              "A truthful example of maintaining support records, such as a documented workflow, accuracy check, or sanitized recordkeeping artifact."
+            ],
+            "grounding": "Explicit",
+            "id": "95f3919222b24dd497f4b1be",
+            "interpretation": "Keep support records accurate and up to date.",
+            "priority": "Must hit",
+            "rationale": "The posting explicitly marks maintaining accurate support records as required.",
+            "requirementClass": "Core responsibility",
+            "sources": [
+              {
+                "occurrence": 0,
+                "paragraphId": "p4",
+                "quote": "Maintain accurate support records."
+              }
+            ],
+            "title": "Maintain accurate support records"
+          }
+        ],
+        "warnings": [
+          "p2 says the role is fully remote, while p3 requires working from the Boston office every day; the location requirement is contradictory."
+        ]
+      }
+    },
+    {
+      "fixture": "adversarial",
+      "automatedChecksPassed": true,
+      "error": null,
+      "missingAnnotatedPassages": [],
+      "prohibitedInferences": [],
+      "incompleteLabelCorrect": true,
+      "analysis": {
+        "completeness": "Incomplete",
+        "ledger": [
+          {
+            "classification": "role-fact",
+            "paragraphId": "p1",
+            "reason": "Provides the role title but no actionable qualification or responsibility.",
+            "targetIds": []
+          },
+          {
+            "classification": "target",
+            "paragraphId": "p2",
+            "reason": "Explicitly states a required responsibility.",
+            "targetIds": [
+              "e728e098796e1101a13470e1"
+            ]
+          },
+          {
+            "classification": "ambiguous",
+            "paragraphId": "p3",
+            "reason": "Mixes instruction-like text, an external-link directive, unrelated-job content, and an unsupported applicant claim; no reliable employer requirement can be extracted.",
+            "targetIds": []
+          }
+        ],
+        "sourceRevision": "e851bd2bfc9e3f73a6a284cf4e6ef2c44dfbc5d2e822c513a07aa12ed3f20ab7",
+        "targets": [
+          {
+            "category": "ownership and operations",
+            "criteria": [
+              {
+                "alternatives": [
+                  "Maintain incident response procedures."
+                ],
+                "label": "Incident response procedure maintenance",
+                "minimum": null,
+                "relationship": "all-of",
+                "unit": null
+              }
+            ],
+            "evidenceExpectations": [
+              "Examples of maintaining or updating incident response procedures.",
+              "Incident response playbooks, exercises, or post-incident improvements."
+            ],
+            "grounding": "Explicit",
+            "id": "e728e098796e1101a13470e1",
+            "interpretation": "Maintain documented procedures for responding to incidents.",
+            "priority": "Must hit",
+            "rationale": "The passage explicitly labels maintaining incident response procedures as required.",
+            "requirementClass": "Core responsibility",
+            "sources": [
+              {
+                "occurrence": 0,
+                "paragraphId": "p2",
+                "quote": "Maintain incident response procedures."
+              }
+            ],
+            "title": "Maintain incident response procedures"
+          }
+        ],
+        "warnings": [
+          "Paragraph p3 is ambiguous and does not provide a reliable, usable role requirement."
+        ]
+      }
+    }
+  ]
+}

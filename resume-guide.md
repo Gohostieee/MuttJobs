@@ -95,6 +95,8 @@ For each mapped requirement, include the JD phrase, importance, evidence ID, evi
 
 Maximum mapping output: **700 tokens**.
 
+This limit applies only to legacy resume mapping output. Structured Job Workspace analysis (`decode-job`) is exempt: use its versioned checklist contract and preserve complete source coverage. All truth, provenance, writing, and evidence-ranking rules remain applicable.
+
 ### Pass B: Select, Tailor, and Write
 
 Use a **stable master resume plus controlled tailoring**.

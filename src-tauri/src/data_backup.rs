@@ -189,6 +189,10 @@ fn validate_backup_destination(path: &str) -> Result<PathBuf, String> {
 fn is_transient(relative: &Path) -> bool {
     let normalized = relative.to_string_lossy().replace('\\', "/");
     normalized == ".muttjobs-job-imports"
+        || normalized == ".workspace-runs"
+        || normalized.starts_with(".workspace-runs/")
+        || normalized.ends_with("/.workspace-transaction.json")
+        || normalized.ends_with("/.workspace-summary.json")
         || normalized.starts_with(".muttjobs-job-imports/")
         || normalized == "resumes/.muttjobs-imports"
         || normalized.starts_with("resumes/.muttjobs-imports/")
@@ -309,6 +313,7 @@ pub(crate) fn export_data_backup(
     path: String,
     preferences: BTreeMap<String, String>,
 ) -> Result<BackupExportSummary, String> {
+    let _workspace_guard = crate::providers::job_workspace::storage_guard()?;
     ensure_idle()?;
     if active_transaction()
         .lock()
@@ -759,6 +764,7 @@ pub(crate) fn begin_data_import(
     app: AppHandle,
     path: String,
 ) -> Result<BackupImportTransaction, String> {
+    let _workspace_guard = crate::providers::job_workspace::storage_guard()?;
     ensure_idle()?;
     let mut transaction_guard = active_transaction()
         .lock()
@@ -914,9 +920,14 @@ mod tests {
     fn write_test_backup(path: &Path, checksum_override: Option<&str>) {
         let preferences = br#"{"muttjobs.shadcn.mode":"dark"}"#.to_vec();
         let resume = br#"{"basics":{"name":"Backup Test"}}"#.to_vec();
+        let (workspace_root, service) = crate::providers::job_workspace::tests::fixture();
+        crate::providers::job_workspace::tests::analyze(&service);
         let files = vec![
             (PREFERENCES_PATH.to_string(), preferences),
             ("app-data/resumes/test.json".to_string(), resume),
+            ("app-data/jobs/1/workspace.json".to_string(),fs::read(workspace_root.path().join("jobs/1/workspace.json")).unwrap()),
+            ("app-data/jobs/1.json".to_string(),fs::read(workspace_root.path().join("jobs/1.json")).unwrap()),
+            ("app-data/profile.json".to_string(),fs::read(workspace_root.path().join("profile.json")).unwrap()),
         ];
         let mut counts = BackupCategoryCounts::default();
         let entries: Vec<_> = files
@@ -969,6 +980,9 @@ mod tests {
             "resumes/.muttjobs-imports/source.pdf"
         )));
         assert!(is_transient(Path::new("jobs/1/run.json.123.tmp")));
+        assert!(is_transient(Path::new(".workspace-runs/one/output.json")));
+        assert!(is_transient(Path::new("jobs/1/.workspace-summary.json")));
+        assert!(!is_transient(Path::new("jobs/1/workspace.json")));
         assert!(!is_transient(Path::new(
             "jobs/1/company-research/runs/one/run.json"
         )));
@@ -1058,6 +1072,10 @@ mod tests {
         );
         assert!(loaded.files.contains_key("app-data/resumes/test.json"));
         assert_eq!(loaded.manifest.counts.resumes, 1);
+        let restored=tempfile::tempdir().unwrap();
+        for (path,bytes) in &loaded.files { merge_file(restored.path(),path,bytes).unwrap(); }
+        let workspace=crate::providers::job_workspace::WorkspaceService::new(restored.path().to_path_buf()).read(1).unwrap();
+        assert_eq!(workspace.summary.analysis,"Complete");assert_eq!(workspace.summary.addressed,0);assert!(!workspace.source.original.is_empty());
     }
 
     #[test]

@@ -9,6 +9,8 @@
     "build": "tsc && vite build",
     "build:desktop": "npm run build:worker && npm run build",
     "test:company-research-ui": "node --experimental-strip-types --test src/lib/company-research-ui.test.ts",
+    "test": "node --experimental-strip-types --test src/lib/*.test.ts",
+    "test:workspace-ui": "playwright test",
     "preview": "vite preview",
     "tauri": "tauri"
   },
@@ -61,6 +63,7 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2",
     "@types/node": "^26.2.0",

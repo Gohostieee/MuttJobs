@@ -328,6 +328,7 @@ export type ResumeData = {
 }
 
 export type ResumeFile = {
+  revision?: string
   id: string
   fileName: string
   path: string

@@ -14,7 +14,8 @@ The current beta is distributed for 64-bit Windows. Because it is not yet code-s
 ## What it does
 
 - Search for jobs with TheirStack, save reusable searches, and reveal selected job details.
-- Track saved jobs on an Applications board from discovery through offer, rejection, or a deliberate not-interested archive.
+- Track saved jobs in a sortable Applications list or board, with preparation independent of submission stages.
+- Open persistent Targets, Documents, Company Research, and Activity destinations. Analyze explicitly, review Career Profile evidence, accept document proposals, then independently review coverage against saved passages.
 - Keep a complete Career Profile as the durable source for job-specific primary resumes.
 - Import resumes into the Career Profile with selectable local model and reasoning controls.
 - Build, rebuild, edit, target, and export job-specific resumes with templates, typography, colors, paper controls, and structured skills.
@@ -24,6 +25,14 @@ The current beta is distributed for 64-bit Windows. Because it is not yet code-s
 - Export and import a local backup of durable MuttJobs data.
 
 MuttJobs stores application data locally. Provider credentials are not included in MuttJobs backups.
+
+### Target workspace
+
+Analyze requires Codex; browsing, manual targets, source corrections, and evidence review work without a provider. Claude Code remains available for supported document operations. Company Research and cover letters are optional. Bulk actions run at most two jobs concurrently and offer cancellation and failed-only retry.
+
+Each managed job keeps a versioned `workspace.json` containing immutable source/analysis history, user overrides, evidence, actions, proposal lineage, and coverage sidecars. Canonical resume and cover-letter schemas remain unchanged. External profile, source, and document edits invalidate dependent reviews. Only a separate review of an actual saved passage with confirmed evidence can address a target; generation and completed tasks never check it off.
+
+Validation: `npm test`, `cargo test --manifest-path src-tauri/Cargo.toml`, `npm run test:workspace-ui`, and `npm run build:desktop`. Browser tests use the production Rust application service with a deterministic worker and disposable storage. Live evaluation is separate: build the worker, set `MUTTJOBS_EVAL_CODEX` to the native Codex executable, then run the ignored `live_curated_evaluation` Rust test. It requests `gpt-5.6-luna` with `max` through the SDK configuration override and never substitutes a model or effort. Reports are written under `src-tauri/target/job-workspace-evaluation.json`.
 
 ## Optional integrations
 

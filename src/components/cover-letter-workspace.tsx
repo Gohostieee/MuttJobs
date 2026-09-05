@@ -209,6 +209,7 @@ export function CoverLetterViewer({
   const [documentRevision, setDocumentRevision] = useState(0)
   const viewportRef = useRef<HTMLDivElement>(null)
   const latestFileRef = useRef(file)
+  const artifactRevisionRef = useRef(file.revision)
   const revisionRef = useRef(0)
   const persistedRevisionRef = useRef(0)
   const saveTimerRef = useRef<number | null>(null)
@@ -231,10 +232,11 @@ export function CoverLetterViewer({
     const task = saveQueueRef.current.then(async () => {
       try {
         const saved = await saveCoverLetter(
-          snapshot,
+          { ...snapshot, revision: artifactRevisionRef.current },
           snapshot.data,
           targetJobId === undefined ? undefined : { jobId: targetJobId },
         )
+        artifactRevisionRef.current = saved.revision
         if (revisionRef.current === revision) {
           latestFileRef.current = saved
           setCurrentFile(saved)

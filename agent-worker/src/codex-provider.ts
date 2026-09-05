@@ -8,6 +8,7 @@ import {
 
 import type { AgentJobRequest, WorkerEvent } from "./protocol.js"
 import { PROTOCOL_VERSION } from "./protocol.js"
+import { workspaceExecutionConfig } from "./workspace-execution-policy.js"
 
 type Emit = (event: WorkerEvent) => void
 type EventBase = {
@@ -41,7 +42,10 @@ export class CodexJobRunner {
   }
 
   cancel(jobId: string) {
-    return this.#active.get(jobId)?.abort() ?? false
+    const controller = this.#active.get(jobId)
+    if (!controller) return false
+    controller.abort()
+    return true
   }
 
   async run(requestId: string, job: AgentJobRequest, emit: Emit) {
@@ -56,7 +60,7 @@ export class CodexJobRunner {
       console.error(
         `[job ${job.jobId}] start provider=codex model=${job.model ?? "<default>"} `
         + `requestedEffort=${job.reasoningEffort ?? "<default>"} `
-        + `effectiveEffort=${reasoningEffort ?? "<default>"} `
+        + `effectiveEffort=${job.reasoningEffort === "max" ? "max" : reasoningEffort ?? "<default>"} `
         + `webSearch=${job.execution.networkAccessEnabled ? "live" : "disabled"}`,
       )
       emit({ ...base, type: "job_accepted" })
@@ -65,7 +69,11 @@ export class CodexJobRunner {
         // Codex emits a reasoning item when this flag is enabled. The UI
         // renders it as a collapsible trace, so the user can inspect the
         // agent's work without losing the compact conversation view.
-        config: { show_raw_agent_reasoning: true },
+        config: {
+          show_raw_agent_reasoning: true,
+          ...(job.reasoningEffort === "max" ? { model_reasoning_effort: "max" } : {}),
+          ...(job.kind === "job_workspace" ? workspaceExecutionConfig() : {}),
+        },
       })
       const thread = codex.startThread({
         workingDirectory: job.workingDirectory,
@@ -136,8 +144,10 @@ function normalizeCodexReasoningEffort(value: string | null | undefined): ModelR
     case "high":
     case "xhigh":
       return value
-    case "extra-high":
     case "max":
+      // The SDK's narrow union predates Max; pass it through Codex config.
+      return undefined
+    case "extra-high":
       console.error(`[codex] mapping unsupported UI effort ${value} to SDK effort xhigh`)
       return "xhigh"
     case undefined:

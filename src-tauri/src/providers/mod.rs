@@ -4,6 +4,7 @@ pub(crate) mod company_research;
 mod company_research_agents;
 pub(crate) mod general_agent;
 pub(crate) mod job;
+pub(crate) mod job_workspace;
 pub(crate) mod job_import;
 pub(crate) mod job_search;
 pub(crate) mod profile_resume;
@@ -1056,6 +1057,12 @@ pub(crate) fn run_resume_edit(
     requested_selection: Option<selection::ResumeTextSelection>,
     selection_action: Option<String>,
 ) -> Result<(Value, String, bool), String> {
+    // Saved-job analysis, matching and tailoring share the workspace contract.
+    let decode = requested_skills.as_ref().is_some_and(|names| names.iter().any(|name| name == "decode-job")) || user_prompt.contains("#(decode-job)");
+    if decode {
+        let job_id = target_job_id.ok_or("Open a saved job before invoking decode-job. No document was changed.")?;
+        return job_workspace::run_from_editor(app, target, job_id, "analyze", provider_id, model, effort, user_prompt, "resume");
+    }
     run_document_edit(
         app,
         target,
@@ -1372,6 +1379,14 @@ fn run_document_edit(
     mut on_event: Option<&mut dyn FnMut(job::JobEvent)>,
     additional_context: Option<String>,
 ) -> Result<(Value, String, bool), String> {
+    if prompt_mode == DocumentPromptMode::Standard && selection_action.as_deref() != Some("quantify-impact") {
+        if let Some(job_id) = target_job_id {
+            let decode = requested_skills.as_ref().is_some_and(|names| names.iter().any(|name|name=="decode-job")) || user_prompt.contains("#(decode-job)");
+            let matching = requested_skills.as_ref().is_some_and(|names| names.iter().any(|name|name=="job-match")) || user_prompt.contains("#(job-match)");
+            return job_workspace::run_from_editor(app, target, job_id, if decode {"analyze"} else if matching {"match"} else if requested_skills.as_ref().is_some_and(|names|names.iter().any(|name|name=="tailor-to-job")) {"prepare"} else {"edit"}, provider_id, model, effort, user_prompt, if document_kind=="cover letter" {"coverLetter"} else {"resume"});
+        }
+        if requested_skills.as_ref().is_some_and(|names|names.iter().any(|name|name=="decode-job")) || user_prompt.contains("#(decode-job)") {return Err("Open a saved job before invoking decode-job. No document was changed.".into());}
+    }
     let effective_user_prompt =
         skills::resolve_prompt(app, provider_id, user_prompt, requested_skills.as_deref())?;
     let provider = require_available(app, provider_id)?;

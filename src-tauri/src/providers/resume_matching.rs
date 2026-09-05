@@ -128,7 +128,8 @@ pub async fn start_resume_matching(
 
     let research = company_research::latest_ledger_for_job(&app, request.job_id)?;
     let research_run_id = research.as_ref().map(|(run_id, _)| run_id.clone());
-    let prompt = build_prompt(&job, &resumes, research.as_ref().map(|(_, ledger)| ledger));
+    let checklist = super::job_workspace::checklist_context(&app, request.job_id)?;
+    let prompt = format!("{}\n\n{checklist}\nUse the canonical checklist above as the fixed requirement set; do not extract another set of requirements.", build_prompt(&job, &resumes, research.as_ref().map(|(_, ledger)| ledger)));
     let root = matching_root(&app, request.job_id)?;
     let schema = matching_schema();
     let run_id = request.run_id.clone();
@@ -321,17 +322,14 @@ pub(crate) fn save_job_primary_resume(
     app: AppHandle,
     job_id: i64,
     data: Value,
+    expected_revision: String,
 ) -> Result<crate::ResumeFile, String> {
     if !data.is_object() {
         return Err("The job primary resume must contain a JSON object.".into());
     }
 
-    let path = validated_job_primary_resume_path(&app, job_id)?;
-    let content = serde_json::to_string_pretty(&data)
-        .map_err(|error| format!("The job primary resume could not be serialized: {error}"))?;
-    fs::write(&path, format!("{content}\n"))
-        .map_err(|error| format!("The job primary resume could not be saved: {error}"))?;
-    resume_file_from_path(&path)
+    validated_job_primary_resume_path(&app, job_id)?;
+    super::job_workspace::save_managed_document(&app,job_id,"resume",&data,&expected_revision)
 }
 
 pub(crate) fn is_job_primary_resume_path(
@@ -415,6 +413,7 @@ pub(crate) fn resume_file_from_path(path: &Path) -> Result<crate::ResumeFile, St
         .map_or(0, |duration| duration.as_secs());
 
     Ok(crate::ResumeFile {
+        revision: Some(super::job_workspace::document_revision(&data)),
         id: path_string.clone(),
         file_name,
         path: path_string,

@@ -34,6 +34,7 @@ import type { DateRange } from "react-day-picker"
 import { openUrl } from "@tauri-apps/plugin-opener"
 
 import { Badge } from "@/components/ui/badge"
+import { JobWorkspace } from "@/components/job-workspace"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -202,6 +203,7 @@ export function JobSearchWorkspace({
   const [searchError, setSearchError] = useState<string | null>(null)
   const [revealingJobIds, setRevealingJobIds] = useState<number[]>([])
   const [selectedJob, setSelectedJob] = useState<TheirStackJob | null>(null)
+  const [workspaceJob, setWorkspaceJob] = useState<TheirStackJob | null>(null)
   const [savedSearches, setSavedSearches] = useState<TheirStackSavedSearch[]>([])
   const [savedSearchesLoading, setSavedSearchesLoading] = useState(true)
   const [savedSearchesError, setSavedSearchesError] = useState<string | null>(null)
@@ -459,7 +461,7 @@ export function JobSearchWorkspace({
 
   async function selectJob(job: TheirStackJob) {
     if (!job.hasBlurredData) {
-      setSelectedJob(job)
+      setWorkspaceJob(job)
       return
     }
     if (!job.datePosted || revealingJobIds.includes(job.id)) return
@@ -468,7 +470,7 @@ export function JobSearchWorkspace({
     try {
       const revealed = await revealTheirStackJob(job.id, job.datePosted)
       setJobs((current) => current.map((candidate) => candidate.id === revealed.id ? revealed : candidate))
-      setSelectedJob(revealed)
+      setWorkspaceJob(revealed)
     } catch (cause) {
       setSearchError(errorMessage(cause, "TheirStack could not reveal this job."))
     } finally {
@@ -477,7 +479,7 @@ export function JobSearchWorkspace({
   }
 
   return (
-    <main className="flex min-h-svh flex-1 flex-col overflow-hidden bg-muted/20">
+    workspaceJob ? <JobWorkspace job={workspaceJob} onBack={() => setWorkspaceJob(null)} onJobChange={setWorkspaceJob} /> : <main className="flex min-h-svh flex-1 flex-col overflow-hidden bg-muted/20">
       <header className="border-b bg-background px-5 py-5 md:px-8 md:py-7">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>

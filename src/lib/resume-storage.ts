@@ -115,6 +115,7 @@ export async function saveResume(
     const value = options?.jobId !== undefined
       ? await invoke<unknown>("save_job_primary_resume", {
           jobId: options.jobId,
+          expectedRevision: file.revision ?? "",
           data: normalized,
         })
       : await invoke<unknown>("save_resume", {
@@ -152,6 +153,7 @@ function normalizeResumeFile(value: unknown): ResumeFile {
     fileName: stringValue(source.fileName, "untitled-resume.json"),
     path: stringValue(source.path, ""),
     updatedAt: numberValue(source.updatedAt),
+    revision: typeof source.revision === "string" ? source.revision : undefined,
     data: normalizeAndValidateResume(data),
   }
 }

@@ -1,0 +1,28 @@
+{
+  "description": "Job Description:\n\nChewy is growing and looking to expand its Autoship systems and services team with talented software engineers in multiple locations. In this role, the ideal candidate will engage in iterative development and testing and contribute to one of Chewy’s fastest-growing revenue streams.\n\nAbout You:\n\nYou will be a software engineer with a BS in Computer Science or related degree/experience, focused mainly on frontend and backend development. The Autoship team is scaling the platform with loosely coupled components, a real-time event system, self-corrective processes, a federated GraphQL API, and an aggregated data pipeline for predictive ML models and recommendation engines. You will use Java, JavaScript, Node.js, GraphQL, DynamoDB, SNS/SQS, AWS ECS/Fargate, Kubernetes, Kafka, and AWS Lambda. You will support the creation and deployment of prototype applications, systems, and services supporting standardization, optimization, automation, and Autoship infrastructure.\n\nAbout this Team:\n\nAutoship lets customers receive frequently purchased items on an automatic shipment schedule. The team’s mission is to make Autoship a convenient, simple-to-use pet care subscription program.\n\nWhat You'll Do:\n\n- Design, develop, and implement solutions using varied technologies, focusing on scalability, latency, and resiliency.\n- Review code and implementations and provide meaningful feedback.\n- Use DevOps principles and techniques to deliver high-quality software prototypes with minimal technical debt.\n- Establish strong working relationships across organizational levels and functional teams.\n- Take responsibility for major components of the Autoship platform, including development and operational needs.\n\nWhat You'll Need:\n\n- Bachelor’s degree in Computer Science, Computer Information Systems, or a related field, or equivalent experience.\n- 2+ years of professional software engineering experience.\n- 2+ years building modern JavaScript applications and frameworks such as React, Vue, or Angular.\n- 2+ years developing scalable distributed microservice applications using Java, JavaScript, or Spring Boot.\n- Experience designing, building, and deploying scalable, highly available systems.\n- Hands-on coding and debugging experience.\n- Knowledge of the full software development lifecycle, including coding standards, code reviews, source control, builds, testing, and operations.\n- Proficiency in object-oriented design, data structures, algorithm design, problem solving, and complexity analysis.\n\nBonus:\n\n- E-commerce experience.\n- Experience with Scrum, XP, or other agile methodologies.\n- Configuration and deployment management experience with Terraform or Ansible, plus infrastructure, networking, compute, storage, and virtualization experience.\n- Experience analyzing or mining data in large-scale database environments.\n- Experience with TypeScript and GraphQL.\n- Familiarity with test-driven development, Jest, and Cypress.\n- Familiarity with AWS.\n\nCompensation and Benefits:\n\nThe base salary range is $97,500–$160,000. The specific offer may depend on relevant experience, education, and work location. The position is eligible for a 401(k) and new-hire and annual equity grants; C08+ positions may also qualify for an annual bonus.\n\nBenefits include medical/Rx, vision, dental, life, disability, hospital indemnity, critical illness, and accident insurance; parental leave; family services; backup dependent care; flexible spending accounts; telemedicine; pet adoption reimbursement; an employee assistance program; and employee discounts. Exempt salaried team members have unlimited PTO subject to manager approval and receive six paid holidays per year. Paid sick and family leave may be available under applicable regulations.",
+  "name": "chewy",
+  "prohibited": [
+    "must prefer React",
+    "model training is required",
+    "weekly MVP delivery"
+  ],
+  "source": "Locally saved Chewy Software Engineer I posting, supplied for design; not a live vacancy verification.",
+  "mustRetain": [
+    "frontend",
+    "backend",
+    "iterative",
+    "testing",
+    "prototype",
+    "distributed",
+    "event",
+    "GraphQL",
+    "operational",
+    "relationships",
+    "Autoship",
+    "React",
+    "Vue",
+    "Angular",
+    "equivalent experience"
+  ],
+  "synthetic": false
+}

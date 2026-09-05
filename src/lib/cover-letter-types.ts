@@ -63,6 +63,7 @@ export type CoverLetterData = {
 }
 
 export type CoverLetterFile = {
+  revision?: string
   id: string
   fileName: string
   path: string

@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react"
+import { useEffect, useState, type CSSProperties } from "react"
 
 import {
   APP_TABS,
@@ -20,8 +20,9 @@ import { AgentWorkspace } from "@/components/agent-workspace"
 import "./App.css"
 
 function App() {
-  const [activeTab, setActiveTab] = useState<AppTabId>("overview")
+  const [activeTab, setActiveTab] = useState<AppTabId>(() => (localStorage.getItem("muttjobs.active-tab") as AppTabId) || "applications")
   const [documentViewerOpen, setDocumentViewerOpen] = useState(false)
+  useEffect(() => { const navigate = (event: Event) => { const tab = (event as CustomEvent).detail; if (APP_TABS.some(item => item.id === tab)) { localStorage.setItem("muttjobs.active-tab", tab); setActiveTab(tab) } }; window.addEventListener("muttjobs:navigate", navigate); return () => window.removeEventListener("muttjobs:navigate", navigate) }, [])
   const showAppSidebar = !documentViewerOpen
 
   return (
@@ -29,7 +30,7 @@ function App() {
       defaultOpen
       style={{ "--sidebar-width": "17.5rem" } as CSSProperties}
     >
-      {showAppSidebar ? <AppSidebar activeTab={activeTab} onSelectTab={setActiveTab} /> : null}
+      {showAppSidebar ? <AppSidebar activeTab={activeTab} onSelectTab={tab => { localStorage.setItem("muttjobs.active-tab", tab); setActiveTab(tab) }} /> : null}
       <SidebarInset className="min-h-svh overflow-hidden">
         {showAppSidebar ? (
           <header className="flex h-12 shrink-0 items-center border-b px-3 md:hidden">

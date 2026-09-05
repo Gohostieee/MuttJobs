@@ -770,13 +770,16 @@ mod tests {
         install_bundled_skills_at(directory.path()).unwrap();
 
         let catalog = read_skill_catalog(directory.path()).unwrap();
+        let mut expected = PRODUCTION_SKILLS.to_vec();
+        expected.push("decode-job");
+        expected.sort();
         assert_eq!(
             catalog
                 .skills
                 .iter()
                 .map(|skill| skill.name.as_str())
                 .collect::<Vec<_>>(),
-            PRODUCTION_SKILLS
+            expected
         );
         assert!(directory
             .path()

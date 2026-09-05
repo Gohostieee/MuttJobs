@@ -35,3 +35,5 @@ agent-worker/dist
 .vite-check/
 target-*-check/
 src-tauri/target-*-check/
+/test-results/
+/playwright-report/

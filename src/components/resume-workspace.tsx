@@ -560,6 +560,7 @@ export function ResumeViewer({
   const [documentRevision, setDocumentRevision] = useState(0)
   const viewportRef = useRef<HTMLDivElement>(null)
   const latestFileRef = useRef(file)
+  const artifactRevisionRef = useRef(file.revision)
   const revisionRef = useRef(0)
   const persistedRevisionRef = useRef(0)
   const queuedSaveRevisionRef = useRef(0)
@@ -586,10 +587,11 @@ export function ResumeViewer({
     const task = saveQueueRef.current.then(async () => {
       try {
         const saved = await saveResume(
-          snapshot,
+          { ...snapshot, revision: artifactRevisionRef.current },
           snapshot.data,
           targetJobId === undefined ? undefined : { jobId: targetJobId },
         )
+        artifactRevisionRef.current = saved.revision
         if (revisionRef.current === revision) {
           latestFileRef.current = saved
           setCurrentFile(saved)
@@ -1007,6 +1009,7 @@ export function ResumeViewer({
       persistedRevisionRef.current = revisionRef.current
       queuedSaveRevisionRef.current = revisionRef.current
       latestFileRef.current = rebuilt
+      artifactRevisionRef.current = rebuilt.revision
       undoStackRef.current = []
       redoStackRef.current = []
       textEditRef.current = null

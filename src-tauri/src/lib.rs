@@ -30,6 +30,7 @@ mod providers;
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ResumeFile {
+    pub(crate) revision: Option<String>,
     pub(crate) id: String,
     pub(crate) file_name: String,
     pub(crate) path: String,
@@ -378,6 +379,7 @@ fn cover_letter_file_from_path(path: &Path) -> Result<ResumeFile, String> {
         .map_or(0, |duration| duration.as_secs());
 
     Ok(ResumeFile {
+        revision: Some(providers::job_workspace::document_revision(&data)),
         id: path_string.clone(),
         file_name,
         path: path_string,
@@ -511,7 +513,7 @@ fn job_cover_letter_is_drafted(app: AppHandle, job_id: i64) -> Result<bool, Stri
 }
 
 #[tauri::command]
-fn save_job_cover_letter(app: AppHandle, job_id: i64, data: Value) -> Result<ResumeFile, String> {
+fn save_job_cover_letter(app: AppHandle, job_id: i64, data: Value, expected_revision: String) -> Result<ResumeFile, String> {
     if !data.is_object() {
         return Err("The job cover letter must contain a JSON object.".into());
     }
@@ -525,11 +527,7 @@ fn save_job_cover_letter(app: AppHandle, job_id: i64, data: Value) -> Result<Res
         );
     }
 
-    let content = serde_json::to_string_pretty(&data)
-        .map_err(|error| format!("The job cover letter could not be serialized: {error}"))?;
-    fs::write(&path, format!("{content}\n"))
-        .map_err(|error| format!("The job cover letter could not be saved: {error}"))?;
-    cover_letter_file_from_path(&path)
+    providers::job_workspace::save_managed_document(&app,job_id,"coverLetter",&data,&expected_revision)
 }
 
 #[tauri::command]
@@ -569,6 +567,7 @@ fn list_resumes(app: AppHandle) -> Result<Vec<ResumeFile>, String> {
             .map_or(0, |duration| duration.as_secs());
 
         resumes.push(ResumeFile {
+            revision: Some(providers::job_workspace::document_revision(&data)),
             id: path.to_string_lossy().to_string(),
             file_name: entry.file_name().to_string_lossy().to_string(),
             path: path.to_string_lossy().to_string(),
@@ -607,6 +606,7 @@ fn list_cover_letters(app: AppHandle) -> Result<Vec<ResumeFile>, String> {
             .map_or(0, |duration| duration.as_secs());
 
         letters.push(ResumeFile {
+            revision: Some(providers::job_workspace::document_revision(&data)),
             id: path.to_string_lossy().to_string(),
             file_name: entry.file_name().to_string_lossy().to_string(),
             path: path.to_string_lossy().to_string(),
@@ -641,6 +641,7 @@ fn create_resume(app: AppHandle, name: String) -> Result<ResumeFile, String> {
         .map_or(0, |duration| duration.as_secs());
 
     Ok(ResumeFile {
+        revision: Some(providers::job_workspace::document_revision(&data)),
         id: path.to_string_lossy().to_string(),
         file_name,
         path: path.to_string_lossy().to_string(),
@@ -707,6 +708,7 @@ fn duplicate_resume(app: AppHandle, path: String, name: Option<String>) -> Resul
         .map_or(0, |duration| duration.as_secs());
 
     Ok(ResumeFile {
+        revision: Some(providers::job_workspace::document_revision(&data)),
         id: target.to_string_lossy().to_string(),
         file_name,
         path: target.to_string_lossy().to_string(),
@@ -829,6 +831,7 @@ fn create_resume_from_pdf_blocking(
         .map_or(0, |duration| duration.as_secs());
     let target_string = target.to_string_lossy().to_string();
     Ok(ResumeFile {
+        revision: Some(providers::job_workspace::document_revision(&data)),
         id: target_string.clone(),
         file_name,
         path: target_string,
@@ -1350,6 +1353,7 @@ fn create_cover_letter(app: AppHandle, name: String) -> Result<ResumeFile, Strin
         .map_or(0, |duration| duration.as_secs());
 
     Ok(ResumeFile {
+        revision: Some(providers::job_workspace::document_revision(&data)),
         id: path.to_string_lossy().to_string(),
         file_name,
         path: path.to_string_lossy().to_string(),
@@ -1390,6 +1394,7 @@ fn save_resume(
     let target_string = target.to_string_lossy().to_string();
 
     Ok(ResumeFile {
+        revision: Some(providers::job_workspace::document_revision(&data)),
         id: target_string.clone(),
         file_name,
         path: target_string,
@@ -1428,6 +1433,7 @@ fn save_cover_letter(app: AppHandle, path: String, data: Value) -> Result<Resume
     let target_string = target.to_string_lossy().to_string();
 
     Ok(ResumeFile {
+        revision: Some(providers::job_workspace::document_revision(&data)),
         id: target_string.clone(),
         file_name,
         path: target_string,
@@ -1667,6 +1673,13 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .manage(providers::ProviderState::default())
         .invoke_handler(tauri::generate_handler![
+            providers::job_workspace::job_workspace_read,
+            providers::job_workspace::job_workspace_document,
+            providers::job_workspace::job_workspace_profile_entries,
+            providers::job_workspace::job_workspace_mutate,
+            providers::job_workspace::job_workspace_run,
+            providers::job_workspace::job_workspace_cancel,
+            providers::job_workspace::job_workspace_summaries,
             list_resumes,
             list_cover_letters,
             get_resumes_directory,

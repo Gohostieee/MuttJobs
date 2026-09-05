@@ -53,9 +53,9 @@ export class ClaudeCodeJobRunner {
       "--permission-mode",
       "acceptEdits",
       "--allowedTools",
-      "Read,Edit,Write",
+      job.kind === "job_workspace" ? "" : "Read,Edit,Write",
       "--tools",
-      "Read,Edit,Write",
+      job.kind === "job_workspace" ? "" : "Read,Edit,Write",
       // `--bare` disables OAuth and keychain reads. Provider health accepts
       // Claude.ai subscription login, so keep the user's normal auth sources
       // available to the non-interactive process.

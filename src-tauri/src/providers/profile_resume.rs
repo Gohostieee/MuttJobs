@@ -262,7 +262,8 @@ fn build_generation_context(
         None => "No usable Company Research ledger is available for this job.".into(),
     };
 
-    format_generation_context(job_id, profile, job, &research_json)
+    let checklist = super::job_workspace::checklist_context(app, job_id)?;
+    Ok(format!("{}\n\n{checklist}", format_generation_context(job_id, profile, job, &research_json)?))
 }
 
 fn format_generation_context(
