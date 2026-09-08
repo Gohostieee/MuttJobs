@@ -1,3 +1,5 @@
+import { BackgroundActivityPreview } from "./background-activity"
+import { useBackgroundActivity } from "@/lib/background-activity"
 import { useEffect, useMemo, useState } from "react"
 import {
   Check,
@@ -51,7 +53,11 @@ export function ResumeMatchingWorkspace({
   const [selection, setSelection] = useState<ResumeAiSelection>(DEFAULT_RESUME_AI_SELECTION)
   const [matching, setMatching] = useState<ResumeMatchingResult | null>(job.resumeMatching ?? null)
   const [primaryResume, setPrimaryResume] = useState(job.primaryResume ?? null)
-  const [isMatching, setIsMatching] = useState(false)
+  const task = useBackgroundActivity((state) => state.runs[`resume-matching-${job.id}`])
+  const isMatching = task?.status === "running"
+  useEffect(() => {
+    if (task?.status === "completed" && task.result) setMatching(task.result as ResumeMatchingResult)
+  }, [task?.status, task?.result])
   const [isSavingPrimary, setIsSavingPrimary] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -59,7 +65,7 @@ export function ResumeMatchingWorkspace({
   const [primaryError, setPrimaryError] = useState("")
 
   useEffect(() => {
-    setMatching(job.resumeMatching ?? null)
+    setMatching((useBackgroundActivity.getState().runs[`resume-matching-${job.id}`]?.result as ResumeMatchingResult | undefined) ?? job.resumeMatching ?? null)
     setPrimaryResume(job.primaryResume ?? null)
   }, [job.id, job.primaryResume, job.resumeMatching])
 
@@ -124,7 +130,6 @@ export function ResumeMatchingWorkspace({
 
   async function beginMatching() {
     if (isMatching || !resumes.length) return
-    setIsMatching(true)
     setMatchingError("")
     setPrimaryError("")
     try {
@@ -139,8 +144,6 @@ export function ResumeMatchingWorkspace({
       onJobChange?.({ ...job, resumeMatching: result })
     } catch (reason) {
       setMatchingError(errorMessage(reason, "Resume matching could not be completed."))
-    } finally {
-      setIsMatching(false)
     }
   }
 
@@ -165,6 +168,7 @@ export function ResumeMatchingWorkspace({
 
   return (
     <div className="space-y-5">
+      <BackgroundActivityPreview taskKey={`resume-matching-${job.id}`} />
       <Card>
         <CardHeader className="gap-4 border-b lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-1.5">

@@ -1,3 +1,6 @@
+import { BackgroundActivityPreview } from "./background-activity"
+import { useBackgroundActivity } from "@/lib/background-activity"
+import type { GeneratePrimaryResumeFromProfileResult } from "@/lib/profile-resume-generation"
 import { useEffect, useState } from "react"
 import {
   AlertCircle,
@@ -43,7 +46,11 @@ export function ResumeCreationWorkspace({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [selection, setSelection] = useState(DEFAULT_RESUME_AI_SELECTION)
-  const [isGenerating, setIsGenerating] = useState(false)
+  const task = useBackgroundActivity((state) => state.runs[`resume-generation-${job.id}`])
+  const isGenerating = task?.status === "running"
+  useEffect(() => {
+    if (task?.status === "completed" && task.result) setPrimaryResume((task.result as GeneratePrimaryResumeFromProfileResult).file)
+  }, [task?.status, task?.result])
   const [generationError, setGenerationError] = useState("")
 
   async function generateFromProfile(confirmReplacement: boolean) {
@@ -52,7 +59,6 @@ export function ResumeCreationWorkspace({
       "A successful rebuild will replace this job's current primary resume with a new version built from the latest saved Career Profile. Continue?",
     )) return null
 
-    setIsGenerating(true)
     setGenerationError("")
     try {
       const result = await generatePrimaryResumeFromProfile({
@@ -73,8 +79,6 @@ export function ResumeCreationWorkspace({
           : "Could not build a resume from the Career Profile. Complete your Career Profile and try again."
       setGenerationError(message)
       throw new Error(message)
-    } finally {
-      setIsGenerating(false)
     }
   }
 
@@ -82,6 +86,12 @@ export function ResumeCreationWorkspace({
     let active = true
 
     async function loadPrimaryResume() {
+      const completed = useBackgroundActivity.getState().runs[`resume-generation-${job.id}`]
+      if (completed?.status === "completed" && completed.result) {
+        setPrimaryResume((completed.result as GeneratePrimaryResumeFromProfileResult).file)
+        setLoading(false)
+        return
+      }
       if (!job.primaryResume) {
         setPrimaryResume(null)
         setLoading(false)
@@ -114,6 +124,8 @@ export function ResumeCreationWorkspace({
 
   if (primaryResume) {
     return (
+      <>
+      <BackgroundActivityPreview taskKey={`resume-generation-${job.id}`} />
       <ResumeViewer
         file={primaryResume}
         targetJobId={job.id}
@@ -128,6 +140,7 @@ export function ResumeCreationWorkspace({
           onBackToJob()
         }}
       />
+      </>
     )
   }
 
@@ -135,13 +148,16 @@ export function ResumeCreationWorkspace({
   if (error) return <ResumeCreationError message={error} />
   if (!job.primaryResume) {
     return (
+      <>
+      <BackgroundActivityPreview taskKey={`resume-generation-${job.id}`} />
       <NoPrimaryResume
         selection={selection}
         onSelectionChange={setSelection}
         isGenerating={isGenerating}
         error={generationError}
-        onGenerate={() => void generateFromProfile(false)}
+        onGenerate={() => void generateFromProfile(false).catch(() => {})}
       />
+      </>
     )
   }
 }

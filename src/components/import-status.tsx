@@ -1,3 +1,6 @@
+import { CollapsibleContent } from "./ui/collapsible"
+import { Reasoning, ReasoningContent, ReasoningTrigger } from "./ai-elements/reasoning"
+import { Conversation, ConversationContent, ConversationScrollButton } from "./ai-elements/conversation"
 import { useState } from "react"
 import { CircleCheck, CircleX, LoaderCircle, X } from "lucide-react"
 import { AgentActivityTrace, type AgentActivity } from "@/components/resume-ai-sidebar"
@@ -50,14 +53,15 @@ export function ImportStatus({ title, status, stage, metadata, error, activities
         </div>
         {!running && <Button variant="ghost" size="sm" onClick={onDismiss} aria-label={`Dismiss import: ${title}`} title="Permanently dismiss this import"><X aria-hidden="true" /> Dismiss</Button>}
       </div>
-      <details className="import-status-details">
-        <summary>Details</summary>
-        <div className="import-status-detail-body">
+      <Reasoning className="import-status-details" isStreaming={running}>
+        <ReasoningTrigger type="button" getThinkingMessage={() => <span>{running ? "Live import activity" : "Import details"}</span>} />
+        <ReasoningContent>{metadata}</ReasoningContent>
+        <CollapsibleContent><Conversation className="h-64"><ConversationContent className="import-status-detail-body">
           <p className="text-xs text-muted-foreground">{metadata}</p>
           {error && <p className="text-xs text-destructive">{error}</p>}
           {activities.length ? <AgentActivityTrace activities={activities} isStreaming={running} /> : <p className="text-xs text-muted-foreground">{running ? "Waiting for activity…" : "No activity recorded."}</p>}
-        </div>
-      </details>
+        </ConversationContent><ConversationScrollButton type="button" /></Conversation></CollapsibleContent>
+      </Reasoning>
     </article>
   )
 }

@@ -1,10 +1,18 @@
+import { BackgroundActivityPreview } from "./background-activity"
+import { useBackgroundActivity } from "@/lib/background-activity"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { openUrl } from "@tauri-apps/plugin-opener"
-import { listen } from "@tauri-apps/api/event"
 import { invoke } from "@tauri-apps/api/core"
 import { TargetCriteriaEditor } from "./target-criteria-editor"
 import type { WorkspaceMutations } from "@/lib/job-workspace"
-import { ArrowLeft, Check, FileText, LoaderCircle, Plus, X } from "lucide-react"
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  FileText,
+  LoaderCircle,
+  Plus,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -16,6 +24,7 @@ import {
 } from "@/components/ui/dialog"
 import { CompanyResearchWorkspace } from "@/components/company-research-workspace"
 import { TargetEvidencePicker } from "@/components/target-evidence-picker"
+import { TargetEvidenceInput } from "@/components/target-evidence-input"
 import { TargetCoverageReview } from "@/components/target-coverage-review"
 import { ResumeViewer } from "@/components/resume-workspace"
 import { CoverLetterViewer } from "@/components/cover-letter-workspace"
@@ -50,6 +59,10 @@ import {
   type WorkspaceOperation,
   type Proposal,
 } from "@/lib/job-workspace"
+import {
+  requirementConfirmed,
+  targetProgress,
+} from "@/lib/job-preparation-flow"
 import "./job-workspace.css"
 
 const destinations = [
@@ -63,8 +76,8 @@ type ViewState = {
   targetId: string
   artifact: string
   filter: string
-  selected: string[]
   scroll: number
+  step: "requirements" | "match"
 }
 function restoredView(id: number): ViewState {
   const defaults: ViewState = {
@@ -72,8 +85,8 @@ function restoredView(id: number): ViewState {
     targetId: "",
     artifact: "resume",
     filter: "All targets",
-    selected: [],
     scroll: 0,
+    step: "requirements",
   }
   try {
     return {
@@ -98,7 +111,15 @@ export function JobWorkspace({
   const [workspace, setWorkspace] = useState<JobPreparation | null>(null)
   const [view, setView] = useState(() => restoredView(job.id))
   const [error, setError] = useState("")
-  const [busy, setBusy] = useState(false)
+  const [locallyBusy, setBusy] = useState(false)
+  const backgroundTask = useBackgroundActivity(
+    (state) => state.runs[`job-workspace-${job.id}`],
+  )
+  const busy = locallyBusy || backgroundTask?.status === "running"
+  useEffect(() => {
+    if (backgroundTask?.status === "completed" && backgroundTask.result)
+      setWorkspace(backgroundTask.result as JobPreparation)
+  }, [backgroundTask?.status, backgroundTask?.result])
   const [runId, setRunId] = useState("")
   const [runStatus, setRunStatus] = useState("")
   const [selection, setSelection] = useState(DEFAULT_RESUME_AI_SELECTION)
@@ -113,10 +134,14 @@ export function JobWorkspace({
   const [proposal, setProposal] = useState<Proposal | null>(null)
   const [currentDocument, setCurrentDocument] = useState<unknown>(null)
   const [includeResearch, setIncludeResearch] = useState(false)
-  const [narrow, setNarrow] = useState(() => window.innerWidth < 1100)
+  const [inspectorTab, setInspectorTab] = useState(() =>
+    restoredView(job.id).step === "match" ? "evidence" : "requirement",
+  )
+  const [runningOperation, setRunningOperation] =
+    useState<WorkspaceOperation | null>(null)
   const [field, setField] = useState("")
   const [quote, setQuote] = useState("")
-  const content = useRef<HTMLDivElement>(null)
+  const content = useRef<HTMLElement>(null)
   const targetButton = useRef<HTMLButtonElement | null>(null)
   const refresh = useCallback(async () => {
     try {
@@ -132,39 +157,12 @@ export function JobWorkspace({
     void refresh()
   }, [refresh])
   useEffect(() => {
-    const query = matchMedia("(max-width: 1099px)")
-    const update = () => setNarrow(query.matches)
-    query.addEventListener("change", update)
-    return () => query.removeEventListener("change", update)
-  }, [])
-  useEffect(() => {
     localStorage.setItem(`muttjobs.job-view.${job.id}`, JSON.stringify(view))
   }, [job.id, view])
   useEffect(() => {
     if (workspace && content.current)
       content.current.scrollTop = restoredView(job.id).scroll
   }, [!!workspace, job.id])
-  useEffect(() => {
-    if (!runId) return
-    let disposed = false
-    let cleanup: (() => void) | undefined
-    void listen<{ runId: string; status?: string; event?: { stage?: string } }>(
-      "job-workspace-event",
-      ({ payload }) => {
-        if (payload.runId === runId)
-          setRunStatus(payload.status || payload.event?.stage || "Working…")
-      },
-    )
-      .then((fn) => {
-        if (disposed) fn()
-        else cleanup = fn
-      })
-      .catch(() => {})
-    return () => {
-      disposed = true
-      cleanup?.()
-    }
-  }, [runId])
   const targets = workspace ? workspaceTargets(workspace) : []
   const target = targets.find((t) => t.id === view.targetId)
   const updateView = (patch: Partial<ViewState>) =>
@@ -194,6 +192,7 @@ export function JobWorkspace({
     if (!workspace || busy) return
     const id = crypto.randomUUID()
     setRunId(id)
+    setRunningOperation(operation)
     setBusy(true)
     setError("")
     setRunStatus("Starting…")
@@ -204,18 +203,25 @@ export function JobWorkspace({
           operation,
           selection,
           id,
-          view.selected,
+          [],
           view.artifact,
           includeResearch,
         ),
       )
-      setRunStatus("Saved for review")
+      setRunStatus(
+        operation === "match"
+          ? "Profile matching finished. Review the results below."
+          : "Saved for review",
+      )
+      if (operation === "match")
+        updateView({ step: "match", targetId: "", filter: "All targets" })
     } catch (cause) {
       setError(workspaceError(cause))
       setRunStatus("Previous work retained")
     } finally {
       setBusy(false)
       setRunId("")
+      setRunningOperation(null)
     }
   }
   async function openEditor() {
@@ -245,279 +251,415 @@ export function JobWorkspace({
     setLineage(parents)
     setNote(workspace?.overrides.find((o) => o.targetId === t.id)?.note ?? "")
   }
-  const summary = workspace?.summary
+  const confirmedCount = workspace
+    ? targets.filter((t) => requirementConfirmed(workspace, t)).length
+    : 0
+  const analysisStale =
+    !!workspace?.checklist &&
+    workspace.checklist.analysis.sourceRevision !== workspace.source.revision
+  const allConfirmed =
+    !analysisStale && targets.length > 0 && confirmedCount === targets.length
+  const step = allConfirmed && view.step === "match" ? "match" : "requirements"
+  const matching =
+    runningOperation === "match" ||
+    (backgroundTask?.status === "running" && backgroundTask.title === "Job match")
+  const results = workspace
+    ? targets.map((t) => targetProgress(workspace, t, view.artifact))
+    : []
+  const assessedCount = results.filter((r) => r.evidence.length > 0).length
+  const supportedCount = results.filter((r) => r.supported).length
+  const approvedCount = results.filter((r) => r.approved).length
+  const reviewCount = results.filter((r) => r.supported && !r.approved).length
+  const filters = step === "requirements"
+    ? ["All targets", "To confirm"]
+    : ["All targets", "Evidence to review", "Profile gaps"]
+  const activeFilter = filters.includes(view.filter) ? view.filter : "All targets"
   const visibleTargets = targets.filter(
-    (t) =>
-      view.filter === "All targets" ||
-      view.filter === t.priority ||
-      view.filter === t.grounding ||
-      (view.filter === "Evidence to review" &&
-        workspace?.evidence.some(
-          (e) => e.suggestion.targetId === t.id && e.review !== "Confirmed",
-        )) ||
-      (view.filter === "Coverage remaining" &&
-        !workspace?.coverage.some(
-          (c) =>
-            c.placement.targetId === t.id &&
-            c.artifact === view.artifact &&
-            c.status === "Addressed",
-        )),
+    (_, i) =>
+      activeFilter === "All targets" ||
+      (activeFilter === "To confirm" && !results[i].confirmed) ||
+      (activeFilter === "Evidence to review" &&
+        results[i].supported &&
+        !results[i].approved) ||
+      (activeFilter === "Profile gaps" &&
+        results[i].evidence.length > 0 &&
+        !results[i].supported),
   )
+  function navigate(
+    destination: ViewState["destination"],
+    nextStep = view.step,
+  ) {
+    updateView({
+      destination,
+      step: nextStep,
+      targetId: "",
+      filter: "All targets",
+      scroll: 0,
+    })
+    content.current?.scrollTo({ top: 0 })
+    setResume(null)
+    setLetter(null)
+  }
+  function openTarget(t: Target, button: HTMLButtonElement) {
+    targetButton.current = button
+    setInspectorTab(step === "requirements" ? "requirement" : "evidence")
+    updateView({ targetId: t.id })
+  }
   const inspector =
     target && workspace ? (
       <div className="target-inspector-content">
-        <div className="flex justify-between">
-          <Badge variant="outline">{target.priority}</Badge>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={closeInspector}
-            aria-label="Close target inspector"
-          >
-            <X />
-          </Button>
-        </div>
-        <h2>{target.title}</h2>
-        <p>{target.interpretation}</p>
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary">{target.requirementClass}</Badge>
-          <Badge variant="outline">{target.grounding}</Badge>
-        </div>
-        <p>{target.rationale}</p>
-        <h3>Why this target exists</h3>
-        {target.sources.map((s, i) => (
-          <button
-            className="target-quote"
-            key={i}
-            onClick={() => setSourceOpen(true)}
-          >
-            <blockquote>{s.quote}</blockquote>
-            <small>Original source · {s.paragraphId}</small>
-          </button>
-        ))}
-        {target.grounding === "Manual" && (
-          <p>Personal preparation target supplied by you.</p>
-        )}
-        {target.criteria.map((c, i) => (
-          <div className="target-evidence" key={i}>
-            <strong>{c.label}</strong>
-            <p>
-              {c.relationship}: {c.alternatives.join(" / ")}
-              {c.minimum !== null ? ` · ${c.minimum} ${c.unit}` : ""}
-            </p>
-          </div>
-        ))}
-        <h3>Suggested proof</h3>
-        <ul>
-          {target.evidenceExpectations.map((e, i) => (
-            <li key={i}>{e}</li>
-          ))}
-        </ul>
-        <small>Examples to look for, not facts about your experience.</small>
-        <h3>Career Profile evidence</h3>
-        <TargetEvidencePicker
-          targetId={target.id}
-          disabled={busy}
-          onLink={(value) => void change("linkEvidence", value)}
-        />
-        {workspace.evidence
-          .filter((e) => e.suggestion.targetId === target.id)
-          .map((e) => (
-            <section className="target-evidence" key={e.id}>
-              <div className="flex flex-wrap gap-2">
-                <Badge>{e.suggestion.strength}</Badge>
-                <Badge variant="outline">{e.suggestion.matchKind}</Badge>
-                <Badge variant="outline">{e.review}</Badge>
-              </div>
-              <p>{e.suggestion.explanation}</p>
-              {e.suggestion.references.map((r, i) => (
-                <blockquote key={i}>
-                  {r.excerpt}
-                  <small>Career Profile · {r.entryId}</small>
-                </blockquote>
-              ))}
-              <div className="flex gap-2">
-                <Button
-                  disabled={busy || e.review === "Confirmed"}
-                  size="sm"
-                  onClick={() =>
-                    void change("evidenceReview", {
-                      id: e.id,
-                      review: "Confirmed",
-                    })
-                  }
-                >
-                  Confirm evidence
-                </Button>
-                <Button
-                  disabled={busy}
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    void change("evidenceReview", {
-                      id: e.id,
-                      review: "Rejected",
-                    })
-                  }
-                >
-                  Reject
-                </Button>
-              </div>
-            </section>
-          ))}
-        {!workspace.evidence.some(
-          (e) => e.suggestion.targetId === target.id,
-        ) && (
-          <p>
-            No assessment yet. Match Career Profile or add factual details to
-            your profile.
-          </p>
-        )}
-        <h3>
-          Coverage in{" "}
-          {view.artifact === "resume" ? "primary resume" : "cover letter"}
-        </h3>
-        {workspace.coverage
-          .filter(
-            (c) =>
-              c.placement.targetId === target.id &&
-              c.artifact === view.artifact,
-          )
-          .map((c) => (
-            <section className="target-evidence" key={c.id}>
-              <Badge variant="outline">{c.status}</Badge>
-              <blockquote>{c.placement.quote}</blockquote>
-              <small>
-                Verify this passage truthfully demonstrates the target.
-              </small>
-              <TargetCoverageReview
-                target={target}
-                disabled={
-                  busy ||
-                  c.status === "Addressed" ||
-                  c.status === "Needs review"
-                }
-                onReview={(criteria) =>
-                  void change("coverageReview", { id: c.id, criteria })
-                }
-              />
-            </section>
-          ))}
-        <details>
-          <summary>Locate a placement manually</summary>
-          <label>
-            Document field
-            <input
-              placeholder="/summary/content"
-              value={field}
-              onChange={(e) => setField(e.target.value)}
-            />
-          </label>
-          <label>
-            Exact saved passage
-            <textarea
-              value={quote}
-              onChange={(e) => setQuote(e.target.value)}
-            />
-          </label>
-          <Button
-            size="sm"
-            disabled={busy}
-            onClick={() =>
-              void change("placement", {
-                artifact: view.artifact,
-                placement: {
-                  targetId: target.id,
-                  field,
-                  quote,
-                  evidenceIds: workspace.evidence
-                    .filter(
-                      (e) =>
-                        e.suggestion.targetId === target.id &&
-                        e.review === "Confirmed",
-                    )
-                    .map((e) => e.id),
-                },
-              })
-            }
-          >
-            Verify placement
-          </Button>
-        </details>
-        <h3>Preparation and notes</h3>
-        {workspace.actions
-          .filter((a) => a.targetIds.includes(target.id))
-          .map((a) => (
-            <div className="target-evidence" key={a.id}>
-              <p>{a.title}</p>
-              <small>{a.completionCondition}</small>
-              <select
-                aria-label={`Status of ${a.title}`}
-                value={a.status}
-                disabled={busy}
-                onChange={(e) => {
-                  const status = e.target.value
-                  const reason =
-                    status === "Dismissed"
-                      ? window.prompt("Why is this action dismissed?")
-                      : a.reason
-                  if (reason !== null)
-                    void change("action", { ...a, status, reason })
-                }}
+        <div className="target-detail-tabs" aria-label="Requirement details">
+          {[
+            ["requirement", "Requirement"],
+            ["evidence", "Profile evidence"],
+            ["document", "Document"],
+            ["options", "Options"],
+          ]
+            .filter(
+              ([id]) =>
+                step !== "requirements" ||
+                id === "requirement" ||
+                id === "options",
+            )
+            .map(([id, label]) => (
+              <button
+                key={id}
+                aria-pressed={inspectorTab === id}
+                aria-controls={`target-panel-${id}`}
+                id={`target-tab-${id}`}
+                onClick={() => setInspectorTab(id)}
               >
-                {["To do", "In progress", "Blocked", "Done", "Dismissed"].map(
-                  (s) => (
-                    <option key={s}>{s}</option>
-                  ),
-                )}
-              </select>
-            </div>
-          ))}
-        <p>{workspace.overrides.find((o) => o.targetId === target.id)?.note}</p>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => editTarget(target)}
-          >
-            Edit / notes
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              editTarget(
-                {
-                  ...target,
-                  id: "",
-                  title: `${target.title} — supporting target`,
-                },
-                [target.id],
-              )
-            }
-          >
-            Split target
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={busy}
-            onClick={() =>
-              void change("target", {
-                target,
-                dismissed: true,
-                note: "Dismissed by user",
-                lineage: [],
-              })
-            }
-          >
-            Dismiss
-          </Button>
+                {label}
+              </button>
+            ))}
         </div>
+        {inspectorTab === "requirement" && (
+          <section
+            className="target-detail-panel"
+            id="target-panel-requirement"
+            aria-labelledby="target-tab-requirement"
+          >
+            <p>{target.interpretation}</p>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">{target.requirementClass}</Badge>
+              <Badge variant="outline">{target.grounding}</Badge>
+            </div>
+            <p>{target.rationale}</p>
+            <h3>Why this target exists</h3>
+            {target.sources.map((s, i) => (
+              <button
+                className="target-quote"
+                key={i}
+                onClick={() => setSourceOpen(true)}
+              >
+                <blockquote>{s.quote}</blockquote>
+                <small>Original source · {s.paragraphId}</small>
+              </button>
+            ))}
+            {target.grounding === "Manual" && (
+              <p>Personal preparation target supplied by you.</p>
+            )}
+            {target.criteria.map((c, i) => (
+              <div className="target-evidence" key={i}>
+                <strong>{c.label}</strong>
+                <p>
+                  {c.relationship}: {c.alternatives.join(" / ")}
+                  {c.minimum !== null ? ` · ${c.minimum} ${c.unit}` : ""}
+                </p>
+              </div>
+            ))}
+            <h3>Suggested proof</h3>
+            <ul>
+              {target.evidenceExpectations.map((e, i) => (
+                <li key={i}>{e}</li>
+              ))}
+            </ul>
+            <small>
+              Examples to look for, not facts about your experience.
+            </small>
+            <Button
+              disabled={busy || analysisStale}
+              variant={
+                requirementConfirmed(workspace, target)
+                  ? "secondary"
+                  : "default"
+              }
+              onClick={() =>
+                void change("confirmTarget", {
+                  targetId: target.id,
+                  confirmed: !requirementConfirmed(workspace, target),
+                })
+              }
+            >
+              {requirementConfirmed(workspace, target)
+                ? "Undo confirmation"
+                : "Confirm requirement"}
+            </Button>
+          </section>
+        )}
+        {inspectorTab === "evidence" && (
+          <section
+            className="target-detail-panel"
+            id="target-panel-evidence"
+            aria-labelledby="target-tab-evidence"
+          >
+            <h3>Career Profile evidence</h3>
+            <TargetEvidenceInput
+              key={target.id}
+              targetId={target.id}
+              label={target.interpretation}
+              disabled={busy}
+              onLink={async (suggestion) => {
+                setBusy(true)
+                try {
+                  const latest = await readJobWorkspace(job.id)
+                  setWorkspace(await mutateJobWorkspace(latest, "linkEvidence", suggestion))
+                } finally {
+                  setBusy(false)
+                }
+              }}
+            />
+            <TargetEvidencePicker
+              targetId={target.id}
+              disabled={busy}
+              onLink={(value) => void change("linkEvidence", value)}
+            />
+            {workspace.evidence
+              .filter((e) => e.suggestion.targetId === target.id)
+              .map((e) => (
+                <section className="target-evidence" key={e.id}>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge>{e.suggestion.strength}</Badge>
+                    <Badge variant="outline">{e.suggestion.matchKind}</Badge>
+                    <Badge variant="outline">{e.review}</Badge>
+                  </div>
+                  <p>{e.suggestion.explanation}</p>
+                  {e.suggestion.references.map((r, i) => (
+                    <blockquote key={i}>
+                      {r.excerpt}
+                      <small>Career Profile · {r.entryId}</small>
+                    </blockquote>
+                  ))}
+                  <div className="flex gap-2">
+                    <Button
+                      disabled={
+                        busy ||
+                        e.review === "Confirmed" ||
+                        !["Strong", "Partial"].includes(
+                          e.suggestion.strength,
+                        ) ||
+                        !e.suggestion.references.length
+                      }
+                      size="sm"
+                      onClick={() =>
+                        void change("evidenceReview", {
+                          id: e.id,
+                          review: "Confirmed",
+                        })
+                      }
+                    >
+                      Confirm evidence
+                    </Button>
+                    <Button
+                      disabled={busy}
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        void change("evidenceReview", {
+                          id: e.id,
+                          review: "Rejected",
+                        })
+                      }
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                </section>
+              ))}
+            {!workspace.evidence.some(
+              (e) => e.suggestion.targetId === target.id,
+            ) && (
+              <p>
+                No assessment yet. Match Career Profile or add factual details
+                to your profile.
+              </p>
+            )}
+          </section>
+        )}
+        {inspectorTab === "document" && (
+          <section
+            className="target-detail-panel"
+            id="target-panel-document"
+            aria-labelledby="target-tab-document"
+          >
+            <h3>
+              Coverage in{" "}
+              {view.artifact === "resume" ? "primary resume" : "cover letter"}
+            </h3>
+            {workspace.coverage
+              .filter(
+                (c) =>
+                  c.placement.targetId === target.id &&
+                  c.artifact === view.artifact,
+              )
+              .map((c) => (
+                <section className="target-evidence" key={c.id}>
+                  <Badge variant="outline">{c.status}</Badge>
+                  <blockquote>{c.placement.quote}</blockquote>
+                  <small>
+                    Verify this passage truthfully demonstrates the target.
+                  </small>
+                  <TargetCoverageReview
+                    target={target}
+                    disabled={
+                      busy ||
+                      c.status === "Addressed" ||
+                      c.status === "Needs review"
+                    }
+                    onReview={(criteria) =>
+                      void change("coverageReview", { id: c.id, criteria })
+                    }
+                  />
+                </section>
+              ))}
+            <details>
+              <summary>Locate a placement manually</summary>
+              <label>
+                Document field
+                <input
+                  placeholder="/summary/content"
+                  value={field}
+                  onChange={(e) => setField(e.target.value)}
+                />
+              </label>
+              <label>
+                Exact saved passage
+                <textarea
+                  value={quote}
+                  onChange={(e) => setQuote(e.target.value)}
+                />
+              </label>
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() =>
+                  void change("placement", {
+                    artifact: view.artifact,
+                    placement: {
+                      targetId: target.id,
+                      field,
+                      quote,
+                      evidenceIds: workspace.evidence
+                        .filter(
+                          (e) =>
+                            e.suggestion.targetId === target.id &&
+                            e.review === "Confirmed",
+                        )
+                        .map((e) => e.id),
+                    },
+                  })
+                }
+              >
+                Verify placement
+              </Button>
+            </details>
+          </section>
+        )}
+        {inspectorTab === "options" && (
+          <section
+            className="target-detail-panel"
+            id="target-panel-options"
+            aria-labelledby="target-tab-options"
+          >
+            <h3>Preparation and notes</h3>
+            {workspace.actions
+              .filter((a) => a.targetIds.includes(target.id))
+              .map((a) => (
+                <div className="target-evidence" key={a.id}>
+                  <p>{a.title}</p>
+                  <small>{a.completionCondition}</small>
+                  <select
+                    aria-label={`Status of ${a.title}`}
+                    value={a.status}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const status = e.target.value
+                      const reason =
+                        status === "Dismissed"
+                          ? window.prompt("Why is this action dismissed?")
+                          : a.reason
+                      if (reason !== null)
+                        void change("action", { ...a, status, reason })
+                    }}
+                  >
+                    {[
+                      "To do",
+                      "In progress",
+                      "Blocked",
+                      "Done",
+                      "Dismissed",
+                    ].map((s) => (
+                      <option key={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            <p>
+              {workspace.overrides.find((o) => o.targetId === target.id)?.note}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => editTarget(target)}
+              >
+                Edit / notes
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  editTarget(
+                    {
+                      ...target,
+                      id: "",
+                      title: `${target.title} — supporting target`,
+                    },
+                    [target.id],
+                  )
+                }
+              >
+                Split target
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() =>
+                  void change("target", {
+                    target,
+                    dismissed: true,
+                    note: "Dismissed by user",
+                    lineage: [],
+                  })
+                }
+              >
+                Dismiss
+              </Button>
+            </div>
+          </section>
+        )}
       </div>
     ) : null
   return (
-    <main className="job-preparation">
+    <main
+      className="job-preparation"
+      ref={content}
+      onScroll={(e) => {
+        if (e.target === e.currentTarget)
+          updateView({ scroll: e.currentTarget.scrollTop })
+      }}
+    >
       <header className="job-preparation-header">
         <Button variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft /> Applications
@@ -528,81 +670,107 @@ export function JobWorkspace({
               {job.company || "Company not provided"}
             </p>
             <h1>{job.jobTitle}</h1>
-            <p className="text-sm text-muted-foreground">
-              {[job.location, job.salaryString].filter(Boolean).join(" · ")}
-            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              aria-label="Application stage"
-              value={job.applicationStatus ?? "revealed"}
-              onChange={(e) => void setStage(e.target.value)}
-            >
-              {applicationStatusMetadata.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSourceOpen(true)}
-            >
-              <FileText /> Original source
-            </Button>
-            {(job.finalUrl || job.url || job.sourceUrl) && (
+          <details className="job-details-menu">
+            <summary>Job details</summary>
+            <div className="job-details-content">
+              <p>
+                {[job.location, job.salaryString].filter(Boolean).join(" ? ")}
+              </p>
+              <label>
+                Application stage
+                <select
+                  value={job.applicationStatus ?? "revealed"}
+                  onChange={(e) => void setStage(e.target.value)}
+                >
+                  {applicationStatusMetadata.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() =>
-                  void openUrl(job.finalUrl || job.url || job.sourceUrl || "")
-                }
+                onClick={() => setSourceOpen(true)}
               >
-                Open posting ↗
+                Original source
               </Button>
-            )}
-          </div>
+              {(job.finalUrl || job.url || job.sourceUrl) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    void openUrl(job.finalUrl || job.url || job.sourceUrl || "")
+                  }
+                >
+                  Open posting
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("Company Research")}
+              >
+                Company Research
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("Activity")}
+              >
+                Activity
+              </Button>
+              <details className="preparation-settings">
+                <summary>
+                  AI settings{backgroundTask ? " & run details" : ""}
+                </summary>
+                <ModelReasoningSelector
+                  value={selection}
+                  onChange={setSelection}
+                  disabled={busy}
+                />
+                {runStatus && <p>{runStatus}</p>}
+                <BackgroundActivityPreview
+                  taskKey={`job-workspace-${job.id}`}
+                  expandToContent
+                />
+              </details>
+            </div>
+          </details>
         </div>
-        <div className="preparation-strip" aria-label="Preparation summary">
-          <span>{summary?.analysis ?? "Loading…"}</span>
-          {summary && (
-            <>
-              <span>
-                <strong>
-                  {summary.addressed}/{summary.total}
-                </strong>{" "}
-                resume targets addressed
-              </span>
-              <span>
-                <strong>{summary.highPriority}</strong> high-priority unresolved
-              </span>
-              <span>
-                <strong>{summary.evidenceToReview}</strong> evidence reviews
-              </span>
-              <span>
-                <strong>{summary.deferred}</strong> deferred / blocked
-              </span>
-            </>
-          )}
-        </div>
-        <nav aria-label="Job workspace destinations">
-          {destinations.map((destination) => (
-            <button
-              key={destination}
-              aria-current={
-                view.destination === destination ? "page" : undefined
-              }
-              onClick={() => {
-                updateView({ destination })
-                setResume(null)
-                setLetter(null)
-                void refresh()
-              }}
-            >
-              {destination}
-            </button>
-          ))}
+        <nav
+          className="preparation-steps"
+          aria-label="Application preparation steps"
+        >
+          <button
+            aria-current={
+              view.destination === "Targets" && step === "requirements"
+                ? "step"
+                : undefined
+            }
+            onClick={() => navigate("Targets", "requirements")}
+          >
+            <span>{allConfirmed ? <Check /> : "1"}</span> Confirm requirements
+          </button>
+          <button
+            disabled={!allConfirmed}
+            aria-current={
+              view.destination === "Targets" && step === "match"
+                ? "step"
+                : undefined
+            }
+            onClick={() => navigate("Targets", "match")}
+          >
+            <span>2</span> Match your profile
+          </button>
+          <button
+            aria-current={view.destination === "Documents" ? "step" : undefined}
+            onClick={() => navigate("Documents")}
+          >
+            <span>3</span> Documents
+          </button>
         </nav>
       </header>
       {error && (
@@ -613,63 +781,145 @@ export function JobWorkspace({
           </Button>
         </div>
       )}
-      <div
-        className="job-preparation-body"
-        ref={content}
-        onScroll={(e) => updateView({ scroll: e.currentTarget.scrollTop })}
-      >
+      <div className="job-preparation-body">
         {!workspace ? (
           <p role="status" className="p-8">
             {error ? "Preparation could not be loaded." : "Loading workspace…"}
           </p>
         ) : (
           <>
-            <div className="workspace-runbar">
-              <ModelReasoningSelector
-                value={selection}
-                onChange={setSelection}
-                disabled={busy}
-              />
-              <div aria-live="polite">
-                {busy && (
-                  <LoaderCircle className="inline size-4 animate-spin" />
-                )}{" "}
-                {runStatus}
+            {busy && (
+              <div className="workspace-runbar" role="status">
+                <LoaderCircle className="size-4 animate-spin" />
+                <span>
+                  {matching
+                    ? "Matching your profile to each requirement..."
+                    : (backgroundTask?.status === "running" ? backgroundTask.stage : "Saving your changes...")}
+                </span>
+                {runId && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void cancelWorkspaceRun(runId)}
+                  >
+                    Cancel run
+                  </Button>
+                )}
               </div>
-              {runId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    void cancelWorkspaceRun(runId).then(() =>
-                      setRunStatus("Cancelling…"),
-                    )
-                  }
-                >
-                  Cancel run
-                </Button>
-              )}
-            </div>
+            )}
             {view.destination === "Targets" && (
               <div className="targets-layout">
                 <section className="targets-main">
-                  <div className="targets-heading">
-                    <div>
-                      <p className="job-eyebrow">Application preparation</p>
-                      <h2>What this role asks of you</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {summary?.nextAction}. Reviewed coverage is tied to your
-                        selected document.
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => editTarget(emptyTarget())}
-                    >
-                      <Plus /> Add target
-                    </Button>
+                  <div className="preparation-intro">
+                    <h2>
+                      {step === "requirements"
+                        ? "What this role asks of you"
+                        : matching
+                          ? "Finding your experience."
+                          : assessedCount
+                            ? "Your experience, matched."
+                            : "Connect your experience."}
+                    </h2>
+                    <p>
+                      {step === "requirements"
+                        ? "Confirm each requirement belongs in your application. You’ll review your experience in the next step."
+                        : assessedCount
+                          ? "Matching suggests evidence from your Career Profile. Review it before using it in a document."
+                          : "We will look through your Career Profile for experience that supports each confirmed requirement."}
+                    </p>
                   </div>
+                  {targets.length > 0 && (
+                    <section
+                      className="preparation-next"
+                      aria-label="Current preparation step"
+                    >
+                      <div aria-live="polite">
+                        <strong>
+                          {step === "requirements"
+                            ? `${confirmedCount} of ${targets.length} requirements confirmed`
+                            : matching
+                              ? "Matching in progress"
+                              : assessedCount
+                                ? `${supportedCount} with supporting evidence / ${assessedCount - supportedCount} need profile details`
+                                : `${targets.length} requirements ready to match`}
+                        </strong>
+                        <p>
+                          {step === "requirements"
+                            ? allConfirmed
+                              ? "Next, find the experience to support them."
+                              : "Use the posting excerpt on each card to check it."
+                            : matching
+                              ? "You can leave this page. Your results will be saved here."
+                              : assessedCount
+                                ? `${approvedCount} evidence reviews confirmed${reviewCount ? ` / ${reviewCount} ready for review` : ""}. Matching does not edit your resume.`
+                                : "Your documents stay as they are until you review and accept a proposal."}
+                        </p>
+                      </div>
+                      {step === "requirements" ? (
+                        <Button
+                          disabled={!allConfirmed || busy}
+                          onClick={() => navigate("Targets", "match")}
+                        >
+                          Continue to matching <ArrowRight />
+                        </Button>
+                      ) : assessedCount < targets.length ? (
+                        <Button
+                          disabled={busy}
+                          onClick={() => void run("match")}
+                        >
+                          Match Career Profile <ArrowRight />
+                        </Button>
+                      ) : reviewCount > 0 ? (
+                        <Button
+                          disabled={busy}
+                          onClick={() => {
+                            const next = targets.find(
+                              (_, i) =>
+                                results[i].supported && !results[i].approved,
+                            )
+                            if (next) {
+                              targetButton.current =
+                                content.current?.querySelector<HTMLButtonElement>(
+                                  `.target-row-open[data-target-id="${CSS.escape(next.id)}"]`,
+                                ) ?? null
+                              setInspectorTab("evidence")
+                              updateView({ targetId: next.id })
+                            }
+                          }}
+                        >
+                          Review next match <ArrowRight />
+                        </Button>
+                      ) : (
+                        <Button
+                          disabled={busy || !approvedCount || reviewCount > 0}
+                          onClick={() => navigate("Documents")}
+                        >
+                          Continue to documents <ArrowRight />
+                        </Button>
+                      )}
+                      {step === "requirements" && (
+                        <progress
+                          max={targets.length}
+                          value={confirmedCount}
+                          aria-label="Requirements confirmed"
+                        />
+                      )}
+                    </section>
+                  )}
+                  {analysisStale && (
+                    <section className="workspace-notice" role="status">
+                      <p>
+                        The posting changed. Refresh the requirements before
+                        confirming them.
+                      </p>
+                      <Button
+                        disabled={busy || selection.provider !== "codex"}
+                        onClick={() => void run("analyze")}
+                      >
+                        Analyze updated posting
+                      </Button>
+                    </section>
+                  )}
                   {workspace.candidate && (
                     <section className="workspace-notice">
                       <h3>Review updated analysis</h3>
@@ -734,10 +984,13 @@ export function JobWorkspace({
                         Decode the full posting into traceable targets. Your
                         Career Profile is not required.
                       </p>
-                      <p className="source-excerpt">
-                        {workspace.source.text ||
-                          "Paste the complete posting to begin."}
-                      </p>
+                      <details>
+                        <summary>Read the posting</summary>
+                        <p className="source-excerpt">
+                          {workspace.source.text ||
+                            "Paste the complete posting to begin."}
+                        </p>
+                      </details>
                       <Button
                         disabled={
                           busy ||
@@ -762,134 +1015,204 @@ export function JobWorkspace({
                       and supported document operations remain available.
                     </p>
                   )}
-                  <div className="target-toolbar">
-                    <select
-                      aria-label="Target filter"
-                      value={view.filter}
-                      onChange={(e) => updateView({ filter: e.target.value })}
-                    >
-                      {[
-                        "All targets",
-                        "Must hit",
-                        "High",
-                        "Medium",
-                        "Bonus",
-                        "Explicit",
-                        "Strong inference",
-                        "Weak inference",
-                        "Evidence to review",
-                        "Coverage remaining",
-                      ].map((f) => (
-                        <option key={f}>{f}</option>
-                      ))}
-                    </select>
-                    <select
-                      aria-label="Selected application artifact"
-                      value={view.artifact}
-                      onChange={(e) => updateView({ artifact: e.target.value })}
-                    >
-                      <option value="resume">Primary resume</option>
-                      <option value="coverLetter">Cover letter</option>
-                    </select>
-                    {targets.length > 0 && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={busy || selection.provider !== "codex"}
-                          onClick={() => void run("analyze")}
-                        >
-                          Reanalyze
-                        </Button>
-                        <Button
-                          size="sm"
-                          disabled={busy}
-                          onClick={() => void run("match")}
-                        >
-                          Match Career Profile
-                        </Button>
-                      </>
-                    )}
-                    {view.selected.length > 1 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          editTarget(
-                            {
-                              ...emptyTarget(),
-                              title: "Combined preparation target",
-                            },
-                            view.selected,
-                          )
-                        }
-                      >
-                        Merge selected
-                      </Button>
-                    )}
-                  </div>
-                  <div
-                    className="target-list"
-                    aria-label="Job target checklist"
-                  >
-                    {visibleTargets.map((t) => {
-                      const c = workspace.coverage.find(
-                        (c) =>
-                          c.placement.targetId === t.id &&
-                          c.artifact === view.artifact,
-                      )
-                      const e = workspace.evidence.find(
-                        (e) => e.suggestion.targetId === t.id,
-                      )
-                      return (
-                        <article
-                          className={`target-row ${view.targetId === t.id ? "selected" : ""}`}
-                          key={t.id}
-                        >
-                          <input
-                            type="checkbox"
-                            aria-label={`Select ${t.title} for preparation`}
-                            checked={view.selected.includes(t.id)}
+                  {targets.length > 0 && (
+                    <>
+                      <div className="target-list-tools">
+                        <span>
+                          {step === "requirements"
+                            ? "Requirements"
+                            : "Match results"}{" "}
+                          <small>{targets.length}</small>
+                        </span>
+                        <div>
+                          <select
+                            aria-label="Target filter"
+                            value={activeFilter}
                             onChange={(e) =>
-                              updateView({
-                                selected: e.target.checked
-                                  ? [...view.selected, t.id]
-                                  : view.selected.filter((id) => id !== t.id),
-                              })
+                              updateView({ filter: e.target.value })
                             }
-                          />
-                          <button
-                            className="target-row-open"
-                            onClick={(event) => {
-                              targetButton.current = event.currentTarget
-                              updateView({ targetId: t.id })
-                            }}
                           >
-                            <span className="target-row-title">
-                              {c?.status === "Addressed" ? (
-                                <Check aria-label="Reviewed addressed coverage" />
-                              ) : (
-                                <span
-                                  className="coverage-box"
-                                  aria-label="Coverage not addressed"
-                                />
+                            {filters.map((f) => (
+                              <option key={f}>{f}</option>
+                            ))}
+                          </select>
+                          <details className="target-more-actions">
+                            <summary>More options</summary>
+                            <div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => editTarget(emptyTarget())}
+                              >
+                                <Plus /> Add target
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={
+                                  busy || selection.provider !== "codex"
+                                }
+                                onClick={() => void run("analyze")}
+                              >
+                                Reanalyze
+                              </Button>
+                              {step === "match" && assessedCount > 0 && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={busy}
+                                  onClick={() => void run("match")}
+                                >
+                                  Match Career Profile again
+                                </Button>
                               )}
-                              <strong>{t.title}</strong>
-                            </span>
-                            <span className="target-row-meta">
-                              {t.priority} · {t.grounding} · {t.category}
-                            </span>
-                            <span className="target-row-meta">
-                              {e?.suggestion.strength ?? "Evidence unreviewed"}{" "}
-                              · {c?.status ?? "Coverage unreviewed"}
-                            </span>
-                          </button>
-                        </article>
-                      )
-                    })}
-                  </div>
-                  {targets.length > 0 && !visibleTargets.length && (
-                    <p className="p-6">No targets match this filter.</p>
+                            </div>
+                          </details>
+                        </div>
+                      </div>
+                      <div
+                        className="target-list"
+                        aria-label="Job target checklist"
+                      >
+                        {visibleTargets.map((t) => {
+                          const state = targetProgress(
+                            workspace,
+                            t,
+                            view.artifact,
+                          )
+                          const tone = matching
+                            ? "matching"
+                            : !state.confirmed
+                              ? "pending"
+                              : state.approved || state.addressed
+                                ? "confirmed"
+                                : state.supported
+                                  ? "review"
+                                  : state.evidence.length
+                                    ? "gap"
+                                    : "ready"
+                          return (
+                            <article
+                              className="target-row"
+                              data-state={tone}
+                              key={t.id}
+                            >
+                              <div
+                                className="target-taskbar"
+                                aria-label={`Progress for ${t.title}`}
+                              >
+                                <span className="target-state" role="status">
+                                  {matching
+                                    ? "Matching profile..."
+                                    : state.status}
+                                </span>
+                                {step === "requirements" ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={busy || analysisStale}
+                                    aria-label={`${state.confirmed ? "Undo confirmation of" : "Confirm requirement:"} ${t.title}`}
+                                    onClick={() =>
+                                      void change("confirmTarget", {
+                                        targetId: t.id,
+                                        confirmed: !state.confirmed,
+                                      })
+                                    }
+                                  >
+                                    {state.confirmed ? (
+                                      <>
+                                        <Check /> Confirmed
+                                      </>
+                                    ) : (
+                                      <>
+                                        Confirm <Check />
+                                      </>
+                                    )}
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(event) =>
+                                      openTarget(t, event.currentTarget)
+                                    }
+                                  >
+                                    {state.approved
+                                      ? "View evidence"
+                                      : state.supported
+                                        ? "Review evidence"
+                                        : "Add details"}{" "}
+                                    <ArrowRight />
+                                  </Button>
+                                )}
+                              </div>
+                              <div className="target-card-content">
+                                <button
+                                  className="target-row-open"
+                                  data-target-id={t.id}
+                                  onClick={(event) =>
+                                    openTarget(t, event.currentTarget)
+                                  }
+                                >
+                                  <strong>{t.title}</strong>
+                                </button>
+                                <div className="target-excerpts">
+                                  <section>
+                                    <h3>From the posting</h3>
+                                    {t.sources.length ? (
+                                      t.sources.map((source, i) => (
+                                        <blockquote key={i}>
+                                          {source.quote}
+                                        </blockquote>
+                                      ))
+                                    ) : (
+                                      <p>Added by you. No posting excerpt.</p>
+                                    )}
+                                  </section>
+                                  {state.evidence.length > 0 && (
+                                    <section className="target-match-excerpt">
+                                      <h3>Career Profile match</h3>
+                                      {state.evidence.map((e) => (
+                                        <div key={e.id}>
+                                          {e.suggestion.references.length ? (
+                                            e.suggestion.references.map(
+                                              (reference, i) => (
+                                                <blockquote key={i}>
+                                                  {reference.excerpt}
+                                                </blockquote>
+                                              ),
+                                            )
+                                          ) : (
+                                            <p>
+                                              No documented match found. Add
+                                              relevant experience to your Career
+                                              Profile and match again.
+                                            </p>
+                                          )}
+                                          {(e.review === "Rejected" ||
+                                            e.review === "Needs review") && (
+                                            <small>
+                                              {e.review === "Rejected"
+                                                ? "Rejected match"
+                                                : "Changed since review - verify again"}
+                                            </small>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </section>
+                                  )}
+                                </div>
+                              </div>
+                            </article>
+                          )
+                        })}
+                      </div>
+                      {!visibleTargets.length && (
+                        <p className="p-6">
+                          No requirements match this filter.
+                        </p>
+                      )}
+                    </>
                   )}
                   {workspace.overrides.some((o) => o.dismissed) && (
                     <details className="p-4">
@@ -917,14 +1240,6 @@ export function JobWorkspace({
                     </details>
                   )}
                 </section>
-                {!narrow && target && (
-                  <aside
-                    className="target-inspector"
-                    aria-label="Target inspector"
-                  >
-                    {inspector}
-                  </aside>
-                )}
               </div>
             )}
             {view.destination === "Documents" && (
@@ -934,10 +1249,8 @@ export function JobWorkspace({
                     <p className="job-eyebrow">Truthful, targeted materials</p>
                     <h2>Documents</h2>
                     <p>
-                      {view.selected.length
-                        ? `${view.selected.length} selected targets`
-                        : "All active targets"}{" "}
-                      · Proposals require review.
+                      Use confirmed evidence to create a proposal, then review
+                      it before saving.
                     </p>
                   </div>
                   <select
@@ -955,41 +1268,70 @@ export function JobWorkspace({
                 </div>
                 <div className="target-toolbar">
                   <Button
-                    disabled={busy || !targets.length}
+                    disabled={
+                      busy || !allConfirmed || !approvedCount || reviewCount > 0
+                    }
                     onClick={() => void run("prepare")}
                   >
                     Prepare targeted proposal
                   </Button>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={includeResearch}
-                      onChange={(event) =>
-                        setIncludeResearch(event.target.checked)
+                  <details className="document-options">
+                    <summary>Document options</summary>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={includeResearch}
+                        onChange={(event) =>
+                          setIncludeResearch(event.target.checked)
+                        }
+                      />{" "}
+                      Include saved Company Research (optional employer context)
+                    </label>
+                    <Button
+                      variant="outline"
+                      disabled={busy || !targets.length}
+                      onClick={() => void run("audit")}
+                    >
+                      Assess saved document
+                    </Button>
+                    <Button variant="outline" onClick={() => void openEditor()}>
+                      Open document editor
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() =>
+                        void change("createDraft", { artifact: view.artifact })
                       }
-                    />{" "}
-                    Include saved Company Research (optional employer context)
-                  </label>
-                  <Button
-                    variant="outline"
-                    disabled={busy || !targets.length}
-                    onClick={() => void run("audit")}
-                  >
-                    Assess saved document
-                  </Button>
-                  <Button variant="outline" onClick={() => void openEditor()}>
-                    Open document editor
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() =>
-                      void change("createDraft", { artifact: view.artifact })
-                    }
-                  >
-                    Start a blank draft
-                  </Button>
+                    >
+                      Start a blank draft
+                    </Button>
+                  </details>
                 </div>
+                {(!allConfirmed || !approvedCount || reviewCount > 0) && (
+                  <div className="workspace-notice">
+                    <p>
+                      {!allConfirmed
+                        ? "Confirm the requirements first."
+                        : reviewCount > 0
+                          ? "Review your suggested profile evidence before preparing a document."
+                          : "Confirm at least one supporting profile match before preparing a document."}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      onClick={() =>
+                        navigate(
+                          "Targets",
+                          allConfirmed ? "match" : "requirements",
+                        )
+                      }
+                    >
+                      Return to{" "}
+                      {allConfirmed ? "profile matching" : "requirements"}{" "}
+                      <ArrowRight />
+                    </Button>
+                  </div>
+                )}
                 {workspace.proposals
                   .filter((p) => p.artifact === view.artifact)
                   .map((p) => (
@@ -1071,7 +1413,7 @@ export function JobWorkspace({
         )}
       </div>
       <Dialog
-        open={narrow && !!target}
+        open={!!target && view.destination === "Targets"}
         onOpenChange={(open) => {
           if (!open) closeInspector()
         }}
@@ -1084,9 +1426,11 @@ export function JobWorkspace({
           }}
         >
           <DialogHeader>
-            <DialogTitle>Target inspector</DialogTitle>
+            <DialogTitle>{target?.title}</DialogTitle>
             <DialogDescription>
-              Review source, evidence and document coverage.
+              {step === "requirements"
+                ? "Check this requirement before confirming it."
+                : "Review the experience that supports this requirement."}
             </DialogDescription>
           </DialogHeader>
           {inspector}
@@ -1251,7 +1595,7 @@ export function JobWorkspace({
                   ).then((next) => {
                     if (next) {
                       setEditing(null)
-                      updateView({ selected: [], targetId: "" })
+                      updateView({ targetId: "" })
                     }
                   })
                 }

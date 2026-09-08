@@ -844,13 +844,14 @@ fn create_resume_from_pdf_blocking(
 async fn import_profile_from_resume_pdf(
     app: AppHandle,
     pdf_path: String,
+    run_id: String,
     profile: Value,
     provider: Option<String>,
     model: Option<String>,
     effort: Option<String>,
 ) -> Result<ProfileResumeImportResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        import_profile_from_resume_pdf_blocking(&app, &pdf_path, profile, provider, model, effort)
+        import_profile_from_resume_pdf_blocking(&app, &pdf_path, profile, provider, model, effort, run_id)
     })
     .await
     .map_err(|error| format!("The Career Profile import task could not finish: {error}"))?
@@ -863,6 +864,7 @@ fn import_profile_from_resume_pdf_blocking(
     provider: Option<String>,
     model: Option<String>,
     effort: Option<String>,
+    run_id: String,
 ) -> Result<ProfileResumeImportResult, String> {
     const MAX_IMPORT_BYTES: u64 = 25 * 1024 * 1024;
     const PROFILE_ROOT_KEYS: [&str; 7] = [
@@ -933,6 +935,7 @@ fn import_profile_from_resume_pdf_blocking(
             &provider_id,
             clean_import_option(model),
             clean_import_option(effort),
+            run_id,
         )?;
         if imported.get("profile") != Some(&preserved_profile)
             || imported.get("picture") != Some(&preserved_picture)

@@ -1,14 +1,15 @@
 .job-preparation {
   display: flex;
-  flex: 1;
+  flex: 0 0 auto;
   min-width: 0;
   height: 100svh;
+  max-height: 100svh;
+  overflow-y: auto;
   flex-direction: column;
   background: var(--background);
 }
 .job-preparation-header {
   padding: 16px 28px 0;
-  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 .job-preparation-title {
@@ -30,39 +31,8 @@
   color: var(--muted-foreground);
   margin-bottom: 5px;
 }
-.preparation-strip {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  padding: 12px 0;
-  border-top: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--muted-foreground);
-}
-.preparation-strip strong {
-  color: var(--foreground);
-}
-.job-preparation nav {
-  display: flex;
-  gap: 26px;
-  overflow-x: auto;
-}
-.job-preparation nav button {
-  white-space: nowrap;
-  padding: 12px 0;
-  border-bottom: 2px solid transparent;
-  font-size: 13px;
-  color: var(--muted-foreground);
-}
-.job-preparation nav button[aria-current] {
-  border-color: var(--primary);
-  color: var(--foreground);
-  font-weight: 600;
-}
 .job-preparation-body {
-  flex: 1;
-  overflow: auto;
-  min-height: 0;
+  flex: 1 0 auto;
 }
 .workspace-runbar {
   padding: 12px 28px;
@@ -75,7 +45,6 @@
 }
 .targets-layout {
   display: flex;
-  min-height: 100%;
   align-items: flex-start;
 }
 .targets-main {
@@ -131,59 +100,6 @@
   gap: 6px;
   font-size: 12px;
 }
-.target-list {
-  border-top: 1px solid var(--border);
-}
-.target-row {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-  padding: 18px 12px;
-  border-bottom: 1px solid var(--border);
-}
-.target-row > input {
-  margin-top: 4px;
-  accent-color: var(--primary);
-}
-.target-row.selected {
-  background: var(--muted);
-}
-.target-row-open {
-  text-align: left;
-  flex: 1;
-  min-width: 0;
-}
-.target-row-title {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  font-size: 14px;
-}
-.target-row-title svg,
-.coverage-box {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
-}
-.coverage-box {
-  border: 1px solid var(--border);
-  border-radius: 3px;
-}
-.target-row-meta {
-  display: block;
-  font-size: 11px;
-  color: var(--muted-foreground);
-  margin: 7px 0 0 25px;
-}
-.target-inspector {
-  width: 390px;
-  flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  max-height: calc(100svh - 235px);
-  overflow: auto;
-}
 .target-inspector-content {
   padding: 24px;
   display: grid;
@@ -191,8 +107,7 @@
   font-size: 13px;
 }
 .target-inspector-content h3 {
-  border-top: 1px solid var(--border);
-  padding-top: 18px;
+  padding-top: 12px;
   margin-top: 5px;
 }
 .target-inspector-content ul {
@@ -234,8 +149,7 @@
 }
 .source-excerpt {
   white-space: pre-wrap;
-  max-height: 180px;
-  overflow: auto;
+  overflow-wrap: anywhere;
   font-size: 13px;
   color: var(--muted-foreground);
 }
@@ -281,7 +195,7 @@
 .target-inspector-dialog {
   max-height: 90svh !important;
   overflow: auto;
-  max-width: 540px !important;
+  max-width: 700px !important;
 }
 .workspace-source-dialog {
   max-height: 90svh !important;
@@ -518,4 +432,463 @@
 }
 .criterion-choice input {
   accent-color: var(--primary);
+}
+
+/* A single reading column, with one decision at each preparation step. */
+.job-preparation {
+  --task-pending: #977027;
+  --task-ready: #4778ab;
+  --task-review: #937138;
+  --task-confirmed: #39836a;
+  --task-gap: #b5614d;
+}
+.dark .job-preparation {
+  --task-pending: #d7b978;
+  --task-ready: #89afd7;
+  --task-review: #e0bd77;
+  --task-confirmed: #88c8a8;
+  --task-gap: #e69b85;
+}
+.job-preparation-header,
+.targets-layout,
+.workspace-documents,
+.workspace-activity,
+.preparation-settings,
+.workspace-runbar {
+  width: min(100%, 1060px);
+  margin-inline: auto;
+}
+.job-preparation-header {
+  padding: 24px 32px 0;
+}
+.job-preparation-title {
+  padding: 20px 0 24px;
+  align-items: flex-start;
+}
+.job-preparation h1 {
+  font-size: clamp(22px, 2.3vw, 30px);
+  line-height: 1.3;
+}
+.job-preparation .job-eyebrow {
+  margin-bottom: 10px;
+}
+.preparation-steps {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+.preparation-steps button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 0;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  text-align: left;
+}
+.preparation-steps button > span {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--muted);
+  font-size: 11px;
+}
+.preparation-steps svg {
+  width: 13px;
+  height: 13px;
+}
+.preparation-steps button[aria-current] {
+  color: var(--foreground);
+  font-weight: 650;
+}
+.preparation-steps button[aria-current] > span {
+  background: var(--foreground);
+  color: var(--background);
+}
+.preparation-steps button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.job-details-menu {
+  position: relative;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.job-details-menu > summary,
+.preparation-settings > summary,
+.target-more-actions > summary,
+.document-options > summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
+.job-details-content {
+  position: absolute;
+  right: 0;
+  z-index: 10;
+  width: min(300px, calc(100vw - 48px));
+  padding: 20px;
+  display: grid;
+  gap: 12px;
+  border-radius: 12px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: 0 8px 32px #0003;
+}
+.job-details-content button {
+  justify-content: flex-start;
+}
+.preparation-settings {
+  padding: 10px 32px 0;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.preparation-settings[open] {
+  display: grid;
+  gap: 14px;
+}
+.job-details-content .preparation-settings {
+  padding: 0;
+  width: 100%;
+}
+.workspace-runbar {
+  border: 0;
+  padding: 18px 32px 0;
+  color: var(--task-ready);
+}
+.targets-main {
+  padding: 32px 32px 64px;
+}
+.preparation-intro {
+  max-width: 680px;
+  margin-bottom: 28px;
+}
+.job-preparation .preparation-intro h2 {
+  font-size: clamp(26px, 3vw, 36px);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+}
+.preparation-intro > p:last-child {
+  margin-top: 16px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted-foreground);
+}
+.preparation-next {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 34px;
+}
+.preparation-next > div {
+  flex: 1;
+  min-width: 220px;
+}
+.preparation-next strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.preparation-next p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+  margin-top: 6px;
+}
+.preparation-next > button {
+  height: 40px;
+  padding-inline: 16px;
+}
+.preparation-next progress {
+  appearance: none;
+  border: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--muted);
+  border-radius: 3px;
+}
+.preparation-next progress::-webkit-progress-bar {
+  background: var(--muted);
+  border-radius: 3px;
+}
+.preparation-next progress::-webkit-progress-value {
+  background: var(--task-confirmed);
+  border-radius: 3px;
+  transition: width 200ms ease;
+}
+.preparation-next progress::-moz-progress-bar {
+  background: var(--task-confirmed);
+}
+.target-list-tools,
+.target-list-tools > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.target-list-tools {
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+.target-list-tools small {
+  color: var(--muted-foreground);
+  margin-left: 8px;
+}
+.target-list-tools select {
+  border: 0;
+  color: var(--muted-foreground);
+  padding-inline: 0;
+}
+.target-more-actions {
+  position: relative;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.target-more-actions > div {
+  position: absolute;
+  right: 0;
+  z-index: 5;
+  display: grid;
+  min-width: 205px;
+  gap: 8px;
+  padding: 12px;
+  background: var(--popover);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px #0003;
+}
+.target-list {
+  display: grid;
+  gap: 16px;
+}
+.target-row {
+  --task-color: var(--task-pending);
+  min-width: 0;
+  border: 0;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--task-color) 9%, var(--background));
+  transition: background-color 200ms ease;
+}
+.target-row[data-state="ready"],
+.target-row[data-state="matching"] {
+  --task-color: var(--task-ready);
+}
+.target-row[data-state="review"] {
+  --task-color: var(--task-review);
+}
+.target-row[data-state="confirmed"] {
+  --task-color: var(--task-confirmed);
+}
+.target-row[data-state="gap"] {
+  --task-color: var(--task-gap);
+}
+.target-taskbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 46px;
+  padding: 8px 22px;
+  border-radius: 12px 12px 0 0;
+  background: color-mix(in srgb, var(--task-color) 12%, transparent);
+  color: color-mix(in srgb, var(--task-color) 70%, var(--foreground));
+}
+.target-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 650;
+}
+.target-state::before {
+  content: "";
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.target-taskbar button {
+  font-size: 11px;
+  color: inherit;
+}
+.target-card-content {
+  padding: 22px 24px 26px;
+}
+.target-row-open {
+  display: block;
+  text-align: left;
+  width: 100%;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.target-row-open:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.target-row-open strong {
+  font-weight: 600;
+}
+.target-excerpts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 24px;
+  margin-top: 18px;
+}
+.target-excerpts section {
+  min-width: 0;
+}
+.job-preparation .target-excerpts h3 {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  margin-bottom: 8px;
+}
+.target-excerpts blockquote,
+.target-excerpts p {
+  font-size: 12px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.target-excerpts blockquote + blockquote {
+  margin-top: 10px;
+}
+.target-excerpts small {
+  display: block;
+  margin-top: 8px;
+  color: var(--task-gap);
+  font-size: 11px;
+}
+.target-inspector-content {
+  padding: 0;
+  gap: 24px;
+}
+.target-detail-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.target-detail-tabs button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.target-detail-tabs button[aria-pressed="true"] {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.target-detail-panel {
+  display: grid;
+  gap: 16px;
+}
+.target-inspector-content h3 {
+  border: 0;
+  padding-top: 4px;
+  font-weight: 600;
+}
+.target-quote,
+.target-evidence,
+.target-evidence blockquote {
+  border: 0;
+  border-radius: 8px;
+}
+.target-evidence {
+  background: var(--muted);
+  padding: 16px;
+}
+.target-quote {
+  padding: 16px;
+}
+.workspace-documents {
+  padding: 40px 32px;
+}
+.document-options {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.document-options[open] {
+  display: grid;
+  gap: 14px;
+}
+.proposal-row,
+.workspace-activity article {
+  border: 0;
+  background: var(--muted);
+  padding: 22px;
+  border-radius: 12px;
+  margin-top: 16px;
+}
+.workspace-notice,
+.unanalyzed-job {
+  border: 0;
+  border-radius: 10px;
+}
+@media (max-width: 700px) {
+  .job-preparation-header {
+    padding: 18px 20px 0;
+  }
+  .job-preparation-title {
+    gap: 12px;
+    padding: 18px 0;
+  }
+  .job-details-menu {
+    align-self: flex-start;
+  }
+  .job-details-content {
+    left: 0;
+    right: auto;
+  }
+  .job-preparation .preparation-steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .preparation-steps button {
+    font-size: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.6;
+  }
+  .preparation-settings,
+  .workspace-runbar {
+    padding-inline: 20px;
+  }
+  .targets-main,
+  .workspace-documents {
+    padding: 26px 20px 48px;
+  }
+  .preparation-next > button {
+    width: 100%;
+  }
+  .target-taskbar {
+    padding-inline: 14px;
+  }
+  .target-card-content {
+    padding: 18px;
+  }
+  .target-list-tools {
+    gap: 8px;
+  }
+  .target-row {
+    padding: 0;
+  }
+}
+@media (max-width: 767px) {
+  .job-preparation {
+    height: calc(100svh - 3rem);
+    max-height: calc(100svh - 3rem);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .target-row,
+  .preparation-next progress::-webkit-progress-value {
+    transition: none;
+  }
 }

@@ -61,7 +61,7 @@ fn dispatch(s: &WorkspaceService, input: &Value, count: &mut usize) -> Result<Va
             Ok(serde_json::to_value(s.execute(
                 request,
                 &AtomicBool::new(false),
-                |_| Ok(output),
+                |_| Ok(output.clone()),
             )?)?)
         }
         "load_job_primary_resume" => {

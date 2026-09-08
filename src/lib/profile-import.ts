@@ -1,6 +1,7 @@
+import { listen } from "@tauri-apps/api/event"
 import { invoke } from "@tauri-apps/api/core"
 
-import type { ResumeAiSelection } from "@/lib/resume-ai"
+import type { ResumeAiSelection, ResumeAiStreamEvent } from "@/lib/resume-ai"
 import type { ProfileDocument } from "@/lib/profile-storage"
 
 export type ProfileResumeImportResult = {
@@ -8,16 +9,27 @@ export type ProfileResumeImportResult = {
   response: string
 }
 
-export function importProfileFromResumePdf(
+export async function importProfileFromResumePdf(
   pdfPath: string,
   profile: ProfileDocument,
   selection: ResumeAiSelection,
+  onEvent: (event: ResumeAiStreamEvent) => void,
 ) {
-  return invoke<ProfileResumeImportResult>("import_profile_from_resume_pdf", {
-    pdfPath,
-    profile,
-    provider: selection.provider,
-    model: selection.model,
-    effort: selection.effort,
-  })
+  const runId = crypto.randomUUID()
+  const unlisten = await listen<{ jobId: string; event: ResumeAiStreamEvent }>(
+    "profile-import-ai-event",
+    ({ payload }) => { if (payload.jobId === runId) onEvent(payload.event) },
+  )
+  try {
+    return await invoke<ProfileResumeImportResult>("import_profile_from_resume_pdf", {
+      pdfPath,
+      runId,
+      profile,
+      provider: selection.provider,
+      model: selection.model,
+      effort: selection.effort,
+    })
+  } finally {
+    unlisten()
+  }
 }

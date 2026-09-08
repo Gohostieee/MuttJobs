@@ -13,14 +13,6 @@ interface SpeechRecognition extends EventTarget {
   lang: string;
   start(): void;
   stop(): void;
-  onstart: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onend: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onresult:
-    | ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => void)
-    | null;
-  onerror:
-    | ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => void)
-    | null;
 }
 
 interface SpeechRecognitionEvent extends Event {
@@ -46,17 +38,6 @@ interface SpeechRecognitionAlternative {
   confidence: number;
 }
 
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition: new () => SpeechRecognition;
-    webkitSpeechRecognition: new () => SpeechRecognition;
-  }
-}
-
 type SpeechInputMode = "speech-recognition" | "media-recorder" | "none";
 
 export type SpeechInputProps = ComponentProps<typeof Button> & {
@@ -76,7 +57,7 @@ const detectSpeechInputMode = (): SpeechInputMode => {
     return "none";
   }
 
-  if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
+  if (window.SpeechRecognition || window.webkitSpeechRecognition) {
     return "speech-recognition";
   }
 
@@ -120,6 +101,9 @@ export const SpeechInput = ({
 
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      return;
+    }
     const speechRecognition = new SpeechRecognition();
 
     speechRecognition.continuous = true;

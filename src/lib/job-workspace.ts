@@ -1,3 +1,6 @@
+import { listen } from "@tauri-apps/api/event"
+import type { ResumeAiStreamEvent } from "./resume-ai"
+import { runInBackground } from "./background-activity"
 import { invoke } from "@tauri-apps/api/core"
 import type { ResumeAiSelection } from "./resume-ai"
 export type Target = {
@@ -117,6 +120,7 @@ export type JobPreparation = {
     lineage: string[]
   }[]
   evidence: Evidence[]
+  confirmedTargets?: Record<string, { sourceRevision: string; target: Target }>
   coverage: Coverage[]
   actions: PreparationAction[]
   proposals: Proposal[]
@@ -133,6 +137,7 @@ export type JobPreparation = {
 }
 export type WorkspaceOperation = "analyze" | "match" | "prepare" | "audit"
 export type WorkspaceMutations = {
+  confirmTarget: { targetId: string; confirmed: boolean }
   source: { text: string }
   createDraft: { artifact: string }
   target: {
@@ -183,17 +188,24 @@ export function runWorkspace(
   artifact = "resume",
   includeResearch = false,
 ) {
-  return invoke<JobPreparation>("job_workspace_run", {
-    request: {
-      jobId: workspace.jobId,
-      expectedRevision: workspace.revision,
-      runId,
-      operation,
-      ...selection,
-      targetIds,
-      artifact,
-      includeResearch,
-    },
+  return runInBackground(`job-workspace-${workspace.jobId}`, `Job ${operation}`, async (onEvent) => {
+    const unlisten = await listen<{ runId: string; event?: ResumeAiStreamEvent }>("job-workspace-event", ({ payload }) => {
+      if (payload.runId === runId && payload.event) onEvent(payload.event)
+    })
+    try {
+      return await invoke<JobPreparation>("job_workspace_run", {
+        request: {
+          jobId: workspace.jobId,
+          expectedRevision: workspace.revision,
+          runId,
+          operation,
+          ...selection,
+          targetIds,
+          artifact,
+          includeResearch,
+        },
+      })
+    } finally { unlisten() }
   })
 }
 export function workspaceTargets(workspace: JobPreparation): Target[] {

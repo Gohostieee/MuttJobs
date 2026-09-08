@@ -1255,6 +1255,7 @@ pub(crate) fn run_profile_pdf_import_with_options(
     provider_id: &str,
     model: Option<String>,
     effort: Option<String>,
+    job_id: String,
 ) -> Result<(Value, String, bool), String> {
     let root = target
         .parent()
@@ -1268,10 +1269,6 @@ pub(crate) fn run_profile_pdf_import_with_options(
         .map_err(|_| "The staged PDF is outside the Career Profile import workspace.".to_string())?
         .to_string_lossy()
         .replace('\\', "/");
-    let job_id = format!(
-        "profile-import-{}",
-        chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
-    );
     let prompt = format!(
         concat!(
             "Import every supported candidate fact from the local resume PDF {pdf_file_name} into the existing Career Profile JSON file {target_file_name}.\n\n",

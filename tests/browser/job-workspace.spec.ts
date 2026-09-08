@@ -35,13 +35,17 @@ async function analyze(page: Page) {
   await page.getByRole("button", { name: "Analyze job", exact: true }).click()
   await expect(
     page.getByRole("button", {
-      name: /Demonstrate reliable service development/,
+      name: "Demonstrate reliable service development",
+      exact: true,
     }),
   ).toBeVisible()
 }
 async function inspect(page: Page) {
   await page
-    .getByRole("button", { name: /Demonstrate reliable service development/ })
+    .getByRole("button", {
+      name: "Demonstrate reliable service development",
+      exact: true,
+    })
     .click()
 }
 test("opening Applications and navigating does not invoke a provider", async ({
@@ -52,12 +56,13 @@ test("opening Applications and navigating does not invoke a provider", async ({
     page.getByRole("region", { name: "Applications list" }),
   ).toBeVisible()
   await openJob(page)
+  await page.getByText("Job details", { exact: true }).click()
   await page.getByRole("button", { name: "Original source" }).click()
   await expect(page.getByLabel("Current posting")).toContainText(
     "Build reliable services",
   )
   await page.getByRole("button", { name: "Close", exact: true }).click()
-  await page.getByRole("button", { name: "Documents", exact: true }).click()
+  await page.getByRole("button", { name: /Documents$/ }).click()
   await expect(
     page.getByRole("heading", { name: "Systems Engineer" }),
   ).toBeVisible()
@@ -78,6 +83,8 @@ test("analysis preserves alternatives and returns to the same target after resta
       name: "Demonstrate reliable service development",
     }),
   ).toBeVisible()
+  if (await page.getByRole("dialog").count())
+    await page.keyboard.press("Escape")
   await page
     .getByRole("button", { name: "Applications", exact: true })
     .last()
@@ -88,12 +95,63 @@ test("supported document proposal requires acceptance and a separate coverage re
   page,
 }) => {
   await analyze(page)
+  await expect(
+    page.getByRole("button", { name: "Continue to matching" }),
+  ).toBeDisabled()
+  await page.getByRole("button", { name: /^Confirm requirement:/ }).click()
+  await expect(page.getByLabel("Current preparation step")).toContainText(
+    "1 of 1 requirements confirmed",
+  )
+  await page.reload()
+  await expect(page.getByLabel("Current preparation step")).toContainText(
+    "1 of 1 requirements confirmed",
+  )
+  await page.getByRole("button", { name: "Continue to matching" }).click()
+  await page.screenshot({
+    path: "test-results/preparation-ready.png",
+    fullPage: true,
+  })
+  let finishMatch!: () => void
+  const matchingPaused = new Promise<void>((resolve) => {
+    finishMatch = resolve
+  })
+  await page.route("http://127.0.0.1:1439/command", async (route) => {
+    const input = route.request().postDataJSON()
+    if (
+      input.command === "job_workspace_run" &&
+      input.args.request.operation === "match"
+    )
+      await matchingPaused
+    await route.continue()
+  })
   await page
     .getByRole("button", { name: "Match Career Profile", exact: true })
     .click()
-  await inspect(page)
+  await expect(page.locator(".target-row")).toHaveAttribute(
+    "data-state",
+    "matching",
+  )
+  await expect(page.locator(".target-state")).toHaveText("Matching profile...")
+  finishMatch()
+  await expect(page.locator(".target-row")).toHaveAttribute(
+    "data-state",
+    "review",
+  )
+  await expect(page.locator(".target-match-excerpt")).toContainText(
+    "Built reliable event-driven services with Vue.",
+  )
+  await page.screenshot({
+    path: "test-results/preparation-matched.png",
+    fullPage: true,
+  })
+  await page.getByRole("button", { name: "Review next match" }).click()
   await page.getByRole("button", { name: "Confirm evidence" }).click()
-  await page.getByRole("button", { name: "Documents", exact: true }).click()
+  await page.keyboard.press("Escape")
+  await expect(page.locator(".target-row")).toHaveAttribute(
+    "data-state",
+    "confirmed",
+  )
+  await page.getByRole("button", { name: "Continue to documents" }).click()
   await page.getByRole("button", { name: "Prepare targeted proposal" }).click()
   await page.getByRole("button", { name: "Review proposal" }).click()
   await expect(
@@ -104,13 +162,22 @@ test("supported document proposal requires acceptance and a separate coverage re
       }),
   ).toBeVisible()
   await page.getByRole("button", { name: "Accept document" }).click()
-  await page.getByRole("button", { name: "Targets", exact: true }).click()
-  await expect(page.getByLabel("Preparation summary")).toContainText("0/1")
+  await page.getByRole("button", { name: /Match your profile$/ }).click()
+  await expect(page.locator(".target-state")).toHaveText(
+    "Review document coverage",
+  )
+  await inspect(page)
+  await page.getByRole("button", { name: "Document", exact: true }).click()
   await page.getByRole("checkbox", { name: "Vue", exact: true }).check()
   await page.getByRole("button", { name: "Confirm addressed" }).click()
-  await expect(page.getByLabel("Preparation summary")).toContainText("1/1")
+  await page.keyboard.press("Escape")
+  await expect(page.locator(".target-state")).toHaveText(
+    "Addressed in document",
+  )
   await page.reload()
-  await expect(page.getByLabel("Preparation summary")).toContainText("1/1")
+  await expect(page.locator(".target-state")).toHaveText(
+    "Addressed in document",
+  )
 })
 test("narrow inspector is accessible and returns keyboard focus", async ({
   page,
@@ -118,12 +185,15 @@ test("narrow inspector is accessible and returns keyboard focus", async ({
   await page.setViewportSize({ width: 800, height: 900 })
   await analyze(page)
   const row = page.getByRole("button", {
-    name: /Demonstrate reliable service development/,
+    name: "Demonstrate reliable service development",
+    exact: true,
   })
   await row.focus()
   await page.keyboard.press("Enter")
   await expect(
-    page.getByRole("dialog", { name: "Target inspector" }),
+    page.getByRole("dialog", {
+      name: "Demonstrate reliable service development",
+    }),
   ).toBeVisible()
   await page.keyboard.press("Escape")
   await expect(row).toBeFocused()
@@ -138,6 +208,8 @@ test("narrow inspector is accessible and returns keyboard focus", async ({
 })
 test("board and list share preparation counts", async ({ page }) => {
   await analyze(page)
+  if (await page.getByRole("dialog").count())
+    await page.keyboard.press("Escape")
   await page
     .getByRole("button", { name: "Applications", exact: true })
     .last()
@@ -195,4 +267,70 @@ test("typed editor storage advances revisions and rejects an older snapshot", as
     name: "Second saved name",
     revisionsChanged: true,
   })
+})
+
+test("requirement confirmation is invalidated by edits and the page has one scroll container", async ({
+  page,
+}) => {
+  await analyze(page)
+  await page.getByRole("button", { name: /^Confirm requirement:/ }).click()
+  await expect(
+    page.getByRole("button", { name: "Continue to matching" }),
+  ).toBeEnabled()
+  await page.evaluate(async () => {
+    const path = "/src/lib/job-workspace.ts"
+    const {
+      readJobWorkspace,
+      mutateJobWorkspace,
+      workspaceTargets,
+      emptyTarget,
+    } = await import(path)
+    let w = await readJobWorkspace(1)
+    const original = workspaceTargets(w)[0]
+    w = await mutateJobWorkspace(w, "target", {
+      target: { ...original, title: "Updated requirement" },
+    })
+    for (let i = 0; i < 8; i++) {
+      w = await mutateJobWorkspace(w, "target", {
+        target: {
+          ...emptyTarget(),
+          title: `Additional requirement ${i + 1}`,
+          interpretation: "Review this personal preparation requirement.",
+        },
+      })
+    }
+  })
+  await page.reload()
+  await expect(page.getByLabel("Current preparation step")).toContainText(
+    "0 of 9 requirements confirmed",
+  )
+  await expect(
+    page.getByRole("button", { name: "Continue to matching" }),
+  ).toBeDisabled()
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 })
+    const scrollables = await page.evaluate(() =>
+      [...document.querySelectorAll("*")]
+        .filter((el) => {
+          const style = getComputedStyle(el)
+          return (
+            /auto|scroll/.test(style.overflowY) &&
+            el.scrollHeight > el.clientHeight + 2 &&
+            el.clientHeight > 0
+          )
+        })
+        .map((el) => el.className),
+    )
+    expect(scrollables).toHaveLength(1)
+    expect(scrollables[0]).toContain("job-preparation")
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      ),
+    ).toBe(false)
+    await page.screenshot({
+      path: `test-results/preparation-${width}.png`,
+      fullPage: true,
+    })
+  }
 })

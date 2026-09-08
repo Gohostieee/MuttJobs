@@ -1,3 +1,5 @@
+import { BackgroundActivityPreview } from "@/components/background-activity"
+import { runInBackground, useBackgroundActivity } from "@/lib/background-activity"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { open as openDialog } from "@tauri-apps/plugin-dialog"
 import {
@@ -270,7 +272,15 @@ export function ProfileWorkspace() {
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [importPdfPath, setImportPdfPath] = useState("")
   const [importSelection, setImportSelection] = useState(DEFAULT_RESUME_AI_SELECTION)
-  const [importing, setImporting] = useState(false)
+  const importTask = useBackgroundActivity((state) => state.runs["profile-import"])
+  const importing = importTask?.status === "running"
+  useEffect(() => {
+    if (importTask?.status === "completed" && importTask.result) {
+      const saved = importTask.result as ProfileDocument
+      profileRef.current = saved
+      setProfile(saved)
+    }
+  }, [importTask?.status, importTask?.result])
   const [importError, setImportError] = useState("")
   const [importNotice, setImportNotice] = useState("")
   const profileRef = useRef<ProfileDocument | null>(null)
@@ -302,7 +312,7 @@ export function ProfileWorkspace() {
 
   const updateProfile = useCallback<ProfileUpdater>((update) => {
     const current = profileRef.current
-    if (!current) return
+    if (!current || useBackgroundActivity.getState().runs["profile-import"]?.status === "running") return
 
     const next = update(current)
     profileRef.current = next
@@ -346,29 +356,19 @@ export function ProfileWorkspace() {
     const current = profileRef.current
     if (!current || !importPdfPath || importing) return
 
-    let savingImportedProfile = false
-    setImporting(true)
     setImportError("")
     setImportNotice("")
+    setImportDialogOpen(false)
     try {
-      const result = await importProfileFromResumePdf(importPdfPath, current, importSelection)
-      const version = ++saveVersion.current
-      savingImportedProfile = true
-      setSaveState("saving")
-      const saved = await saveProfile(result.profile)
-      if (version === saveVersion.current) {
-        profileRef.current = saved
-        setProfile(saved)
-        setSaveState("saved")
-      }
+      await runInBackground("profile-import", "Profile import", async (onEvent) => {
+        const result = await importProfileFromResumePdf(importPdfPath, current, importSelection, onEvent)
+        onEvent({ type: "progress", stage: "Saving imported Profile…" })
+        return await saveProfile(result.profile)
+      })
       setImportNotice(`Imported ${getFileName(importPdfPath)} into your Profile.`)
-      setImportDialogOpen(false)
       setImportPdfPath("")
     } catch (reason) {
-      setImportError(reason instanceof Error ? reason.message : "The resume could not be imported into your Profile.")
-      if (savingImportedProfile) setSaveState("error")
-    } finally {
-      setImporting(false)
+      setImportError(reason instanceof Error ? reason.message : String(reason))
     }
   }
 
@@ -386,7 +386,7 @@ export function ProfileWorkspace() {
         <UserRound className="size-4 text-muted-foreground" />
         <span className="text-sm font-medium">Profile</span>
         <div className="ml-auto flex items-center gap-3">
-          <Button type="button" variant="outline" size="sm" onClick={openImportDialog}>
+          <Button type="button" variant="outline" size="sm" onClick={openImportDialog} disabled={importing || saveState === "saving"}>
             <FileUp /> Import resume
           </Button>
           <SaveStatus state={saveState} />
@@ -425,6 +425,7 @@ export function ProfileWorkspace() {
             </div>
           ) : null}
 
+          <BackgroundActivityPreview taskKey="profile-import" />
           {importNotice ? (
             <div className="flex items-center gap-2 rounded-lg border border-status-success/40 bg-status-success/10 px-3 py-2 text-sm text-muted-foreground" role="status">
               <Check className="size-4 text-status-success" />
@@ -432,6 +433,7 @@ export function ProfileWorkspace() {
             </div>
           ) : null}
 
+          <fieldset disabled={importing} className="grid min-w-0 gap-6 disabled:opacity-60">
           <BasicsEditor profile={profile} onUpdate={updateProfile} />
           <ContextEditor profile={profile} onUpdate={updateProfile} />
           <SummaryEditor profile={profile} onUpdate={updateProfile} />
@@ -449,6 +451,7 @@ export function ProfileWorkspace() {
 
           <CustomSectionsEditor profile={profile} onUpdate={updateProfile} />
           <MetadataEditor profile={profile} onUpdate={updateProfile} />
+          </fieldset>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { load, type Store } from "@tauri-apps/plugin-store"
+import { isTauri } from "@tauri-apps/api/core"
 
 import { createEmptyResume } from "@/lib/resume-defaults"
 import { normalizeAndValidateResume } from "@/lib/resume-validation"
@@ -45,7 +46,8 @@ export async function loadProfile(): Promise<ProfileDocument> {
     const store = await getProfileStore()
     const stored = await store.get<unknown>(PROFILE_STORE_KEY)
     if (stored !== undefined) return normalizeProfile(stored)
-  } catch {
+  } catch (error) {
+    if (isTauri()) throw error
     // Browser previews do not have the Tauri store bridge.
   }
 
@@ -61,6 +63,7 @@ export function saveProfile(value: ProfileDocument): Promise<ProfileDocument> {
       await store.set(PROFILE_STORE_KEY, normalized)
       await store.save()
     } catch (storeError) {
+      if (isTauri()) throw storeError
       try {
         writeBrowserProfile(normalized)
       } catch {
@@ -71,6 +74,35 @@ export function saveProfile(value: ProfileDocument): Promise<ProfileDocument> {
 
   saveQueue = operation.catch(() => undefined)
   return operation.then(() => normalized)
+}
+
+// Serialize the read and append as well as the write so simultaneous submissions survive.
+export function submitProfileEvidence(target: string, evidence: string) {
+  const text = evidence.trim()
+  if (!text) return Promise.reject(new Error("Describe your experience before saving."))
+  const operation = saveQueue.then(async () => {
+    const profile = await loadProfile()
+    const entryId = crypto.randomUUID()
+    const content = `<p>${text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p>`
+    const index = profile.customSections.length
+    profile.customSections.push({
+      id: crypto.randomUUID(), title: `Evidence: ${target}`, type: "summary",
+      icon: "", columns: 1, alignment: "left", pageAlignment: "left",
+      enabled: true, hidden: false, keepTogether: false, startOnNewPage: false,
+      items: [{ id: entryId, hidden: false, content }],
+    })
+    const normalized = normalizeProfile(profile)
+    if (isTauri()) {
+      const store = await getProfileStore()
+      await store.set(PROFILE_STORE_KEY, normalized)
+      await store.save()
+    } else {
+      writeBrowserProfile(normalized)
+    }
+    return { entryId, field: `/customSections/${index}/items/0/content`, excerpt: content }
+  })
+  saveQueue = operation.then(() => undefined, () => undefined)
+  return operation
 }
 
 function createDefaultProfileContext(): ProfileContext {
