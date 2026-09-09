@@ -1,3 +1,5 @@
+import { BackgroundActivityPreview } from "./background-activity"
+import { runInBackground } from "@/lib/background-activity"
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { Plus, RefreshCw } from "lucide-react"
 import { JobWorkspace } from "./job-workspace"
@@ -206,11 +208,18 @@ export function ApplicationsWorkspace({
               ...createCompanyResearchRequest(job, selection),
               runId: id,
             }
-            const result = await startCompanyResearchRun(request, () => {})
-            if (result.ledgerStatus !== "completed")
-              throw new Error(
-                "Company Research did not produce a completed ledger.",
-              )
+            await runInBackground(`company-research-${job.id}`, "Company research", async (onEvent) => {
+              const result = await startCompanyResearchRun(request, (event) => {
+                if (event.kind === "activity") {
+                  onEvent(event.event.type === "item"
+                    ? { ...event.event, id: `${event.agentId}:${event.event.id}` }
+                    : event.event)
+                }
+              })
+              if (result.ledgerStatus !== "completed")
+                throw new Error("Company Research did not produce a completed ledger.")
+              return result
+            })
           } else {
             const workspace = await readJobWorkspace(job.id)
             if (cancelled.current) throw new Error("Cancelled before starting.")
@@ -334,6 +343,8 @@ export function ApplicationsWorkspace({
       <JobWorkspace
         key={selectedJob.id}
         job={selectedJob}
+        selection={selection}
+        onSelectionChange={setSelection}
         onBack={() => {
           update({ jobId: null })
           void refresh()
@@ -411,6 +422,10 @@ export function ApplicationsWorkspace({
             {progress[job.id].status}: {progress[job.id].message}
           </p>
         )}
+        <div className="application-reasoning">
+          <BackgroundActivityPreview taskKey={`job-workspace-${job.id}`} expandToContent />
+          <BackgroundActivityPreview taskKey={`company-research-${job.id}`} expandToContent />
+        </div>
         {!progress[job.id] && summary?.latestRun && (
           <p role="status" className="application-run-status">
             {summary.latestRun.status}: {summary.latestRun.message}
@@ -535,6 +550,7 @@ export function ApplicationsWorkspace({
               </option>
             ))}
           </select>
+          <span>Model &amp; reasoning</span>
           <ModelReasoningSelector
             value={selection}
             onChange={setSelection}
@@ -677,6 +693,7 @@ export function ApplicationsWorkspace({
                 onChange={(e) => setDescription(e.target.value)}
               />
             </label>
+            <span>Model &amp; reasoning</span>
             <ModelReasoningSelector
               value={selection}
               onChange={setSelection}

@@ -1,6 +1,6 @@
-export const PROTOCOL_VERSION = 3
+export const PROTOCOL_VERSION = 4
 export const MAX_MESSAGE_BYTES = 2 * 1024 * 1024
-export const WORKER_BUILD = "provider-foundation-3"
+export const WORKER_BUILD = "document-creation-1"
 export const SDK_VERSION = "0.147.0"
 
 export type AgentProviderId = "codex" | "claude-code"

@@ -5,31 +5,14 @@ use std::{
     net::TcpListener,
 };
 
-fn provider_output(s: &WorkspaceService, w: &Workspace, request: &RunRequest) -> Result<Value> {
+fn provider_output(w: &Workspace, request: &RunRequest) -> Result<Value> {
     match request.operation.as_str() {
         "analyze" => Ok(super::tests::decoded(w)),
         "match" => Ok(
             json!({"assessments":effective_targets(w).iter().map(|t|json!({"targetId":t.id,"strength":"Strong","matchKind":"Direct","explanation":"The Career Profile records this work.","references":[{"entryId":"experience-1","field":"/sections/experience/items/0/description","excerpt":"Built reliable event-driven services with Vue."}]})).collect::<Vec<_>>()}),
         ),
-        "prepare" => {
-            let mut data: Value =
-                serde_json::from_str(include_str!("../../../public/empty-resume.json"))?;
-            data["summary"]["content"] = json!("Built reliable event-driven services with Vue.");
-            Ok(json!({"documentJson":data.to_string(),"placements":placements(w)}))
-        }
-        "audit" => {
-            let doc = s.artifact(w.job_id, &request.artifact)?;
-            if doc["summary"]["content"] == "Built reliable event-driven services with Vue." {
-                Ok(json!({"placements":placements(w)}))
-            } else {
-                Ok(json!({"placements":[]}))
-            }
-        }
         _ => Err(error("validation", "Unknown operation")),
     }
-}
-fn placements(w: &Workspace) -> Vec<Value> {
-    effective_targets(w).iter().map(|t|json!({"targetId":t.id,"field":"/summary/content","quote":"Built reliable event-driven services with Vue.","evidenceIds":w.evidence.iter().filter(|e|e.suggestion.target_id==t.id&&e.review=="Confirmed").map(|e|e.id.clone()).collect::<Vec<_>>()})).collect()
 }
 fn dispatch(s: &WorkspaceService, input: &Value, count: &mut usize) -> Result<Value> {
     let args = &input["args"];
@@ -57,11 +40,25 @@ fn dispatch(s: &WorkspaceService, input: &Value, count: &mut usize) -> Result<Va
             let request: RunRequest = serde_json::from_value(args["request"].clone())?;
             let w = s.read(request.job_id)?;
             *count += 1;
-            let output = provider_output(s, &w, &request)?;
+            let creation = matches!(
+                request.operation.as_str(),
+                "prepare" | "resumeCreation" | "audit"
+            );
+            let output = if creation {
+                Value::Null
+            } else {
+                provider_output(&w, &request)?
+            };
             Ok(serde_json::to_value(s.execute(
                 request,
                 &AtomicBool::new(false),
-                |_| Ok(output.clone()),
+                |input| {
+                    if creation {
+                        document_creation::scripted_step(input)
+                    } else {
+                        Ok(output.clone())
+                    }
+                },
             )?)?)
         }
         "load_job_primary_resume" => {

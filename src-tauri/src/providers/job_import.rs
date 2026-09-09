@@ -537,6 +537,7 @@ fn run_job_import(
     let output = job::run(
         app,
         job::JobRequest {
+                deadline: None,
             id: &worker_job_id,
             kind: "job_url_import",
             root: &directory,

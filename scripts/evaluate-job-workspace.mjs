@@ -10,7 +10,7 @@ const worker = spawn(
   { stdio: ["pipe", "pipe", "inherit"], windowsHide: true },
 )
 const send = (value) =>
-  worker.stdin.write(JSON.stringify({ protocolVersion: 3, ...value }) + "\n")
+  worker.stdin.write(JSON.stringify({ protocolVersion: 4, ...value }) + "\n")
 let completed = false
 const timer = setTimeout(() => {
   console.error("Evaluation timed out; cancelling the provider job.")
@@ -30,13 +30,13 @@ createInterface({ input: worker.stdout }).on("line", (line) => {
       type: "start_job",
       job: {
         jobId: "evaluation",
-        kind: "job_workspace",
-        provider: "codex",
+        kind: input.kind || "job_workspace",
+        provider: input.provider || "codex",
         workingDirectory: input.root,
         prompt: input.prompt,
         outputSchema: input.schema,
-        model: "gpt-5.6-luna",
-        reasoningEffort: "max",
+        model: input.model || "gpt-5.6-luna",
+        reasoningEffort: input.effort || "max",
         isGitRepository: false,
         execution: {
           sandboxMode: "read-only",
@@ -46,6 +46,7 @@ createInterface({ input: worker.stdout }).on("line", (line) => {
       },
     })
   if (event.type === "job_completed") {
+    console.error(`Evaluation result: ${JSON.stringify(event.output).slice(0, 1600)}`)
     completed = true
     process.stdout.write(JSON.stringify(event.output))
     clearTimeout(timer)
@@ -66,4 +67,5 @@ send({
   requestId: "initialize",
   type: "initialize",
   codexPath: process.env.MUTTJOBS_EVAL_CODEX,
+  claudePath: process.env.MUTTJOBS_EVAL_CLAUDE,
 })

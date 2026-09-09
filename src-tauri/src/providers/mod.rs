@@ -1489,6 +1489,7 @@ fn run_document_edit(
     let output = match job::run(
         app,
         job::JobRequest {
+                deadline: None,
             id: &job_id,
             kind: &format!("{}_edit", document_kind.replace(' ', "_")),
             root: &root,

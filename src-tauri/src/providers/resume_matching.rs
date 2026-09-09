@@ -147,6 +147,7 @@ pub async fn start_resume_matching(
         job::run(
             &task_app,
             job::JobRequest {
+                deadline: None,
                 id: &run_id,
                 kind: "resume_matching",
                 root: &root,

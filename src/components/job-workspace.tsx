@@ -1,9 +1,12 @@
+import { DocumentProposalChanges } from "./document-proposal-changes"
+import { DocumentCreationProgress } from "./document-creation-progress"
 import { BackgroundActivityPreview } from "./background-activity"
 import { useBackgroundActivity } from "@/lib/background-activity"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { invoke } from "@tauri-apps/api/core"
 import { TargetCriteriaEditor } from "./target-criteria-editor"
+import type { ResumeAiSelection } from "@/lib/resume-ai"
 import type { WorkspaceMutations } from "@/lib/job-workspace"
 import {
   ArrowLeft,
@@ -23,8 +26,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { CompanyResearchWorkspace } from "@/components/company-research-workspace"
-import { TargetEvidencePicker } from "@/components/target-evidence-picker"
-import { TargetEvidenceInput } from "@/components/target-evidence-input"
+import { TargetMatchReview } from "@/components/target-match-review"
 import { TargetCoverageReview } from "@/components/target-coverage-review"
 import { ResumeViewer } from "@/components/resume-workspace"
 import { CoverLetterViewer } from "@/components/cover-letter-workspace"
@@ -102,13 +104,40 @@ export function JobWorkspace({
   job,
   onBack,
   onJobChange,
+  selection: providedSelection,
+  onSelectionChange,
 }: {
   job: TheirStackJob
+  selection?: ResumeAiSelection
+  onSelectionChange?: (selection: ResumeAiSelection) => void
   onBack: () => void
   onJobChange?: (job: TheirStackJob) => void
   onDocumentViewerChange?: (open: boolean) => void
 }) {
-  const [workspace, setWorkspace] = useState<JobPreparation | null>(null)
+  const [localSelection, setLocalSelection] = useState(DEFAULT_RESUME_AI_SELECTION)
+  const selection = providedSelection ?? localSelection
+  const changeSelection = onSelectionChange ?? setLocalSelection
+  const [workspace, setWorkspaceState] = useState<JobPreparation | null>(null)
+  const visibleJob = useRef(job.id)
+  visibleJob.current = job.id
+  const setWorkspace = useCallback((next: JobPreparation) => {
+    if (next.jobId !== visibleJob.current) return
+    setWorkspaceState((current) => current?.jobId === next.jobId && current.revision > next.revision ? current : next)
+  }, [])
+  const creationWrites = useRef<Promise<unknown>>(Promise.resolve())
+  function creationMutation<K extends keyof WorkspaceMutations>(operation: K, payload: WorkspaceMutations[K]) {
+    const pending = creationWrites.current.catch(() => {}).then(async () => {
+      const current = await readJobWorkspace(job.id)
+      if (operation === "creationLayout") {
+        const measurement = payload as WorkspaceMutations["creationLayout"]
+        const session = current.creationSessions?.find((item) => item.id === measurement.id)
+        if (session?.revision !== measurement.draftRevision || !["Ready for review", "Paused for input"].includes(session.state)) return current
+      }
+      return mutateJobWorkspace(current, operation, payload)
+    })
+    creationWrites.current = pending
+    return pending
+  }
   const [view, setView] = useState(() => restoredView(job.id))
   const [error, setError] = useState("")
   const [locallyBusy, setBusy] = useState(false)
@@ -122,7 +151,6 @@ export function JobWorkspace({
   }, [backgroundTask?.status, backgroundTask?.result])
   const [runId, setRunId] = useState("")
   const [runStatus, setRunStatus] = useState("")
-  const [selection, setSelection] = useState(DEFAULT_RESUME_AI_SELECTION)
   const [sourceOpen, setSourceOpen] = useState(false)
   const [sourceText, setSourceText] = useState("")
   const [editing, setEditing] = useState<Target | null>(null)
@@ -132,6 +160,7 @@ export function JobWorkspace({
   const [resume, setResume] = useState<ResumeFile | null>(null)
   const [letter, setLetter] = useState<CoverLetterFile | null>(null)
   const [proposal, setProposal] = useState<Proposal | null>(null)
+  const [editingProposal, setEditingProposal] = useState(false)
   const [currentDocument, setCurrentDocument] = useState<unknown>(null)
   const [includeResearch, setIncludeResearch] = useState(false)
   const [inspectorTab, setInspectorTab] = useState(() =>
@@ -163,6 +192,15 @@ export function JobWorkspace({
     if (workspace && content.current)
       content.current.scrollTop = restoredView(job.id).scroll
   }, [!!workspace, job.id])
+  useEffect(() => {
+    if (!busy) return
+    let disposed = false
+    const timer = window.setInterval(() => {
+      void readJobWorkspace(job.id).then((next) => { if (!disposed) setWorkspace(next) }).catch(() => {})
+    }, 1500)
+    return () => { disposed = true; window.clearInterval(timer) }
+  }, [busy, job.id])
+  const creation = workspace?.creationSessions?.findLast((s) => s.artifact === view.artifact)
   const targets = workspace ? workspaceTargets(workspace) : []
   const target = targets.find((t) => t.id === view.targetId)
   const updateView = (patch: Partial<ViewState>) =>
@@ -179,7 +217,9 @@ export function JobWorkspace({
     setBusy(true)
     setError("")
     try {
-      const next = await mutateJobWorkspace(workspace, operation, payload)
+      const next = await (operation.toLowerCase().includes("creation") || operation === "acceptProposal" || operation === "rejectProposal"
+        ? creationMutation(operation, payload)
+        : mutateJobWorkspace(workspace, operation, payload))
       setWorkspace(next)
       return next
     } catch (cause) {
@@ -188,8 +228,32 @@ export function JobWorkspace({
       setBusy(false)
     }
   }
-  async function run(operation: WorkspaceOperation) {
+  async function approveTargetEvidence(targetId: string) {
     if (!workspace || busy) return
+    const pending = workspace.evidence.filter((e) =>
+      e.suggestion.targetId === targetId &&
+      e.review !== "Confirmed" && e.review !== "Rejected" &&
+      ["Strong", "Partial"].includes(e.suggestion.strength) &&
+      e.suggestion.references.length > 0,
+    )
+    setBusy(true)
+    setError("")
+    try {
+      let latest = workspace
+      for (const evidence of pending) {
+        latest = await mutateJobWorkspace(latest, "evidenceReview", {
+          id: evidence.id, review: "Confirmed",
+        })
+        setWorkspace(latest)
+      }
+    } catch (cause) {
+      setError(workspaceError(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+  async function run(operation: WorkspaceOperation, runSelection = selection, current = workspace) {
+    if (!current || busy) return
     const id = crypto.randomUUID()
     setRunId(id)
     setRunningOperation(operation)
@@ -197,11 +261,16 @@ export function JobWorkspace({
     setError("")
     setRunStatus("Starting…")
     try {
+      let start = current
+      if (["prepare", "resumeCreation", "audit"].includes(operation)) {
+        await creationWrites.current.catch(() => {})
+        start = await readJobWorkspace(job.id)
+      }
       setWorkspace(
         await runWorkspace(
-          workspace,
+          start,
           operation,
-          selection,
+          runSelection,
           id,
           [],
           view.artifact,
@@ -219,6 +288,7 @@ export function JobWorkspace({
       setError(workspaceError(cause))
       setRunStatus("Previous work retained")
     } finally {
+      void readJobWorkspace(job.id).then(setWorkspace).catch(() => {})
       setBusy(false)
       setRunId("")
       setRunningOperation(null)
@@ -403,12 +473,14 @@ export function JobWorkspace({
             id="target-panel-evidence"
             aria-labelledby="target-tab-evidence"
           >
-            <h3>Career Profile evidence</h3>
-            <TargetEvidenceInput
+            <TargetMatchReview
               key={target.id}
-              targetId={target.id}
-              label={target.interpretation}
+              target={target}
+              evidence={workspace.evidence.filter((e) => e.suggestion.targetId === target.id)}
               disabled={busy}
+              onDone={closeInspector}
+              onMatch={() => void run("match")}
+              onReview={(id, review) => void change("evidenceReview", { id, review })}
               onLink={async (suggestion) => {
                 setBusy(true)
                 try {
@@ -419,71 +491,6 @@ export function JobWorkspace({
                 }
               }}
             />
-            <TargetEvidencePicker
-              targetId={target.id}
-              disabled={busy}
-              onLink={(value) => void change("linkEvidence", value)}
-            />
-            {workspace.evidence
-              .filter((e) => e.suggestion.targetId === target.id)
-              .map((e) => (
-                <section className="target-evidence" key={e.id}>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge>{e.suggestion.strength}</Badge>
-                    <Badge variant="outline">{e.suggestion.matchKind}</Badge>
-                    <Badge variant="outline">{e.review}</Badge>
-                  </div>
-                  <p>{e.suggestion.explanation}</p>
-                  {e.suggestion.references.map((r, i) => (
-                    <blockquote key={i}>
-                      {r.excerpt}
-                      <small>Career Profile · {r.entryId}</small>
-                    </blockquote>
-                  ))}
-                  <div className="flex gap-2">
-                    <Button
-                      disabled={
-                        busy ||
-                        e.review === "Confirmed" ||
-                        !["Strong", "Partial"].includes(
-                          e.suggestion.strength,
-                        ) ||
-                        !e.suggestion.references.length
-                      }
-                      size="sm"
-                      onClick={() =>
-                        void change("evidenceReview", {
-                          id: e.id,
-                          review: "Confirmed",
-                        })
-                      }
-                    >
-                      Confirm evidence
-                    </Button>
-                    <Button
-                      disabled={busy}
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        void change("evidenceReview", {
-                          id: e.id,
-                          review: "Rejected",
-                        })
-                      }
-                    >
-                      Reject
-                    </Button>
-                  </div>
-                </section>
-              ))}
-            {!workspace.evidence.some(
-              (e) => e.suggestion.targetId === target.id,
-            ) && (
-              <p>
-                No assessment yet. Match Career Profile or add factual details
-                to your profile.
-              </p>
-            )}
           </section>
         )}
         {inspectorTab === "document" && (
@@ -724,18 +731,10 @@ export function JobWorkspace({
               </Button>
               <details className="preparation-settings">
                 <summary>
-                  AI settings{backgroundTask ? " & run details" : ""}
+                  Run details
                 </summary>
-                <ModelReasoningSelector
-                  value={selection}
-                  onChange={setSelection}
-                  disabled={busy}
-                />
                 {runStatus && <p>{runStatus}</p>}
-                <BackgroundActivityPreview
-                  taskKey={`job-workspace-${job.id}`}
-                  expandToContent
-                />
+
               </details>
             </div>
           </details>
@@ -776,12 +775,18 @@ export function JobWorkspace({
       {error && (
         <div role="alert" className="workspace-error">
           {error}
-          <Button size="sm" variant="outline" onClick={() => void refresh()}>
-            Reload
+          <Button size="sm" variant="outline" onClick={() => setError("")}>
+            Dismiss
           </Button>
         </div>
       )}
       <div className="job-preparation-body">
+        {(view.destination === "Targets" || view.destination === "Documents") && (
+          <div className="workspace-ai-controls" role="group" aria-label="AI model and reasoning">
+            <span>Model &amp; reasoning</span>
+            <ModelReasoningSelector value={selection} onChange={changeSelection} disabled={busy} />
+          </div>
+        )}
         {!workspace ? (
           <p role="status" className="p-8">
             {error ? "Preparation could not be loaded." : "Loading workspace…"}
@@ -807,6 +812,9 @@ export function JobWorkspace({
                 )}
               </div>
             )}
+            <div className="workspace-reasoning">
+              <BackgroundActivityPreview taskKey={`job-workspace-${job.id}`} expandToContent />
+            </div>
             {view.destination === "Targets" && (
               <div className="targets-layout">
                 <section className="targets-main">
@@ -1133,14 +1141,17 @@ export function JobWorkspace({
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={(event) =>
-                                      openTarget(t, event.currentTarget)
-                                    }
+                                    disabled={busy}
+                                    onClick={(event) => {
+                                      if (state.supported && !state.approved)
+                                        void approveTargetEvidence(t.id)
+                                      else openTarget(t, event.currentTarget)
+                                    }}
                                   >
                                     {state.approved
                                       ? "View evidence"
                                       : state.supported
-                                        ? "Review evidence"
+                                        ? "Approve evidence"
                                         : "Add details"}{" "}
                                     <ArrowRight />
                                   </Button>
@@ -1269,11 +1280,11 @@ export function JobWorkspace({
                 <div className="target-toolbar">
                   <Button
                     disabled={
-                      busy || !allConfirmed || !approvedCount || reviewCount > 0
+                      busy || !allConfirmed || !approvedCount
                     }
                     onClick={() => void run("prepare")}
                   >
-                    Prepare targeted proposal
+                    {view.artifact === "resume" ? "Create tailored resume" : "Create cover letter"}
                   </Button>
                   <details className="document-options">
                     <summary>Document options</summary>
@@ -1308,7 +1319,7 @@ export function JobWorkspace({
                     </Button>
                   </details>
                 </div>
-                {(!allConfirmed || !approvedCount || reviewCount > 0) && (
+                {(!allConfirmed || !approvedCount) && (
                   <div className="workspace-notice">
                     <p>
                       {!allConfirmed
@@ -1332,6 +1343,20 @@ export function JobWorkspace({
                     </Button>
                   </div>
                 )}
+                {creation && <DocumentCreationProgress session={creation} busy={busy}
+                  onRevise={(text) => void change("queueCreationRepair", { id: creation.id, text }).then((next) => { if (next) void run("resumeCreation", { provider: creation.provider, model: creation.model, effort: creation.effort } as ResumeAiSelection, next) })}
+                  onOmit={(target) => void change("omitCreationTarget", { id: creation.id, target }).then((next) => { if (next) void run("resumeCreation", { provider: creation.provider, model: creation.model, effort: creation.effort } as ResumeAiSelection, next) })}
+                  onPin={(pinned) => void change("pinCreation", { id: creation.id, pinned })}
+                  onRebase={() => void change("rebaseCreation", { id: creation.id, keepSavedEdits: true })}
+                  onDiscard={() => void change("discardCreation", { id: creation.id })}
+                  onPageMode={(pageMode) => void change("creationPageMode", { id: creation.id, pageMode })}
+                  onResume={() => void run("resumeCreation", { provider: creation.provider, model: creation.model, effort: creation.effort } as ResumeAiSelection)}
+                  onCancel={() => void cancelWorkspaceRun(creation.attempt).catch((cause) => setError(workspaceError(cause)))}
+                  onLayout={(measurement) => {
+                    void creationMutation("creationLayout", { id: creation.id, draftRevision: creation.revision, ...measurement }).then(setWorkspace).catch((cause) => setError(workspaceError(cause)))
+                  }}
+                  onGap={(targetId) => { updateView({ destination: "Targets", step: "match", targetId }); setInspectorTab("evidence") }} />}
+                {workspace.creationSessions?.some((session) => ["Rejected", "Failed"].includes(session.state) && !session.pinned) && <Button variant="ghost" disabled={busy} onClick={() => void change("clearCreationHistory", {})}>Clear failed and discarded draft history</Button>}
                 {workspace.proposals
                   .filter((p) => p.artifact === view.artifact)
                   .map((p) => (
@@ -1353,6 +1378,7 @@ export function JobWorkspace({
                           })
                             .then((data) => {
                               setCurrentDocument(data)
+                              setEditingProposal(false)
                               setProposal(p)
                             })
                             .catch((cause) => setError(workspaceError(cause)))
@@ -1430,7 +1456,7 @@ export function JobWorkspace({
             <DialogDescription>
               {step === "requirements"
                 ? "Check this requirement before confirming it."
-                : "Review the experience that supports this requirement."}
+                : "Match your experience to this requirement."}
             </DialogDescription>
           </DialogHeader>
           {inspector}
@@ -1645,16 +1671,33 @@ export function JobWorkspace({
                 {proposal.artifact === "resume" ? (
                   <ResumeDocument
                     resume={normalizeAndValidateResume(proposal.data)}
+                    onChange={editingProposal ? (data) => setProposal({ ...proposal, data }) : undefined}
                   />
                 ) : (
                   <CoverLetterDocument
                     letter={normalizeAndValidateCoverLetter(proposal.data)}
+                    onChange={editingProposal ? (data) => setProposal({ ...proposal, data }) : undefined}
                   />
                 )}
               </div>
-              <div className="flex gap-2">
+              <DocumentProposalChanges before={currentDocument} after={proposal.data} />
+              <details>
+                <summary>{proposal.placements.length} proposed coverage bindings</summary>
+                {proposal.placements.map((placement, index) => <p key={index}>{targets.find((target) => target.id === placement.targetId)?.title}: {placement.quote.replace(/<[^>]*>/g, "")}</p>)}
+                {creation?.proposalId === proposal.id && creation.plan.filter((item) => item.disposition !== "draft").map((item) => <p key={item.target}>Left out: {creation.targets.find((target) => target.handle === item.target)?.target.title}. {item.reason}</p>)}
+              </details>
+              <div className="proposal-actions flex flex-wrap gap-2">
+                {error && <p role="alert" className="basis-full">{error}</p>}
+                {creation?.proposalId === proposal.id && !creation.layout && <p role="status" className="basis-full">Checking the rendered pages before saving…</p>}
+                {creation?.proposalId === proposal.id && <Button variant="outline" disabled={busy} onClick={() => {
+                  if (!editingProposal) { setEditingProposal(true); return }
+                  void change("editCreationDraft", { id: creation.id, draftRevision: creation.revision, data: proposal.data }).then((next) => {
+                    const latest = next?.proposals.at(-1)
+                    if (latest) { setProposal(latest); setEditingProposal(false) }
+                  })
+                }}>{editingProposal ? "Keep draft edits" : "Edit draft"}</Button>}
                 <Button
-                  disabled={busy || proposal.status !== "Unreviewed"}
+                  disabled={busy || editingProposal || proposal.status !== "Unreviewed" || (creation?.proposalId === proposal.id && (!creation.layout || creation.layout.clipped || !creation.layout.readable || creation.layout.pages > (creation.pageMode === "two" ? 2 : 1)))}
                   onClick={() =>
                     void change("acceptProposal", { id: proposal.id }).then(
                       (next) => {
@@ -1667,7 +1710,7 @@ export function JobWorkspace({
                     )
                   }
                 >
-                  Accept document
+                  {proposal.artifact === "resume" ? "Save resume" : "Save cover letter"}
                 </Button>
                 <Button
                   disabled={busy || proposal.status !== "Unreviewed"}
@@ -1680,7 +1723,7 @@ export function JobWorkspace({
                     )
                   }
                 >
-                  Reject proposal
+                  Discard
                 </Button>
               </div>
             </>

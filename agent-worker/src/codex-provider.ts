@@ -9,6 +9,7 @@ import {
 import type { AgentJobRequest, WorkerEvent } from "./protocol.js"
 import { PROTOCOL_VERSION } from "./protocol.js"
 import { workspaceExecutionConfig } from "./workspace-execution-policy.js"
+import { codexDocumentStep } from "./codex-document-step.js"
 
 type Emit = (event: WorkerEvent) => void
 type EventBase = {
@@ -85,7 +86,7 @@ export class CodexJobRunner {
         model: job.model ?? undefined,
         modelReasoningEffort: reasoningEffort,
       })
-      const streamed = await thread.runStreamed(job.prompt, {
+      const streamed = job.kind === "document_step" ? { events: codexDocumentStep(this.#codexPath, job, controller.signal) } : await thread.runStreamed(job.prompt, {
         outputSchema: job.outputSchema,
         signal: controller.signal,
       })

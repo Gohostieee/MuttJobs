@@ -37,14 +37,14 @@ export function TargetEvidenceInput({ targetId, label, disabled, onLink }: {
   }
   return <div className="target-edit-form">
     <label>
-      Add evidence from your experience
+      What did you do?
       <textarea value={text} disabled={disabled || saving || !!saved}
-        placeholder="Describe what you did, where and when, and the outcome. Include specific examples or supporting links."
+        placeholder="Example: At Acme, I led a product launch that increased signups by 20%."
         onChange={(event) => setText(event.target.value)} />
     </label>
-    <small>Your account will be saved in Career Profile and used in future job matches.</small>
+    <small>Saved to your Career Profile for future matches.</small>
     <Button disabled={disabled || saving || (!saved && !text.trim())} onClick={() => void submit()}>
-      {saving ? "Saving…" : saved ? "Retry linking saved evidence" : "Save evidence to Career Profile"}
+      {saving ? "Saving…" : saved ? "Retry linking saved evidence" : "Save and review match"}
     </Button>
     {message && <p role="status">{message}</p>}
     {error && <p role="alert">{error}</p>}

@@ -81,6 +81,29 @@ export type Proposal = {
   status: string
   createdAt: string
 }
+export type CreationSession = {
+  pinned?: boolean
+  id: string
+  revision: number
+  artifact: string
+  provider: string
+  mode: string
+  model: string
+  effort: string
+  state: string
+  attempt: string
+  draft: unknown
+  baseline: unknown
+  turns: number
+  turnLimit: number
+  pageMode: string
+  passages: { handle: string; revision: number; text: string }[]
+  targets: { handle: string; target: Target }[]
+  plan: { target: string; disposition: string; reason: string }[]
+  findings: { error?: { code: string; message: string }; attemptedTool?: { name: string; text?: string } }[]
+  proposalId: string | null
+  layout: { pages: number; clipped: boolean; readable: boolean; draftRevision: number } | null
+}
 export type PreparationSummary = {
   jobId: number
   analysis: string
@@ -124,6 +147,7 @@ export type JobPreparation = {
   coverage: Coverage[]
   actions: PreparationAction[]
   proposals: Proposal[]
+  creationSessions?: CreationSession[]
   activity: {
     id: string
     operation: string
@@ -135,8 +159,17 @@ export type JobPreparation = {
   artifactRevisions: Record<string, string>
   summary: PreparationSummary
 }
-export type WorkspaceOperation = "analyze" | "match" | "prepare" | "audit"
+export type WorkspaceOperation = "analyze" | "match" | "prepare" | "audit" | "resumeCreation"
 export type WorkspaceMutations = {
+  queueCreationRepair: { id: string; text: string }
+  omitCreationTarget: { id: string; target: string }
+  pinCreation: { id: string; pinned: boolean }
+  rebaseCreation: { id: string; keepSavedEdits: boolean }
+  creationPageMode: { id: string; pageMode: "one" | "two" }
+  creationLayout: { id: string; draftRevision: number; pages: number; clipped: boolean; readable: boolean }
+  editCreationDraft: { id: string; draftRevision: number; data: unknown }
+  discardCreation: { id: string }
+  clearCreationHistory: Record<string, never>
   confirmTarget: { targetId: string; confirmed: boolean }
   source: { text: string }
   createDraft: { artifact: string }

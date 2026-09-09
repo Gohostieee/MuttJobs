@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessByStdio } from "node:child_process"
-import type { Readable } from "node:stream"
+import type { Readable, Writable } from "node:stream"
 
 import type { AgentJobRequest, WorkerEvent } from "./protocol.js"
 import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "./protocol.js"
@@ -10,7 +10,7 @@ type EventBase = {
   requestId: string
   jobId: string
 }
-type ClaudeChildProcess = ChildProcessByStdio<null, Readable, Readable>
+type ClaudeChildProcess = ChildProcessByStdio<Writable, Readable, Readable>
 type ClaudeTranslatedEvent = { type: string; [key: string]: unknown }
 
 type ActiveJob = {
@@ -53,9 +53,9 @@ export class ClaudeCodeJobRunner {
       "--permission-mode",
       "acceptEdits",
       "--allowedTools",
-      job.kind === "job_workspace" ? "" : "Read,Edit,Write",
+      ["job_workspace", "document_step"].includes(job.kind) ? "" : "Read,Edit,Write",
       "--tools",
-      job.kind === "job_workspace" ? "" : "Read,Edit,Write",
+      ["job_workspace", "document_step"].includes(job.kind) ? "" : "Read,Edit,Write",
       // `--bare` disables OAuth and keychain reads. Provider health accepts
       // Claude.ai subscription login, so keep the user's normal auth sources
       // available to the non-interactive process.
@@ -64,19 +64,30 @@ export class ClaudeCodeJobRunner {
       "8",
     ]
 
+    if (job.kind === "document_step") args.push("--safe-mode", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--disable-slash-commands", "--setting-sources", "")
+
     if (job.model) args.push("--model", job.model)
     const effort = toClaudeEffort(job.reasoningEffort)
     if (effort) args.push("--effort", effort)
-    args.push(job.prompt)
+    args.push("--input-format", "text")
 
-    const child = spawn(this.#claudePath, args, {
-      cwd: job.workingDirectory,
-      stdio: ["ignore", "pipe", "pipe"],
-      windowsHide: true,
-    })
+    const base: EventBase = { protocolVersion: PROTOCOL_VERSION, requestId, jobId: job.jobId }
+    let child: ClaudeChildProcess
+    try {
+      child = spawn(this.#claudePath, args, {
+        cwd: job.workingDirectory,
+        stdio: ["pipe", "pipe", "pipe"],
+        windowsHide: true,
+      })
+    } catch (error) {
+      emit({ ...base, type: "job_failed", code: "cli_error", message: error instanceof Error ? error.message : "Claude Code could not start." })
+      return
+    }
+    // Prompts can exceed Windows' command-line limit as the draft grows.
+    child.stdin.on("error", () => {})
+    child.stdin.end(job.prompt)
     const active: ActiveJob = { child, cancelled: false }
     this.#active.set(job.jobId, active)
-    const base: EventBase = { protocolVersion: PROTOCOL_VERSION, requestId, jobId: job.jobId }
 
     try {
       emit({ ...base, type: "job_accepted" })

@@ -8,7 +8,7 @@ use std::{
 use serde_json::{json, Value};
 use tauri::AppHandle;
 
-pub const PROTOCOL_VERSION: u32 = 3;
+pub const PROTOCOL_VERSION: u32 = 4;
 pub const SDK_VERSION: &str = "0.147.0";
 pub const MAX_MESSAGE_BYTES: usize = 2 * 1024 * 1024;
 
@@ -116,6 +116,10 @@ pub fn initialize(
     let response = read_message(&mut reader)?;
     if response.get("type").and_then(Value::as_str) != Some("ready")
         || response.get("sdkVersion").and_then(Value::as_str) != Some(SDK_VERSION)
+        || response
+            .pointer("/capabilities/documentStep")
+            .and_then(Value::as_u64)
+            != Some(1)
     {
         return Err("The worker or Codex SDK version is incompatible.".into());
     }

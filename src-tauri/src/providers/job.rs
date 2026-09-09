@@ -15,6 +15,7 @@ use serde_json::{json, Value};
 use tauri::AppHandle;
 
 pub struct JobRequest<'a> {
+    pub deadline: Option<std::time::Instant>,
     pub id: &'a str,
     pub kind: &'a str,
     pub root: &'a Path,
@@ -128,9 +129,16 @@ pub fn run(
     let watcher_done = done.clone();
     let watcher_job = request.id.to_string();
     let mut stdin = child.stdin.take().ok_or("Worker stdin is unavailable.")?;
+    let deadline = request.deadline;
+    let expired = Arc::new(AtomicBool::new(false));
+    let watcher_expired = expired.clone();
     let watcher = std::thread::spawn(move || {
         while !watcher_done.load(Ordering::Relaxed) {
-            if cancel_flag.load(Ordering::Relaxed) {
+            let timed_out = deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline);
+            if timed_out {
+                watcher_expired.store(true, Ordering::Relaxed);
+            }
+            if cancel_flag.load(Ordering::Relaxed) || timed_out {
                 let message = json!({
                     "protocolVersion": super::worker::PROTOCOL_VERSION,
                     "requestId": format!("cancel-{watcher_job}"),
@@ -266,7 +274,11 @@ pub fn run(
         Ok(_) => eprintln!("[agent-job] completed job_id={}", request.id),
         Err(error) => eprintln!("[agent-job] failed job_id={} error={error}", request.id),
     }
-    result
+    if expired.load(Ordering::Relaxed) {
+        Err("document_budget_exhausted".into())
+    } else {
+        result
+    }
 }
 
 fn bounded_log_text(value: &str, max_chars: usize) -> String {

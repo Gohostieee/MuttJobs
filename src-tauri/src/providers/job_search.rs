@@ -120,6 +120,7 @@ fn expand_search_query(
     let output = job::run(
         app,
         job::JobRequest {
+                deadline: None,
             id: &job_id,
             kind: "job_search_expansion",
             root: &root,

@@ -1016,6 +1016,7 @@ fn execute_agent(
         let result = job::run(
             app,
             job::JobRequest {
+                deadline: None,
                 id: &agent_job_id,
                 kind: "company_research_agent",
                 root: &directory,
@@ -1262,6 +1263,7 @@ fn repair_report(
     job::run(
         app,
         job::JobRequest {
+                deadline: None,
             id: &repair_id,
             kind: "company_research_schema_repair",
             root: directory,
