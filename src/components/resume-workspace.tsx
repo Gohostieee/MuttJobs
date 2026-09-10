@@ -6,6 +6,8 @@ import { save } from "@tauri-apps/plugin-dialog"
 import {
   ArrowLeft,
   FileText,
+  Copy,
+  Pencil,
   Grid2X2,
   RefreshCw,
   Search,
@@ -62,7 +64,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
-import { getResumesDirectory, loadResumes, saveResume } from "@/lib/resume-storage"
+import { duplicateResume, getResumesDirectory, loadResumes, resumeTitle, saveResume } from "@/lib/resume-storage"
 import { exportResumePdf } from "@/lib/resume-export"
 import {
   addResumeSection,
@@ -123,7 +125,7 @@ export function ResumeWorkspace({ onViewerChange }: { onViewerChange?: (open: bo
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    return files.filter(file => !needle || [file.fileName, file.data.basics.name, file.data.basics.headline]
+    return files.filter(file => !needle || [resumeTitle(file), file.fileName, file.data.basics.name, file.data.basics.headline]
       .some(value => value.toLowerCase().includes(needle)))
   }, [files, query])
 
@@ -139,7 +141,7 @@ export function ResumeWorkspace({ onViewerChange }: { onViewerChange?: (open: bo
   }
 
   if (selected) return <ResumeViewer key={selected.path} file={selected} onBack={updated => {
-    setFiles(items => items.map(item => item.path === updated.path ? updated : item))
+    setFiles(items => [updated, ...items.filter(item => item.id !== updated.id)])
     setSelected(null); onViewerChange?.(false)
   }} />
 
@@ -157,7 +159,10 @@ export function ResumeWorkspace({ onViewerChange }: { onViewerChange?: (open: bo
         {folderError ? <Alert className="mb-4" variant="destructive"><AlertTitle>Could not open folder</AlertTitle><AlertDescription>{folderError}</AlertDescription></Alert> : null}
         {loading ? <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-hidden="true">{[0, 1, 2].map(index => <Skeleton className="h-[29rem]" key={index} />)}</div> : null}
         {error ? <Alert variant="destructive"><AlertTitle>Could not load resumes</AlertTitle><AlertDescription>{error}</AlertDescription><Button variant="outline" className="mt-3 w-fit" onClick={() => void refresh()}>Try again</Button></Alert> : null}
-        {!loading && !error && filtered.length ? <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.map(file => <ResumeCard key={file.path} file={file} onOpen={() => { setSelected(file); onViewerChange?.(true) }} />)}</div> : null}
+        {!loading && !error && filtered.length ? <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.map(file => <ResumeCard key={file.id} file={file}
+          onUpdate={updated => setFiles(items => items.map(item => item.id === updated.id ? updated : item))}
+          onDuplicate={copy => setFiles(items => [copy, ...items])}
+          onOpen={() => { setSelected(file); onViewerChange?.(true) }} />)}</div> : null}
         {!loading && !error && !filtered.length ? (
           <Empty className="min-h-88 border">
             <EmptyHeader><EmptyMedia variant="icon"><FileText /></EmptyMedia><EmptyTitle>{query.trim() ? "No matching resumes" : "Your library is ready"}</EmptyTitle><EmptyDescription>{query.trim() ? "Try a name, headline, or file name." : "Create a resume in Job Workspace. Your saved resumes will appear here."}</EmptyDescription></EmptyHeader>
@@ -169,15 +174,42 @@ export function ResumeWorkspace({ onViewerChange }: { onViewerChange?: (open: bo
   )
 }
 
-function ResumeCard({ file, onOpen }: { file: ResumeFile; onOpen: () => void }) {
-  const title = file.fileName.replace(/\.json$/i, "")
+function ResumeCard({ file, onOpen, onUpdate, onDuplicate }: { file: ResumeFile; onOpen: () => void; onUpdate: (file: ResumeFile) => void; onDuplicate: (file: ResumeFile) => void }) {
+  const title = resumeTitle(file)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(title)
+  const [busy, setBusy] = useState(false)
+  const pending = useRef(false)
+  const [error, setError] = useState("")
+  async function run(action: () => Promise<void>) {
+    if (pending.current) return
+    pending.current = true; setBusy(true); setError("")
+    try { await action() }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update this resume.") }
+    finally { pending.current = false; setBusy(false) }
+  }
   const subtitle = [file.data.basics.name, file.data.basics.headline].filter(Boolean).join(" \u00b7 ")
   const updated = file.updatedAt ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(file.updatedAt * 1000) : "Local preview"
   return (
     <Card className="overflow-hidden">
       <CardContent className="px-0"><div className="resume-card-preview" aria-hidden="true" inert><div className="resume-card-document" style={{ width: getResumePageWidth(file.data) }}><ResumeDocument resume={file.data} compact /></div></div></CardContent>
-      <CardHeader><CardTitle className="truncate" title={title}>{title}</CardTitle><CardDescription className="truncate" title={subtitle}>{subtitle || updated}</CardDescription></CardHeader>
-      <CardFooter><Button variant="outline" onClick={onOpen} aria-label={"Open " + title}>Open resume</Button></CardFooter>
+      <CardHeader>{editing ? <form className="flex min-w-0 flex-col gap-2" onSubmit={event => {
+        event.preventDefault()
+        if (!draft.trim()) return
+        void run(async () => { onUpdate(await saveResume(file, { ...file.data, title: draft.trim() })); setEditing(false) })
+      }}>
+        <Label htmlFor={`resume-title-${file.id}`}>Resume title</Label>
+        <InputGroup><InputGroupInput id={`resume-title-${file.id}`} value={draft} onChange={event => setDraft(event.target.value)} autoFocus required maxLength={160} disabled={busy} /></InputGroup>
+        <div className="flex gap-2"><Button type="submit" size="sm" disabled={busy || !draft.trim()}>Save title</Button><Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => { setEditing(false); setError("") }}>Cancel</Button></div>
+      </form> : <CardTitle className="truncate" title={title}>{title}</CardTitle>}<CardDescription className="truncate" title={subtitle}>{subtitle || updated}</CardDescription></CardHeader>
+      <CardFooter className="flex flex-wrap gap-2">
+        <Button variant="outline" disabled={busy} onClick={onOpen} aria-label={"Open " + title}>Open resume</Button>
+        <div className="flex items-center gap-1">
+        <Button variant="ghost" size="sm" disabled={busy || editing} onClick={() => void run(async () => onDuplicate(await duplicateResume(file)))} aria-label={"Duplicate " + title}><Copy aria-hidden="true" />Duplicate</Button>
+        <Button variant="ghost" size="sm" disabled={busy || editing} onClick={() => { setDraft(title); setEditing(true); setError("") }} aria-label={"Edit title for " + title}><Pencil aria-hidden="true" />Edit title</Button>
+        </div>
+        {error ? <p className="w-full text-sm text-destructive" role="alert">{error}</p> : null}
+      </CardFooter>
     </Card>
   )
 }
@@ -220,7 +252,7 @@ export function ResumeViewer({
   const redoStackRef = useRef<ResumeFile["data"][]>([])
   const textEditRef = useRef<ResumeTextEdit | null>(null)
   const sectionsSidebarResizeRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
-  const name = currentFile.data.basics?.name || currentFile.fileName
+  const name = resumeTitle(currentFile)
   const pageWidth = getResumePageWidth(currentFile.data)
   const sections = useMemo(
     () => getResumeSectionEntries(currentFile.data, { includeHidden: true }),

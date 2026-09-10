@@ -72,10 +72,11 @@ export async function createResume(name: string): Promise<ResumeFile> {
 }
 
 export async function duplicateResume(file: ResumeFile, name?: string): Promise<ResumeFile> {
-  const sourceName = file.data.basics?.name?.trim() || file.fileName.replace(/\.json$/i, "")
+  const sourceName = resumeTitle(file)
   const displayName = name?.trim() || `${sourceName} copy`
+  const data = ensureResumeData({ ...structuredClone(file.data), title: displayName })
   try {
-    const value = await invoke<unknown>("duplicate_resume", { path: file.path, name: displayName })
+    const value = await invoke<unknown>("duplicate_resume", { data, name: displayName })
     return normalizeResumeFile(value)
   } catch (reason) {
     // The Vite preview has no Tauri command bridge. Keep duplication usable
@@ -88,9 +89,14 @@ export async function duplicateResume(file: ResumeFile, name?: string): Promise<
       fileName: `${fileStem}-${timestamp}.json`,
       path: "Local preview",
       updatedAt: Math.floor(timestamp / 1000),
-      data: ensureResumeData({ ...file.data, basics: { ...file.data.basics, name: displayName } }),
+      data,
     }
   }
+}
+
+export function resumeTitle(file: ResumeFile): string {
+  return typeof file.data.title === "string" && file.data.title.trim()
+    ? file.data.title.trim() : file.fileName.replace(/\.json$/i, "")
 }
 
 export async function createResumeFromPdf(pdfPath: string, name?: string): Promise<ResumeFile> {

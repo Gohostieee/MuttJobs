@@ -651,22 +651,8 @@ fn create_resume(app: AppHandle, name: String) -> Result<ResumeFile, String> {
 }
 
 #[tauri::command]
-fn duplicate_resume(app: AppHandle, path: String, name: Option<String>) -> Result<ResumeFile, String> {
+fn duplicate_resume(app: AppHandle, data: serde_json::Value, name: Option<String>) -> Result<ResumeFile, String> {
     let directory = fs::canonicalize(resumes_dir(&app)?).map_err(|error| error.to_string())?;
-    let source = fs::canonicalize(PathBuf::from(&path)).map_err(|error| error.to_string())?;
-
-    if source.parent() != Some(directory.as_path())
-        || !source
-            .extension()
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
-    {
-        return Err("Only resumes inside the resumes directory can be duplicated.".to_string());
-    }
-
-    let content = fs::read_to_string(&source)
-        .map_err(|error| format!("The resume could not be read: {error}"))?;
-    let mut data: serde_json::Value =
-        serde_json::from_str(&content).map_err(|error| format!("The resume is not valid: {error}"))?;
 
     let source_name = data
         .get("basics")
@@ -675,12 +661,7 @@ fn duplicate_resume(app: AppHandle, path: String, name: Option<String>) -> Resul
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
-        .unwrap_or_else(|| {
-            source
-                .file_stem()
-                .map(|stem| stem.to_string_lossy().to_string())
-                .unwrap_or_else(|| "Untitled resume".to_string())
-        });
+        .unwrap_or_else(|| "Untitled resume".to_string());
     let display_name = name
         .as_deref()
         .map(str::trim)
@@ -692,10 +673,6 @@ fn duplicate_resume(app: AppHandle, path: String, name: Option<String>) -> Resul
     if !data.is_object() {
         return Err("The resume is not valid.".to_string());
     }
-    if !data["basics"].is_object() {
-        data["basics"] = serde_json::Value::Object(serde_json::Map::new());
-    }
-    data["basics"]["name"] = serde_json::Value::String(display_name);
 
     let content = serde_json::to_string_pretty(&data).map_err(|error| error.to_string())?;
     fs::write(&target, format!("{content}\n"))
