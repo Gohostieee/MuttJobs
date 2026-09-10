@@ -120,6 +120,7 @@ pub fn initialize(
             .pointer("/capabilities/documentStep")
             .and_then(Value::as_u64)
             != Some(1)
+        || response.pointer("/capabilities/codexSkillOverrides").and_then(Value::as_u64) != Some(1)
     {
         return Err("The worker or Codex SDK version is incompatible.".into());
     }

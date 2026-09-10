@@ -72,6 +72,7 @@ export class CodexJobRunner {
         // agent's work without losing the compact conversation view.
         config: {
           show_raw_agent_reasoning: true,
+          ...(job.codexSkills ? { "skills.config": job.codexSkills } : {}),
           ...(job.reasoningEffort === "max" ? { model_reasoning_effort: "max" } : {}),
           ...(job.kind === "job_workspace" ? workspaceExecutionConfig() : {}),
         },

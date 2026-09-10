@@ -36,6 +36,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
+import { CodexSkillsSettings } from "@/components/codex-skills-settings"
 import { ThemeManager } from "@/components/theme-manager"
 import {
   backupErrorMessage,
@@ -192,6 +193,7 @@ export function SettingsWorkspace() {
           <ThemeManager />
 
           <DataBackupCard />
+          <CodexSkillsSettings settings={settings} />
 
           <div className="mt-10">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">

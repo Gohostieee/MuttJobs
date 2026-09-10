@@ -46,7 +46,7 @@ async function handle(request: WorkerRequest) {
         type: "ready",
         workerBuild: WORKER_BUILD,
         sdkVersion: SDK_VERSION,
-        capabilities: { documentStep: 1 },
+        capabilities: { documentStep: 1, codexSkillOverrides: 1 },
       })
       break
     case "health":
@@ -57,7 +57,7 @@ async function handle(request: WorkerRequest) {
         type: "ready",
         workerBuild: WORKER_BUILD,
         sdkVersion: SDK_VERSION,
-        capabilities: { documentStep: 1 },
+        capabilities: { documentStep: 1, codexSkillOverrides: 1 },
       })
       break
     case "start_job":

@@ -1738,6 +1738,8 @@ pub fn run() {
             providers::update_claude_provider_settings,
             providers::update_their_stack_provider_settings,
             providers::get_provider_health,
+            providers::codex_skills::get_codex_skills,
+            providers::codex_skills::set_codex_skill_enabled,
             providers::refresh_provider_health
         ])
         .setup(|app| {

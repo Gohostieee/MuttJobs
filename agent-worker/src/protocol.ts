@@ -23,6 +23,7 @@ export type AgentJobRequest = {
   kind: string
   provider: AgentProviderId
   workingDirectory: string
+  codexSkills?: { path: string; enabled: boolean }[] | null
   prompt: string
   selection?: object | null
   selectionAction?: string | null

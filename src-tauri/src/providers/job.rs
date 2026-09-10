@@ -73,6 +73,13 @@ pub fn run(
         request.network_access_enabled,
         request.root.display(),
     );
+    let codex_skills = if request.provider == "codex" && request.kind != "document_step" {
+        super::codex_skills::execution_config(
+            request.codex_path.ok_or("Codex executable is unavailable.")?,
+            request.root,
+            &super::agent_workspace_root(app)?,
+        )?
+    } else { None };
     let mut child = super::worker::spawn(app).map_err(|error| {
         eprintln!(
             "[agent-job] worker_spawn_failed job_id={} error={error}",
@@ -100,6 +107,7 @@ pub fn run(
                 "kind": request.kind,
                 "provider": request.provider,
                 "workingDirectory": request.root,
+                "codexSkills": codex_skills,
                 "prompt": request.prompt,
                 "selection": request.selection,
                 "selectionAction": request.selection_action,

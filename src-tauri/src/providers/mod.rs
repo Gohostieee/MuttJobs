@@ -1,5 +1,6 @@
 mod claude;
 mod codex;
+pub(crate) mod codex_skills;
 pub(crate) mod company_research;
 mod company_research_agents;
 pub(crate) mod general_agent;
