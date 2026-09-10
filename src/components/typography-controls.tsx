@@ -1,3 +1,4 @@
+import { FieldSet, FieldLegend, FieldGroup } from "@/components/ui/field"
 import { useState } from "react"
 import { ChevronsUpDown, Plus, X } from "lucide-react"
 
@@ -100,9 +101,9 @@ function TypographyGroup({
   }
 
   return (
-    <div className="resume-typography-group">
-      <div className="resume-design-section-divider"><span>{label}</span></div>
-      <div className="resume-typography-fields">
+    <FieldSet>
+      <FieldLegend variant="label">{label}</FieldLegend>
+      <FieldGroup className="gap-4">
         <div className="resume-design-field">
           <div className="resume-design-label-row">
             <Label htmlFor={`${idPrefix}-${field}-font`}>Font Family</Label>
@@ -162,8 +163,8 @@ function TypographyGroup({
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </FieldGroup>
+    </FieldSet>
   )
 }
 

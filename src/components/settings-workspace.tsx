@@ -37,7 +37,6 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { CodexSkillsSettings } from "@/components/codex-skills-settings"
-import { ThemeManager } from "@/components/theme-manager"
 import {
   backupErrorMessage,
   exportDataBackup,
@@ -187,10 +186,8 @@ export function SettingsWorkspace() {
           </p>
           <h1 className="mt-1 text-xl font-semibold tracking-tight">Settings</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Customize the workspace and manage connections available to MuttJobs features.
+            Manage your data and connections available to MuttJobs features.
           </p>
-
-          <ThemeManager />
 
           <DataBackupCard />
           <CodexSkillsSettings settings={settings} />
@@ -465,7 +462,7 @@ function DataBackupCard() {
             <div className="font-medium">Export or import all durable data</div>
             <p className="mt-1 text-sm text-muted-foreground">
               Includes jobs, application state, resumes, cover letters, profiles, research, saved searches,
-              agent skills, settings, and themes. Temporary import files and provider credentials are excluded.
+              agent skills, and settings. Temporary import files and provider credentials are excluded.
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">

@@ -218,10 +218,10 @@ function SkillRow({
         <GripVertical />
       </div>
 
-      <button type="button" className="resume-skill-row-main" onClick={onEdit}>
+      <Button variant="ghost" type="button" className="resume-skill-row-main" onClick={onEdit}>
         <span className="resume-skill-row-title">{item.name || "Untitled skill"}</span>
         {item.proficiency ? <span className="resume-skill-row-subtitle">{item.proficiency}</span> : null}
-      </button>
+      </Button>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -443,9 +443,9 @@ function SkillColorPicker({ value, onChange }: { value: string; onChange: (value
         aria-label="Choose icon color"
       />
       {value ? (
-        <button type="button" className="resume-skill-color-clear" onClick={(event) => { event.preventDefault(); onChange("") }} aria-label="Use automatic icon color">
+        <Button variant="ghost" type="button" className="resume-skill-color-clear" onClick={(event) => { event.preventDefault(); onChange("") }} aria-label="Use automatic icon color">
           <X aria-hidden="true" />
-        </button>
+        </Button>
       ) : null}
     </div>
   )
@@ -534,26 +534,26 @@ function SkillChipInput({ id, value, onChange }: { id: string; value: string[]; 
         <AnimatePresence initial={false} mode="popLayout">
           {value.map((chip, index) => (
             <Reorder.Item key={chip} value={chip} as="div" layout className="resume-skill-chip">
-              <Badge variant="outline" className={editingIndex === index ? "is-editing" : ""}>
+              <Badge variant="secondary" className={editingIndex === index ? "max-w-full ring-1 ring-ring" : "max-w-full"}>
                 <span className="resume-skill-chip-text">{chip}</span>
-                <button
+                <Button variant="ghost"
                   type="button"
-                  className="resume-skill-chip-action"
+                  size="icon-xs"
                   onClick={() => { setEditingIndex(index); setInput(chip) }}
                   aria-label={`Edit ${chip}`}
                   title={`Edit ${chip}`}
                 >
                   <Pencil aria-hidden="true" />
-                </button>
-                <button
+                </Button>
+                <Button variant="ghost"
                   type="button"
-                  className="resume-skill-chip-action is-delete"
+                  size="icon-xs"
                   onClick={() => removeChip(index)}
                   aria-label={`Remove ${chip}`}
                   title={`Remove ${chip}`}
                 >
                   <X aria-hidden="true" />
-                </button>
+                </Button>
               </Badge>
             </Reorder.Item>
           ))}

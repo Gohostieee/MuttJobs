@@ -4,10 +4,7 @@ import {
   Bot,
   Briefcase,
   BookOpenText,
-  CalendarDays,
-  ContactRound,
   FileText,
-  LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
@@ -44,13 +41,10 @@ import {
 } from "@/components/ui/sidebar"
 
 export type AppTabId =
-  | "overview"
   | "agent"
   | "profile"
   | "jobs"
   | "applications"
-  | "interviews"
-  | "contacts"
   | "resumes"
   | "cover-letters"
   | "settings"
@@ -63,12 +57,6 @@ export type AppTab = {
 }
 
 export const APP_TABS: AppTab[] = [
-  {
-    id: "overview",
-    label: "Overview",
-    description: "See your job search at a glance.",
-    icon: LayoutDashboard,
-  },
   {
     id: "agent",
     label: "Agent",
@@ -93,24 +81,7 @@ export const APP_TABS: AppTab[] = [
     description: "Track every application and next step.",
     icon: BarChart3,
   },
-  {
-    id: "interviews",
-    label: "Interviews",
-    description: "Prepare for upcoming conversations.",
-    icon: CalendarDays,
-  },
-  {
-    id: "contacts",
-    label: "Contacts",
-    description: "Keep recruiters and connections organized.",
-    icon: ContactRound,
-  },
-  {
-    id: "resumes",
-    label: "Resumes",
-    description: "Browse and review your saved resumes.",
-    icon: FileText,
-  },
+  { id: "resumes", label: "Resumes", description: "Edit saved resumes and check job targets.", icon: FileText },
   {
     id: "cover-letters",
     label: "Cover Letters",

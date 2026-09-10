@@ -186,10 +186,10 @@ export function CompanyResearchWorkspace({ job }: { job: TheirStackJob }) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       <Card>
         <CardHeader className="gap-4 border-b lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1.5">
+          <div className="flex flex-col gap-1.5">
             <CardTitle className="flex items-center gap-2 text-base"><Search className="size-4 text-muted-foreground" /> Company research</CardTitle>
             <CardDescription>Five independent specialists research in parallel and assemble a sourced Company Ledger.</CardDescription>
           </div>
@@ -201,7 +201,7 @@ export function CompanyResearchWorkspace({ job }: { job: TheirStackJob }) {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6 pt-6">
+        <CardContent className="flex flex-col gap-6 pt-6">
           {runs.length > 1 ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="mr-1 text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">Runs</span>
@@ -283,7 +283,7 @@ function AgentPanel({ definition, agentRun, liveState, onRetry }: { definition: 
   const Icon = definition.icon
   const panelMode = companyResearchAgentPanelMode(status, Boolean(agentRun?.report))
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="flex items-center gap-2 text-base font-semibold"><Icon className="size-4 text-muted-foreground" /> {definition.label}</h3>
@@ -324,7 +324,7 @@ function ResearchReportView({ report, metrics }: { report: AgentResearchReport; 
   const findingById = useMemo(() => new Map(report.findings.map((finding) => [finding.id, finding])), [report.findings])
   return (
     <article className="min-w-0 overflow-hidden rounded-xl border bg-background">
-      <header className="space-y-3 border-b px-5 py-5">
+      <header className="flex flex-col gap-3 border-b px-5 py-5">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">Saved locally</Badge>
           <ConfidenceBadge confidence={report.overallConfidence} />
@@ -334,15 +334,15 @@ function ResearchReportView({ report, metrics }: { report: AgentResearchReport; 
         </div>
         <p className="text-[0.96rem] leading-7 text-foreground/90">{report.executiveSummary}</p>
       </header>
-      <div className="space-y-7 px-5 py-5">
+      <div className="flex flex-col gap-7 px-5 py-5">
         {report.sections.map((section) => {
           const findings = section.findingIds.map((id) => findingById.get(id)).filter(Boolean)
           return (
-            <section key={section.id} className="space-y-3">
+            <section key={section.id} className="flex flex-col gap-3">
               <h4 className="text-sm font-semibold">{section.title}</h4>
               <MessageResponse className="company-research-markdown text-sm leading-6">{section.bodyMarkdown}</MessageResponse>
               {findings.length ? (
-                <div className="space-y-2 rounded-lg border bg-muted/10 p-3">
+                <div className="flex flex-col gap-2 rounded-lg border bg-muted/10 p-3">
                   {findings.map((finding) => finding ? (
                     <div key={finding.id} className="text-xs leading-5">
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -371,7 +371,7 @@ function ReportEvidence({ report }: { report: AgentResearchReport }) {
     <Accordion type="multiple" defaultValue={["sources"]}>
       <AccordionItem value="contradictions">
         <AccordionTrigger>Contradictions ({report.contradictions.length})</AccordionTrigger>
-        <AccordionContent className="space-y-3">
+        <AccordionContent className="flex flex-col gap-3">
           {report.contradictions.length ? report.contradictions.map((item) => (
             <div key={`${item.topic}-${item.description}`} className="rounded-lg border p-3 text-sm leading-6">
               <p className="font-medium">{item.topic}</p><p className="mt-1 text-muted-foreground">{item.description}</p>
@@ -382,7 +382,7 @@ function ReportEvidence({ report }: { report: AgentResearchReport }) {
       </AccordionItem>
       <AccordionItem value="gaps">
         <AccordionTrigger>Unknowns and research gaps ({report.gaps.length})</AccordionTrigger>
-        <AccordionContent className="space-y-3">
+        <AccordionContent className="flex flex-col gap-3">
           {report.gaps.length ? report.gaps.map((gap) => (
             <div key={`${gap.topic}-${gap.description}`} className="rounded-lg border p-3 text-sm leading-6"><p className="font-medium">{gap.topic}</p><p className="mt-1 text-muted-foreground">{gap.description}</p>{gap.suggestedFollowUp ? <p className="mt-1">Follow up: {gap.suggestedFollowUp}</p> : null}</div>
           )) : <p className="text-muted-foreground">No material gaps were reported.</p>}
@@ -390,7 +390,7 @@ function ReportEvidence({ report }: { report: AgentResearchReport }) {
       </AccordionItem>
       <AccordionItem value="sources">
         <AccordionTrigger>Sources ({report.sources.length})</AccordionTrigger>
-        <AccordionContent className="space-y-2">
+        <AccordionContent className="flex flex-col gap-2">
           {report.sources.map((source) => <SourceButton key={source.id} source={source} />)}
         </AccordionContent>
       </AccordionItem>
@@ -407,13 +407,13 @@ function LedgerView({ ledger }: { ledger: CompanyLedger }) {
           <Badge variant={ledger.missingAgentIds.length ? "outline" : "secondary"}>{ledger.missingAgentIds.length ? `Completed with ${ledger.missingAgentIds.length} gap${ledger.missingAgentIds.length === 1 ? "" : "s"}` : "All five reports complete"}</Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-5 pt-5">
+      <CardContent className="flex flex-col gap-5 pt-5">
         <MessageResponse className="company-research-markdown text-sm leading-6">{ledger.executiveCompanyBrief}</MessageResponse>
         <Accordion type="multiple">
           {ledger.sections.map((section) => (
             <AccordionItem value={section.id} key={section.id}><AccordionTrigger>{section.title}</AccordionTrigger><AccordionContent><MessageResponse className="company-research-markdown text-sm leading-6">{section.bodyMarkdown}</MessageResponse></AccordionContent></AccordionItem>
           ))}
-          <AccordionItem value="ledger-sources"><AccordionTrigger>Unified source index ({ledger.sourceIndex.length})</AccordionTrigger><AccordionContent className="space-y-2">{ledger.sourceIndex.map((entry) => <SourceButton key={entry.ledgerSourceId} source={entry.source} agentIds={entry.contributingAgentIds} />)}</AccordionContent></AccordionItem>
+          <AccordionItem value="ledger-sources"><AccordionTrigger>Unified source index ({ledger.sourceIndex.length})</AccordionTrigger><AccordionContent className="flex flex-col gap-2">{ledger.sourceIndex.map((entry) => <SourceButton key={entry.ledgerSourceId} source={entry.source} agentIds={entry.contributingAgentIds} />)}</AccordionContent></AccordionItem>
         </Accordion>
       </CardContent>
     </Card>
@@ -457,7 +457,7 @@ function AgentStatusBadge({ status }: { status: AgentRunStatus }) {
 }
 
 function ConfidenceBadge({ confidence }: { confidence: "high" | "medium" | "low" }) {
-  return <Badge variant="outline" className={cn("text-[0.67rem]", confidence === "low" && "border-amber-500/40 text-amber-600 dark:text-amber-400")}>{confidence} confidence</Badge>
+  return <Badge variant="outline" className={cn("text-[0.67rem]", confidence === "low" && "border-status-warning/40 text-status-warning")}>{confidence} confidence</Badge>
 }
 
 function RunStatusDot({ status }: { status: CompanyResearchRun["status"] }) {

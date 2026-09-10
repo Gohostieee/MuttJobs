@@ -393,18 +393,12 @@ export function ProfileWorkspace() {
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-8">
-        <div className="mx-auto max-w-6xl space-y-6">
-          <Card className="border-primary/20 bg-primary/[0.025]">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6">
+        <div className="flex flex-col mx-auto max-w-7xl gap-6">
+          <Card>
             <CardContent className="flex flex-col gap-5 p-5 md:flex-row md:items-end md:justify-between md:p-6">
               <div className="max-w-2xl">
-                <div className="mb-3 flex items-center gap-2">
-                  <Badge variant="outline" className="gap-1.5 bg-background/60">
-                    <Sparkles className="size-3" /> Source of truth
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">Private to this workspace</span>
-                </div>
-                <h1 className="text-2xl font-semibold tracking-tight">
+                <h1 className="text-xl font-semibold tracking-tight">
                   {profile.basics.name || "Your career profile"}
                 </h1>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -526,7 +520,7 @@ function ProfileLoading() {
         <Skeleton className="h-4 w-16" />
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6 lg:p-8">
-        <div className="mx-auto max-w-6xl space-y-6">
+        <div className="flex flex-col mx-auto max-w-6xl gap-6">
           <Skeleton className="h-36 w-full rounded-xl" />
           <div className="grid gap-6 xl:grid-cols-2">
             <Skeleton className="h-96 w-full rounded-xl" />
@@ -576,7 +570,7 @@ function BasicsEditor({ profile, onUpdate }: { profile: ProfileDocument; onUpdat
           The personal details shared across your resume-shaped profile.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6 pt-6">
+      <CardContent className="flex flex-col gap-6 pt-6">
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
             id="profile-name"
@@ -705,7 +699,7 @@ function BasicsEditor({ profile, onUpdate }: { profile: ProfileDocument; onUpdat
             </Button>
           </div>
           {profile.basics.customFields.length ? (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3">
               {profile.basics.customFields.map((field) => (
                 <CustomFieldEditor key={field.id} field={field} onUpdate={onUpdate} />
               ))}
@@ -999,7 +993,7 @@ function StandardSectionEditor({
           />
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 pt-5">
+      <CardContent className="flex flex-col gap-4 pt-5">
         {section.items.length ? (
           section.items.map((item, index) => (
             <ItemEditor
@@ -1145,7 +1139,7 @@ function CustomSectionsEditor({ profile, onUpdate }: { profile: ProfileDocument;
           <Plus /> Add section
         </Button>
       </CardHeader>
-      <CardContent className="space-y-4 pt-5">
+      <CardContent className="flex flex-col gap-4 pt-5">
         {profile.customSections.length ? profile.customSections.map((section) => (
           <CustomSectionEditor key={section.id} section={section} onUpdate={onUpdate} />
         )) : (
@@ -1166,7 +1160,7 @@ function CustomSectionEditor({ section, onUpdate }: { section: CustomSection; on
   }, [section.items])
 
   return (
-    <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+    <div className="flex flex-col gap-4 rounded-lg border bg-muted/20 p-4">
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem_auto] md:items-end">
         <TextField
           id={`${section.id}-title`}

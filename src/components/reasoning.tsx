@@ -312,7 +312,7 @@ function ReasoningText({
       )}
       {...props}
     >
-      <div ref={contentRef} className="aui-reasoning-text-content space-y-4">
+      <div ref={contentRef} className="flex flex-col aui-reasoning-text-content gap-4">
         {children}
       </div>
     </div>

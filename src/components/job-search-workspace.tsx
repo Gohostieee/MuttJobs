@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react"
+import { WorkspaceHeader } from "@/components/workspace-layout"
+import { FormField } from "@/components/form-field"
+import { Field, FieldLabel, FieldDescription, FieldSet, FieldLegend } from "@/components/ui/field"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
+import { useId, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react"
 import {
   ArrowLeft,
   BadgeDollarSign,
@@ -479,29 +483,12 @@ export function JobSearchWorkspace({
   }
 
   return (
-    workspaceJob ? <JobWorkspace job={workspaceJob} onBack={() => setWorkspaceJob(null)} onJobChange={setWorkspaceJob} /> : <main className="flex min-h-svh flex-1 flex-col overflow-hidden bg-muted/20">
-      <header className="border-b bg-background px-5 py-5 md:px-8 md:py-7">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="mb-2 flex items-center gap-2">
-              <Badge variant="secondary" className="font-normal">
-                <Sparkles data-icon="inline-start" /> Powered by TheirStack
-              </Badge>
-            </div>
-            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-              Find your next opportunity
-            </h1>
-            <p className="mt-1.5 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Search fresh roles across thousands of company career pages. Results
-              stay blurred until you choose a specific job to reveal.
-            </p>
-          </div>
-        </div>
-      </header>
+    workspaceJob ? <JobWorkspace job={workspaceJob} onBack={() => setWorkspaceJob(null)} onJobChange={setWorkspaceJob} /> : <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-muted/20">
+      <WorkspaceHeader title="Job Search" description="Search company career pages. Choose a job to reveal its full details." />
 
       <div className="min-h-0 flex-1 overflow-auto">
-        <div className="mx-auto max-w-7xl space-y-5 px-5 py-5 md:px-8 md:py-7">
-          <div className="space-y-2">
+        <div className="flex flex-col mx-auto max-w-7xl gap-6 p-4 sm:p-6">
+          <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <JobSearchModelPicker
                 value={preSearchModel}
@@ -706,7 +693,7 @@ export function JobSearchWorkspace({
                 Save the current filters and search expansion settings to run again later.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-2 py-2">
+            <div className="flex flex-col gap-2 py-2">
               <Label htmlFor="saved-search-name">Search name</Label>
               <Input
                 id="saved-search-name"
@@ -829,7 +816,7 @@ function SavedSearchesPopover({
           </div>
         ) : searches.length ? (
           <ScrollArea className="max-h-80">
-            <div className="space-y-0.5 p-2">
+            <div className="flex flex-col gap-0.5 p-2">
               {searches.map((search) => (
                 <div key={search.id} className="flex items-center gap-1 rounded-md hover:bg-muted">
                   <Button
@@ -1030,7 +1017,7 @@ function JobSearchReasoningPicker({
             Choose how much reasoning Codex uses to widen natural-language searches.
           </PopoverDescription>
         </PopoverHeader>
-        <div className="space-y-0.5 p-2" role="menu" aria-label="Pre-search reasoning">
+        <div className="flex flex-col gap-0.5 p-2" role="menu" aria-label="Pre-search reasoning">
           {CODEX_REASONING_LEVELS.map((option) => (
             <Button
               key={option.id}
@@ -1116,14 +1103,14 @@ function PostedDatePopover({
           <>
             <PopoverHeader className="px-1 pb-1">
               <PopoverTitle className="flex items-center gap-2">
-                <button
+                <Button variant="ghost"
                   type="button"
                   aria-label="Back to posted date presets"
                   className="rounded-md p-1 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => setShowCustomRange(false)}
                 >
                   <ArrowLeft className="size-4" />
-                </button>
+                </Button>
                 Custom date range
               </PopoverTitle>
               <PopoverDescription>
@@ -1158,7 +1145,7 @@ function PostedDatePopover({
                 Date when the job was posted on a job board or company website.
               </PopoverDescription>
             </PopoverHeader>
-            <div className="space-y-0.5">
+            <div className="flex flex-col gap-0.5">
               {postedDatePresets.map((option) => (
                 <FilterOption
                   key={option.maxAgeDays}
@@ -1173,7 +1160,7 @@ function PostedDatePopover({
               ))}
             </div>
             <Separator />
-            <button
+            <Button variant="ghost"
               type="button"
               className={cn(
                 "flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left hover:bg-muted",
@@ -1188,7 +1175,7 @@ function PostedDatePopover({
                 Custom date range
               </span>
               <ChevronDown className="size-4 -rotate-90" />
-            </button>
+            </Button>
           </>
         )}
       </PopoverContent>
@@ -1513,14 +1500,14 @@ function CatalogPicker<Item>({
               >
                 <span aria-hidden>{getLeading(item)}</span>
                 <span className="truncate">{getLabel(item)}</span>
-                <button
+                <Button variant="ghost"
                   type="button"
                   aria-label={`Remove ${getLabel(item)}`}
                   className="ml-0.5 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => toggleItem(item)}
                 >
                   <X className="size-3.5" />
-                </button>
+                </Button>
               </Badge>
             ))}
           </div>
@@ -1537,20 +1524,20 @@ function CatalogPicker<Item>({
           {loading ? (
             <LoaderCircle className="absolute right-1 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
           ) : query ? (
-            <button
+            <Button variant="ghost"
               type="button"
               aria-label={clearSearchLabel}
               className="absolute right-0 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
               onClick={() => setQuery("")}
             >
               <X className="size-3.5" />
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>
 
       <ScrollArea className="h-60">
-        <div className="space-y-0.5 pr-3">
+        <div className="flex flex-col gap-0.5 pr-3">
           {error ? (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
@@ -1563,7 +1550,7 @@ function CatalogPicker<Item>({
             results.map((item) => {
               const isSelected = selectedKeys.has(getKey(item))
               return (
-                <button
+                <Button variant="ghost"
                   key={getKey(item)}
                   type="button"
                   aria-pressed={isSelected}
@@ -1585,7 +1572,7 @@ function CatalogPicker<Item>({
                   <span className="flex size-5 items-center justify-center">
                     {isSelected ? <Check className="size-4" /> : null}
                   </span>
-                </button>
+                </Button>
               )
             })
           )}
@@ -1843,11 +1830,11 @@ function AddFilterPopover({ active, onAdd }: { active: AdvancedFilterId[]; onAdd
   const [query, setQuery] = useState("")
   const [group, setGroup] = useState<"job" | "company">("job")
   const matches = filterDefinitions.filter((definition) => definition.group === group && definition.label.toLowerCase().includes(query.trim().toLowerCase()))
-  return <Popover open={open} onOpenChange={(next) => { setOpen(next); if (!next) setQuery("") }}><PopoverTrigger asChild><Button variant="ghost" className="h-9"><Plus data-icon="inline-start" /> Add filter</Button></PopoverTrigger><PopoverContent align="start" className="w-[min(31rem,calc(100vw-2rem))] p-0"><div className="border-b p-3"><div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Type filter…" className="pl-9" autoFocus /></div></div><div className="grid grid-cols-2 border-b p-2"><FilterCategoryButton active={group === "job"} onClick={() => setGroup("job")} icon={<BriefcaseBusiness />} label="Job Posting" count={19} /><FilterCategoryButton active={group === "company"} onClick={() => setGroup("company")} icon={<Building2 />} label="Company" count={17} /></div><ScrollArea className="h-80"><div className="p-2"><p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{group === "job" ? "Job Posting" : "Company"}</p>{matches.map((definition) => { const selected = definition.added || active.includes(definition.id as AdvancedFilterId); return <button key={definition.id} type="button" disabled={selected} className="flex w-full items-center gap-3 rounded-md px-2.5 py-2.5 text-left hover:bg-muted disabled:cursor-default disabled:text-muted-foreground disabled:opacity-60" onClick={() => { onAdd(definition.id as AdvancedFilterId); setOpen(false) }}><span className="flex size-5 items-center justify-center">{selected ? <Check className="size-4" /> : <SlidersHorizontal className="size-4" />}</span><span className="flex-1">{definition.label}</span></button> })}</div></ScrollArea></PopoverContent></Popover>
+  return <Popover open={open} onOpenChange={(next) => { setOpen(next); if (!next) setQuery("") }}><PopoverTrigger asChild><Button variant="ghost" className="h-9"><Plus data-icon="inline-start" /> Add filter</Button></PopoverTrigger><PopoverContent align="start" className="w-[min(31rem,calc(100vw-2rem))] p-0"><div className="border-b p-3"><div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Type filter…" className="pl-9" autoFocus /></div></div><div className="grid grid-cols-2 border-b p-2"><FilterCategoryButton active={group === "job"} onClick={() => setGroup("job")} icon={<BriefcaseBusiness />} label="Job Posting" count={19} /><FilterCategoryButton active={group === "company"} onClick={() => setGroup("company")} icon={<Building2 />} label="Company" count={17} /></div><ScrollArea className="h-80"><div className="p-2"><p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{group === "job" ? "Job Posting" : "Company"}</p>{matches.map((definition) => { const selected = definition.added || active.includes(definition.id as AdvancedFilterId); return <Button variant="ghost" key={definition.id} type="button" disabled={selected} className="flex w-full items-center gap-3 rounded-md px-2.5 py-2.5 text-left hover:bg-muted disabled:cursor-default disabled:text-muted-foreground disabled:opacity-60" onClick={() => { onAdd(definition.id as AdvancedFilterId); setOpen(false) }}><span className="flex size-5 items-center justify-center">{selected ? <Check className="size-4" /> : <SlidersHorizontal className="size-4" />}</span><span className="flex-1">{definition.label}</span></Button> })}</div></ScrollArea></PopoverContent></Popover>
 }
 
 function FilterCategoryButton({ active, onClick, icon, label, count }: { active: boolean; onClick: () => void; icon: ReactNode; label: string; count: number }) {
-  return <button type="button" className={cn("rounded-md px-3 py-3 text-center text-xs text-muted-foreground hover:bg-muted", active && "bg-muted text-foreground")} onClick={onClick}><span className="mx-auto mb-1.5 block w-fit [&_svg]:size-5">{icon}</span>{label} ({count})</button>
+  return <Button variant="ghost" type="button" className={cn("rounded-md px-3 py-3 text-center text-xs text-muted-foreground hover:bg-muted", active && "bg-muted text-foreground")} onClick={onClick}><span className="mx-auto mb-1.5 block w-fit [&_svg]:size-5">{icon}</span>{label} ({count})</Button>
 }
 
 function ActiveAdvancedFilter({ filterId, value, onChange, onRemove }: { filterId: AdvancedFilterId; value: TheirStackJobSearchRequest; onChange: (value: TheirStackJobSearchRequest) => void; onRemove: () => void }) {
@@ -1928,7 +1915,7 @@ function CatalogRelationField({
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="flex flex-col gap-1.5">
       <Label>{label}</Label>
       <div className="grid gap-2 sm:grid-cols-[11rem_minmax(0,1fr)]">
         <NativeSelect
@@ -1987,6 +1974,7 @@ function catalogPlaceholder(slug: string): TheirStackTechnology {
 }
 
 function TokenField({ label, value = [], onChange, placeholder }: { label: string; value?: string[]; onChange: (value: string[]) => void; placeholder: string }) {
+  const id = useId()
   const [draft, setDraft] = useState("")
   function commit(raw = draft) {
     const additions = splitFilterTerms(raw)
@@ -1997,7 +1985,10 @@ function TokenField({ label, value = [], onChange, placeholder }: { label: strin
     if (event.key === "Enter" || event.key === ",") { event.preventDefault(); commit() }
     if (event.key === "Backspace" && !draft && value.length) onChange(value.slice(0, -1))
   }
-  return <div className="space-y-1.5"><Label>{label}</Label><div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-lg border bg-background p-1.5 focus-within:ring-3 focus-within:ring-ring/30">{value.map((item) => <Badge key={item} variant="secondary" className="gap-1 font-normal">{item}<button type="button" aria-label={`Remove ${item}`} onClick={() => onChange(value.filter((entry) => entry !== item))}><X className="size-3" /></button></Badge>)}<input value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={onKeyDown} onBlur={() => commit()} onPaste={(event) => { const text = event.clipboardData.getData("text"); if (/[,\n]/.test(text)) { event.preventDefault(); commit(text) } }} placeholder={value.length ? "Add another…" : placeholder} className="h-6 min-w-36 flex-1 bg-transparent px-1 text-sm outline-none" /></div><p className="text-[11px] text-muted-foreground">Press Enter or comma to add each value.</p></div>
+  return <Field><FieldLabel htmlFor={id}>{label}</FieldLabel><InputGroup className="h-auto min-h-9 flex-wrap">
+    {value.length ? <InputGroupAddon align="block-start" className="flex-wrap">{value.map(item => <Badge key={item} variant="secondary">{item}<Button type="button" variant="ghost" size="icon-xs" aria-label={"Remove " + item} onClick={() => onChange(value.filter(entry => entry !== item))}><X /></Button></Badge>)}</InputGroupAddon> : null}
+    <InputGroupInput id={id} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={onKeyDown} onBlur={() => commit()} onPaste={(event) => { const text = event.clipboardData.getData("text"); if (/[,\n]/.test(text)) { event.preventDefault(); commit(text) } }} placeholder={value.length ? "Add another…" : placeholder} />
+  </InputGroup><FieldDescription>Press Enter or comma to add each value.</FieldDescription></Field>
 }
 
 function NumericTokenField({ label, value = [], onChange }: { label: string; value?: number[]; onChange: (value: number[]) => void }) {
@@ -2005,7 +1996,7 @@ function NumericTokenField({ label, value = [], onChange }: { label: string; val
 }
 
 function NumberPair({ label, minLabel = "Minimum", maxLabel = "Maximum", min, max, onMin, onMax, currency = false }: { label: string; minLabel?: string; maxLabel?: string; min?: number; max?: number; onMin: (value?: number) => void; onMax: (value?: number) => void; currency?: boolean }) {
-  return <div className="space-y-1.5"><Label>{label}</Label><div className="grid grid-cols-2 gap-2"><NumberInput label={minLabel} value={min} onChange={onMin} currency={currency} /><NumberInput label={maxLabel} value={max} onChange={onMax} currency={currency} /></div></div>
+  return <FieldSet><FieldLegend variant="label">{label}</FieldLegend><div className="grid grid-cols-2 gap-2"><NumberInput label={minLabel} value={min} onChange={onMin} currency={currency} /><NumberInput label={maxLabel} value={max} onChange={onMax} currency={currency} /></div></FieldSet>
 }
 
 function NumberInput({ label, value, onChange, currency }: { label: string; value?: number; onChange: (value?: number) => void; currency: boolean }) {
@@ -2013,11 +2004,11 @@ function NumberInput({ label, value, onChange, currency }: { label: string; valu
 }
 
 function DatePair({ label, from, to, onFrom, onTo }: { label: string; from?: string; to?: string; onFrom: (value?: string) => void; onTo: (value?: string) => void }) {
-  return <div className="space-y-1.5"><Label>{label}</Label><div className="grid grid-cols-2 gap-2"><Input aria-label={`${label} from`} type="date" value={from ?? ""} onChange={(event) => onFrom(event.target.value || undefined)} /><Input aria-label={`${label} to`} type="date" value={to ?? ""} onChange={(event) => onTo(event.target.value || undefined)} /></div></div>
+  return <FieldSet><FieldLegend variant="label">{label}</FieldLegend><div className="grid grid-cols-2 gap-2"><Input aria-label={`${label} from`} type="date" value={from ?? ""} onChange={(event) => onFrom(event.target.value || undefined)} /><Input aria-label={`${label} to`} type="date" value={to ?? ""} onChange={(event) => onTo(event.target.value || undefined)} /></div></FieldSet>
 }
 
 function MultiCheck<Value extends string>({ label, options, value, onChange }: { label: string; options: readonly (readonly [Value, string])[]; value: Value[]; onChange: (value: Value[]) => void }) {
-  return <div className="space-y-2"><Label>{label}</Label><div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3">{options.map(([id, optionLabel]) => <CheckboxField key={id} label={optionLabel} checked={value.includes(id)} onChange={(checked) => onChange(checked ? [...value, id] : value.filter((item) => item !== id))} />)}</div></div>
+  return <FieldSet><FieldLegend variant="label">{label}</FieldLegend><div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3">{options.map(([id, optionLabel]) => <CheckboxField key={id} label={optionLabel} checked={value.includes(id)} onChange={(checked) => onChange(checked ? [...value, id] : value.filter((item) => item !== id))} />)}</div></FieldSet>
 }
 
 function CheckboxField({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
@@ -2029,14 +2020,14 @@ function TriStateField({ label, value, onChange, trueLabel = "Yes", falseLabel =
 }
 
 function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: readonly (readonly [string, string])[] }) {
-  return <div className="space-y-1.5"><Label>{label}</Label><NativeSelect className="w-full" value={value} onChange={(event) => onChange(event.target.value)}><NativeSelectOption value="">Any</NativeSelectOption>{options.map(([id, optionLabel]) => <NativeSelectOption key={id} value={id}>{optionLabel}</NativeSelectOption>)}</NativeSelect></div>
+  return <FormField label={label}><NativeSelect className="w-full" value={value} onChange={(event) => onChange(event.target.value)}><NativeSelectOption value="">Any</NativeSelectOption>{options.map(([id, optionLabel]) => <NativeSelectOption key={id} value={id}>{optionLabel}</NativeSelectOption>)}</NativeSelect></FormField>
 }
 
 function AdvancedPatternFields({ prefix, value, setField }: { prefix: "job_title_pattern" | "job_description_pattern"; value: TheirStackJobSearchRequest; setField: <K extends keyof TheirStackJobSearchRequest>(key: K, value: TheirStackJobSearchRequest[K] | undefined) => void }) {
   const orKey = `${prefix}_or` as "job_title_pattern_or" | "job_description_pattern_or"
   const andKey = `${prefix}_and` as "job_title_pattern_and" | "job_description_pattern_and"
   const notKey = `${prefix}_not` as "job_title_pattern_not" | "job_description_pattern_not"
-  return <details><summary className="cursor-pointer text-xs font-medium text-muted-foreground">Advanced regex patterns</summary><div className="mt-3 space-y-3"><TokenField label="Match any pattern" value={value[orKey]} onChange={(next) => setField(orKey, next)} placeholder="(?i)\\bplatform\\b" /><TokenField label="Match every pattern" value={value[andKey]} onChange={(next) => setField(andKey, next)} placeholder="\\bengineer\\b" /><TokenField label="Exclude patterns" value={value[notKey]} onChange={(next) => setField(notKey, next)} placeholder="\\bmanager\\b" /></div></details>
+  return <details><summary className="cursor-pointer text-xs font-medium text-muted-foreground">Advanced regex patterns</summary><div className="flex flex-col mt-3 gap-3"><TokenField label="Match any pattern" value={value[orKey]} onChange={(next) => setField(orKey, next)} placeholder="(?i)\\bplatform\\b" /><TokenField label="Match every pattern" value={value[andKey]} onChange={(next) => setField(andKey, next)} placeholder="\\bengineer\\b" /><TokenField label="Exclude patterns" value={value[notKey]} onChange={(next) => setField(notKey, next)} placeholder="\\bmanager\\b" /></div></details>
 }
 
 function CountryFields({ include, exclude, onInclude, onExclude }: { include?: string[]; exclude?: string[]; onInclude: (value: string[]) => void; onExclude: (value: string[]) => void }) {
@@ -2056,7 +2047,14 @@ function CountryPicker({ label, value, onChange }: { label: string; value: strin
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, 40)
   }, [names, query, value])
-  return <div className="space-y-1.5"><Label>{label}</Label><Popover open={open} onOpenChange={(next) => { setOpen(next); if (!next) setQuery("") }}><PopoverTrigger asChild><Button variant="outline" className="w-full justify-between font-normal"><span className="text-muted-foreground">Search countries…</span><ChevronDown /></Button></PopoverTrigger><PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] p-2"><div className="relative"><Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Type a country or ISO code…" className="pl-8" autoFocus /></div><ScrollArea className="mt-2 h-56"><div className="space-y-0.5 pr-2">{results.map(({ code, name }) => <button key={code} type="button" className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left hover:bg-muted" onClick={() => { onChange([...value, code]); setOpen(false) }}><span>{name}</span><span className="text-xs text-muted-foreground">{code}</span></button>)}{results.length === 0 ? <p className="px-3 py-8 text-center text-sm text-muted-foreground">No matching countries.</p> : null}</div></ScrollArea></PopoverContent></Popover><div className="flex flex-wrap gap-1.5">{value.map((code) => <Badge key={code} variant="secondary" className="gap-1 font-normal">{names.of(code) ?? code}<button type="button" aria-label={`Remove ${code}`} onClick={() => onChange(value.filter((item) => item !== code))}><X className="size-3" /></button></Badge>)}</div></div>
+  return <Field><FieldLabel>{label}</FieldLabel><Popover open={open} onOpenChange={next => { setOpen(next); if (!next) setQuery("") }}>
+    <PopoverTrigger asChild><Button variant="outline" role="combobox" aria-expanded={open} aria-label={label} className="w-full justify-between font-normal">Search countries<ChevronDown /></Button></PopoverTrigger>
+    <PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] p-0"><Command shouldFilter={false}>
+      <CommandInput value={query} onValueChange={setQuery} placeholder="Type a country or ISO code" />
+      <CommandList><CommandEmpty>No matching countries.</CommandEmpty><CommandGroup>{results.map(({ code, name }) => <CommandItem key={code} value={code} onSelect={() => { onChange([...value, code]); setOpen(false) }}><span className="flex-1">{name}</span><span className="text-muted-foreground">{code}</span></CommandItem>)}</CommandGroup></CommandList>
+    </Command></PopoverContent></Popover>
+    {value.length ? <div className="flex flex-wrap gap-1.5">{value.map(code => <Badge key={code} variant="secondary">{names.of(code) ?? code}<Button type="button" variant="ghost" size="icon-xs" aria-label={"Remove " + code} onClick={() => onChange(value.filter(item => item !== code))}><X /></Button></Badge>)}</div> : null}
+  </Field>
 }
 
 function EmployeeRange({ value, setFields }: { value: TheirStackJobSearchRequest; setFields: (patch: Partial<TheirStackJobSearchRequest>) => void }) {
@@ -2068,7 +2066,7 @@ function EmployeeRange({ value, setFields }: { value: TheirStackJobSearchRequest
     const unknown = `${side}_employee_count_or_null` as "min_employee_count_or_null" | "max_employee_count_or_null"
     setFields({ [includeUnknown ? unknown : regular]: next })
   }
-  return <div className="space-y-2"><NumberPair label="Employee count" min={min} max={max} onMin={(next) => setRange("min", next)} onMax={(next) => setRange("max", next)} /><CheckboxField label="Also include companies with unknown employee count" checked={includeUnknown} onChange={(checked) => setFields({ min_employee_count: checked ? undefined : min, max_employee_count: checked ? undefined : max, min_employee_count_or_null: checked ? min : undefined, max_employee_count_or_null: checked ? max : undefined })} /></div>
+  return <div className="flex flex-col gap-2"><NumberPair label="Employee count" min={min} max={max} onMin={(next) => setRange("min", next)} onMax={(next) => setRange("max", next)} /><CheckboxField label="Also include companies with unknown employee count" checked={includeUnknown} onChange={(checked) => setFields({ min_employee_count: checked ? undefined : min, max_employee_count: checked ? undefined : max, min_employee_count_or_null: checked ? min : undefined, max_employee_count_or_null: checked ? max : undefined })} /></div>
 }
 
 function FilterOption({
@@ -2081,7 +2079,7 @@ function FilterOption({
   children: ReactNode
 }) {
   return (
-    <button
+    <Button variant="ghost"
       className={cn(
         "flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left hover:bg-muted",
         selected && "bg-muted",
@@ -2092,7 +2090,7 @@ function FilterOption({
         {selected ? <Check className="size-4" /> : null}
       </span>
       {children}
-    </button>
+    </Button>
   )
 }
 
@@ -2181,11 +2179,11 @@ function SearchExpansionNotice({ expansion }: { expansion: TheirStackSearchQuery
         <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
           View regex sent to TheirStack
         </summary>
-        <div className="mt-2 space-y-2">
+        <div className="flex flex-col mt-2 gap-2">
           {populatedFields.map(([label, patterns]) => (
             <div key={label}>
               <p className="mb-1 text-xs font-medium text-muted-foreground">{label}</p>
-              <div className="space-y-1">
+              <div className="flex flex-col gap-1">
                 {patterns.map((pattern) => (
                   <code key={pattern} className="block overflow-x-auto rounded bg-muted px-2 py-1 text-xs">
                     {pattern}
@@ -2440,7 +2438,7 @@ function ColumnManager({
           <PopoverDescription>Choose the fields shown in the results table.</PopoverDescription>
         </PopoverHeader>
         <ScrollArea className="h-96">
-          <div className="space-y-1 p-3">
+          <div className="flex flex-col gap-1 p-3">
             {jobColumnDefinitions.map((column) => (
               <label key={column.id} className="flex cursor-pointer items-center justify-between gap-4 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
                 <span>{column.label}</span>
@@ -2469,9 +2467,9 @@ function JobColumnValue({ job, column }: { job: TheirStackJob; column: JobColumn
     case "jobUrl": {
       const url = job.finalUrl || job.url || job.sourceUrl
       return url && !job.hasBlurredData ? (
-        <button type="button" onClick={() => void openUrl(url)} className="inline-flex items-center gap-1 text-primary hover:underline">
+        <Button variant="ghost" type="button" onClick={() => void openUrl(url)} className="inline-flex items-center gap-1 text-primary hover:underline">
           Open <ExternalLink className="size-3.5" />
-        </button>
+        </Button>
       ) : <span className={cn("text-muted-foreground", job.hasBlurredData && "select-none blur-[3px]")}>Unavailable</span>
     }
     case "discoveredAt":
@@ -2530,7 +2528,7 @@ function JobDetailDialog({
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent
         showCloseButton
-        className="job-detail-dialog grid max-h-none grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-xl p-0 shadow-2xl"
+        className="grid h-[calc(100svh-2rem)] w-[calc(100vw-2rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-6xl"
       >
         <header className="border-b bg-background px-5 py-5 pr-14 md:px-7 md:py-6 md:pr-16">
           <div className="flex min-w-0 items-start gap-3.5">

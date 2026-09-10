@@ -1,3 +1,4 @@
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ComponentProps, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type SyntheticEvent } from "react"
 import type { ChatStatus } from "ai"
 import type { StickToBottomContext } from "use-stick-to-bottom"
@@ -48,7 +49,6 @@ import {
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion"
 import { Button } from "@/components/ui/button"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
-import { Input } from "@/components/ui/input"
 import { Kbd } from "@/components/ui/kbd"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
@@ -1285,9 +1285,9 @@ function JobTargetSelector({
               <RefreshCw className={loading ? "animate-spin" : ""} aria-hidden="true" />
             </Button>
           </div>
-          <label className="resume-ai-model-search resume-ai-job-search">
-            <Search aria-hidden="true" />
-            <Input
+          <div className="shrink-0 p-3"><InputGroup>
+            <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
+            <InputGroupInput
               ref={searchRef}
               value={search}
               onChange={(event) => { setSearch(event.currentTarget.value); setActiveIndex(0) }}
@@ -1295,7 +1295,7 @@ function JobTargetSelector({
               placeholder="Search saved jobs..."
               aria-label="Search saved jobs"
             />
-          </label>
+          </InputGroup></div>
           {value ? (
             <Button
               type="button"
@@ -1481,9 +1481,9 @@ function ResumeTargetSelector({
               <RefreshCw className={loading ? "animate-spin" : ""} aria-hidden="true" />
             </Button>
           </div>
-          <label className="resume-ai-model-search resume-ai-job-search">
-            <Search aria-hidden="true" />
-            <Input
+          <div className="shrink-0 p-3"><InputGroup>
+            <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
+            <InputGroupInput
               ref={searchRef}
               value={search}
               onChange={(event) => { setSearch(event.currentTarget.value); setActiveIndex(0) }}
@@ -1491,7 +1491,7 @@ function ResumeTargetSelector({
               placeholder="Search resumes..."
               aria-label="Search resumes"
             />
-          </label>
+          </InputGroup></div>
           {value ? (
             <Button
               type="button"
@@ -1541,11 +1541,13 @@ function ResumeTargetSelector({
 export function ModelReasoningSelector({
   disabled,
   iconOnly = false,
+  showServiceTier = true,
   value,
   onChange,
 }: {
   disabled?: boolean
   iconOnly?: boolean
+  showServiceTier?: boolean
   value: ResumeAiSelection
   onChange: (value: ResumeAiSelection) => void
 }) {
@@ -1695,7 +1697,7 @@ export function ModelReasoningSelector({
         </Button>
         </PopoverTrigger>
         {openMenu === "model" ? (
-          <PopoverContent className="resume-ai-model-popover" side="top" align="start" sideOffset={13} collisionPadding={16} role="dialog" aria-label="AI model selector">
+          <PopoverContent className="resume-ai-model-popover grid w-[min(28rem,calc(var(--radix-popover-content-available-width)-0.25rem))] grid-cols-[3.5rem_minmax(0,1fr)] gap-0 p-0" side="top" align="start" sideOffset={13} collisionPadding={16} role="dialog" aria-label="AI model selector">
             <aside className="resume-ai-model-rail" aria-label="Model filters">
               <Button
                 type="button"
@@ -1727,9 +1729,9 @@ export function ModelReasoningSelector({
               ))}
             </aside>
             <div className="resume-ai-model-main">
-              <label className="resume-ai-model-search">
-                <Search aria-hidden="true" />
-                <Input
+              <div className="shrink-0 p-3"><InputGroup>
+                <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
+                <InputGroupInput
                   ref={modelSearchRef}
                   value={search}
                   onChange={(event) => setSearch(event.currentTarget.value)}
@@ -1737,7 +1739,7 @@ export function ModelReasoningSelector({
                   placeholder="Search models..."
                   aria-label="Search models"
                 />
-              </label>
+              </InputGroup></div>
               <div className="resume-ai-model-list" role="listbox" aria-label={`${activeProvider.name} models`} onKeyDown={handleModelListKeyDown}>
                 {visibleModels.length ? visibleModels.map((model, index) => (
                   <div
@@ -1748,7 +1750,7 @@ export function ModelReasoningSelector({
                       ref={(element) => { modelItemRefs.current[index] = element }}
                       type="button"
                       variant="ghost"
-                      className="resume-ai-model-item-select"
+                      className="resume-ai-model-item-select h-full w-full min-w-0 flex-col items-start justify-center gap-1 px-3 py-2.5"
                       onClick={() => selectModel(model)}
                       role="option"
                       aria-selected={model.providerId === value.provider && model.id === value.model}
@@ -1795,31 +1797,31 @@ export function ModelReasoningSelector({
           className={`resume-ai-selector-trigger resume-ai-reasoning-trigger ${iconOnly ? "is-icon-only" : ""}`.trim()}
           aria-expanded={openMenu === "reasoning"}
           aria-haspopup="menu"
-          aria-label={value.provider === "codex"
+          aria-label={value.provider === "codex" && showServiceTier
             ? `Reasoning: ${reasoningLabel}; service tier: ${serviceTierLabel}`
-            : `Effort: ${reasoningLabel}`}
-          title={value.provider === "codex"
+            : `${value.provider === "codex" ? "Reasoning" : "Effort"}: ${reasoningLabel}`}
+          title={value.provider === "codex" && showServiceTier
             ? `Reasoning: ${reasoningLabel} · Service tier: ${serviceTierLabel}`
             : `Effort: ${reasoningLabel}`}
           disabled={disabled}
         >
           {iconOnly ? <Brain aria-hidden="true" /> : (
             <>
-              <span>{value.provider === "codex" ? `${reasoningLabel} · ${serviceTierLabel}` : `Effort · ${reasoningLabel}`}</span>
+              <span>{value.provider === "codex" ? (showServiceTier ? `${reasoningLabel} · ${serviceTierLabel}` : reasoningLabel) : `Effort · ${reasoningLabel}`}</span>
               <ChevronDown className="resume-ai-selector-chevron" aria-hidden="true" />
             </>
           )}
         </Button>
         </PopoverTrigger>
         {openMenu === "reasoning" ? (
-          <PopoverContent className="resume-ai-reasoning-popover" side="top" align="start" sideOffset={12} collisionPadding={16} role="menu" aria-label={`${value.provider === "codex" ? "Reasoning" : "Effort"} settings`}>
+          <PopoverContent className="resume-ai-reasoning-popover w-45 gap-0 p-[0.45rem]" side="top" align="start" sideOffset={12} collisionPadding={16} role="menu" aria-label={`${value.provider === "codex" ? "Reasoning" : "Effort"} settings`}>
             <div className="resume-ai-reasoning-section">
               <p>{value.provider === "codex" ? "Reasoning" : "Effort"}</p>
               {reasoningLevels.map((option) => (
                 <Button
                   type="button"
                   variant="ghost"
-                  className={`resume-ai-reasoning-option ${option.id === value.effort ? "is-selected" : ""}`.trim()}
+                  className={`resume-ai-reasoning-option w-full justify-between ${option.id === value.effort ? "is-selected" : ""}`.trim()}
                   key={option.id}
                   onClick={() => { onChange({ ...value, effort: option.id }); setOpenMenu(null) }}
                   role="menuitemradio"
@@ -1830,14 +1832,14 @@ export function ModelReasoningSelector({
                 </Button>
               ))}
             </div>
-            {value.provider === "codex" ? (
+            {value.provider === "codex" && showServiceTier ? (
             <div className="resume-ai-reasoning-section resume-ai-service-tier-section">
               <p>Service Tier</p>
               {SERVICE_TIERS.map((tier) => (
                 <Button
                   type="button"
                   variant="ghost"
-                  className={`resume-ai-reasoning-option ${tier.id === serviceTier ? "is-selected" : ""}`.trim()}
+                  className={`resume-ai-reasoning-option w-full justify-between ${tier.id === serviceTier ? "is-selected" : ""}`.trim()}
                   key={tier.id}
                   onClick={() => { setServiceTier(tier.id); setOpenMenu(null) }}
                   role="menuitemradio"

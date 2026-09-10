@@ -5,7 +5,8 @@ import { TypographyControls, type TypographyField } from "@/components/typograph
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { FormField } from "@/components/form-field"
+import { Children, isValidElement, type ReactElement } from "react"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Textarea } from "@/components/ui/textarea"
 import type { CoverLetterData, CoverLetterPage } from "@/lib/cover-letter-types"
@@ -65,7 +66,7 @@ export function CoverLetterInspector({
         <Button variant="ghost" size="icon-sm" onClick={onToggle} aria-label="Hide letter details"><X /></Button>
       </header>
       <div className="cover-letter-inspector-scroll">
-        <Accordion type="multiple" defaultValue={["typography", "page", "applicant", "recipient", "position", "content"]}>
+        <Accordion type="multiple" defaultValue={["content"]}>
           <InspectorSection value="typography" title="Typography">
             <TypographyControls
               typography={letter.metadata.typography}
@@ -106,8 +107,8 @@ export function CoverLetterInspector({
           <InspectorSection value="content" title="Paragraphs">
             <TextField label="Opening paragraph" path={["content", "opening"]} value={letter.content.opening} update={update} fieldProps={fieldProps} />
             {letter.content.body.map((paragraph, index) => (
-              <div className="cover-letter-body-editor" key={`body-inspector-${index}`}>
-                <div className="cover-letter-field-group-heading">
+              <div className="flex flex-col gap-3 border-t pt-4" key={`body-inspector-${index}`}>
+                <div className="flex items-center justify-between gap-2 text-sm font-medium">
                   <h3>Middle paragraph {index + 1}</h3>
                   <Button variant="ghost" size="icon-xs" disabled={letter.content.body.length <= 1} onClick={() => removeBodyParagraph(index)} aria-label={`Remove middle paragraph ${index + 1}`}><Trash2 /></Button>
                 </div>
@@ -129,11 +130,13 @@ export function CoverLetterInspector({
 }
 
 function InspectorSection({ value, title, children }: { value: string; title: string; children: ReactNode }) {
-  return <AccordionItem value={value}><AccordionTrigger>{title}</AccordionTrigger><AccordionContent><div className="cover-letter-field-stack">{children}</div></AccordionContent></AccordionItem>
+  return <AccordionItem value={value}><AccordionTrigger>{title}</AccordionTrigger><AccordionContent><div className="flex flex-col gap-4">{children}</div></AccordionContent></AccordionItem>
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
-  return <div className="cover-letter-field"><Label>{label}</Label>{children}</div>
+  const [control, ...description] = Children.toArray(children)
+  if (!isValidElement(control)) return null
+  return <FormField label={label} description={description.length ? <>{description.map(child => isValidElement<{ children?: ReactNode }>(child) && child.type === "p" ? child.props.children : child)}</> : undefined}>{control as ReactElement<{ id?: string }>}</FormField>
 }
 
 type FieldHelpers = {
@@ -176,14 +179,14 @@ function PageSettings({
         >
           {PAGE_OPTIONS.map((option) => <NativeSelectOption key={option.value} value={option.value}>{option.label}</NativeSelectOption>)}
         </NativeSelect>
-        <p className="cover-letter-page-help">{PAGE_OPTIONS.find((option) => option.value === page.format)?.detail}. Page breaks follow the selected print size.</p>
+        <p className="text-sm text-muted-foreground">{PAGE_OPTIONS.find((option) => option.value === page.format)?.detail}. Page breaks follow the selected print size.</p>
       </Field>
-      <div className="cover-letter-page-margin-grid">
-        <Field label="Horizontal margin">
-          <div className="cover-letter-page-number-input"><Input type="number" min={0} max={60} step={1} value={page.marginX} onChange={(event) => updateMargin(["metadata", "page", "marginX"], event.currentTarget.value)} {...fieldProps(["metadata", "page", "marginX"])} /><span>mm</span></div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Horizontal margin (mm)">
+          <Input type="number" min={0} max={60} step={1} value={page.marginX} onChange={(event) => updateMargin(["metadata", "page", "marginX"], event.currentTarget.value)} {...fieldProps(["metadata", "page", "marginX"])} />
         </Field>
-        <Field label="Vertical margin">
-          <div className="cover-letter-page-number-input"><Input type="number" min={0} max={60} step={1} value={page.marginY} onChange={(event) => updateMargin(["metadata", "page", "marginY"], event.currentTarget.value)} {...fieldProps(["metadata", "page", "marginY"])} /><span>mm</span></div>
+        <Field label="Vertical margin (mm)">
+          <Input type="number" min={0} max={60} step={1} value={page.marginY} onChange={(event) => updateMargin(["metadata", "page", "marginY"], event.currentTarget.value)} {...fieldProps(["metadata", "page", "marginY"])} />
         </Field>
       </div>
       <p className="cover-letter-page-help">The editor shows the printable area and keeps paragraph blocks inside these margins when a page breaks.</p>
@@ -192,7 +195,7 @@ function PageSettings({
 }
 
 function AddressFields({ prefix, address, update, fieldProps }: FieldHelpers & { prefix: Path; address: CoverLetterData["applicant"]["address"] }) {
-  return <div className="cover-letter-address-fields"><h3>Address <span>(optional)</span></h3>{(["street", "street2", "city", "state", "postalCode", "country"] as const).map((key) => <StringInput key={key} label={titleCase(key)} path={[...prefix, key]} value={address?.[key] ?? ""} update={update} fieldProps={fieldProps} nullable />)}</div>
+  return <div className="flex flex-col gap-4 border-t pt-4"><h3>Address <span>(optional)</span></h3>{(["street", "street2", "city", "state", "postalCode", "country"] as const).map((key) => <StringInput key={key} label={titleCase(key)} path={[...prefix, key]} value={address?.[key] ?? ""} update={update} fieldProps={fieldProps} nullable />)}</div>
 }
 
 function setAtPath(letter: CoverLetterData, path: Path, value: unknown): CoverLetterData {

@@ -1,3 +1,8 @@
+import { WorkspaceHeader, WorkspaceEmpty } from "@/components/workspace-layout"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { FormField } from "@/components/form-field"
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type WheelEvent } from "react"
 import { save } from "@tauri-apps/plugin-dialog"
 import { openPath } from "@tauri-apps/plugin-opener"
@@ -5,9 +10,7 @@ import {
   ArrowLeft,
   CircleCheck,
   FileDown,
-  FileJson2,
   FolderOpen,
-  Grid2X2,
   LoaderCircle,
   Maximize2,
   Minus,
@@ -28,7 +31,6 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
-import { Label } from "@/components/ui/label"
 import { runCoverLetterAiJob } from "@/lib/cover-letter-ai"
 import { createCoverLetter, getCoverLettersDirectory, loadCoverLetters, saveCoverLetter } from "@/lib/cover-letter-storage"
 import type { CoverLetterData, CoverLetterFile } from "@/lib/cover-letter-types"
@@ -122,40 +124,31 @@ export function CoverLetterWorkspace({ onViewerChange }: { onViewerChange?: (ope
   }
 
   return (
-    <main className="resume-workspace cover-letter-workspace">
-      <header className="resume-library-header">
-        <div>
-          <div className="resume-title-row"><FileJson2 aria-hidden="true" /><span>Cover letter library</span></div>
-          <h1>Tailored, thoughtful, ready.</h1>
-          <p>Build structured cover letters that stay easy to edit, validate, and tailor for every opportunity.</p>
-        </div>
-        <div className="resume-header-actions">
-          <Button onClick={() => { setLetterName(""); setCreateError(""); setCreateDialogOpen(true) }}><Plus /> Create cover letter</Button>
-          <Button variant="outline" onClick={() => void openFolder()}><FolderOpen /> Open folder</Button>
+    <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <WorkspaceHeader title="Cover Letters" description="Create, edit, and tailor your letters for each application." actions={<>          <Button onClick={() => { setLetterName(""); setCreateError(""); setCreateDialogOpen(true) }}><Plus /> Create cover letter</Button>
+          <Button variant="outline" aria-label="Open folder" onClick={() => void openFolder()}><FolderOpen /><span className="hidden sm:inline">Open folder</span></Button>
           <Button variant="outline" size="icon" onClick={() => void refresh()} aria-label="Refresh cover letters"><RefreshCw /></Button>
-        </div>
-      </header>
+</>} />
 
-      <section className="resume-library-body">
-        <div className="resume-toolbar">
-          <InputGroup className="resume-search"><InputGroupAddon><Search /></InputGroupAddon><InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search cover letters" aria-label="Search cover letters" /></InputGroup>
-          <div className="resume-count"><Grid2X2 /> {filtered.length} {filtered.length === 1 ? "letter" : "letters"}</div>
+      <section className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <InputGroup className="w-full max-w-md"><InputGroupAddon><Search /></InputGroupAddon><InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search cover letters" aria-label="Search cover letters" /></InputGroup>
+          <p className="text-sm text-muted-foreground"> {filtered.length} {filtered.length === 1 ? "letter" : "letters"}</p>
         </div>
         {loading ? <LibrarySkeletons /> : null}
-        {error ? <div className="resume-empty"><h2>Something went wrong</h2><p>{error}</p></div> : null}
-        {!loading && !error && filtered.length ? <div className="resume-grid">{filtered.map((letter) => <CoverLetterCard key={letter.id} file={letter} onOpen={() => { onViewerChange?.(true); setSelected(letter) }} />)}</div> : null}
-        {!loading && !error && !filtered.length ? <div className="resume-empty"><FileJson2 /><h2>{query ? "No matching cover letters" : "Your library is ready"}</h2><p>{query ? "Try a company, position, applicant, or file name." : "Create a structured cover letter to get started."}</p></div> : null}
+        {error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
+        {!loading && !error && filtered.length ? <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.map((letter) => <CoverLetterCard key={letter.id} file={letter} onOpen={() => { onViewerChange?.(true); setSelected(letter) }} />)}</div> : null}
+        {!loading && !error && !filtered.length ? <WorkspaceEmpty title={query ? "No matching cover letters" : "Your library is ready"} description={query ? "Try a company, position, applicant, or file name." : "Create a cover letter to get started."} /> : null}
       </section>
 
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent>
           <form className="contents" onSubmit={(event) => { event.preventDefault(); void createEmptyLetter() }}>
-            <DialogHeader><DialogTitle>Create a cover letter</DialogTitle><DialogDescription>Start a schema-valid letter using the applicant's name.</DialogDescription></DialogHeader>
-            <div className="grid gap-2">
-              <Label htmlFor="cover-letter-name">Applicant name</Label>
+            <DialogHeader><DialogTitle>Create a cover letter</DialogTitle><DialogDescription>Start a letter using the applicant's name.</DialogDescription></DialogHeader>
+            <FormField label="Applicant name">
               <Input id="cover-letter-name" value={letterName} onChange={(event) => setLetterName(event.target.value)} placeholder="e.g. Jordan Lee" autoFocus disabled={creating} />
-              {createError ? <p className="text-sm text-destructive" role="alert">{createError}</p> : null}
-            </div>
+            </FormField>
+            {createError ? <Alert variant="destructive"><AlertDescription>{createError}</AlertDescription></Alert> : null}
             <DialogFooter><Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={creating}>Cancel</Button><Button type="submit" disabled={creating || !letterName.trim()}>{creating ? "Creating…" : "Create cover letter"}</Button></DialogFooter>
           </form>
         </DialogContent>
@@ -169,10 +162,11 @@ function CoverLetterCard({ file, onOpen }: { file: CoverLetterFile; onOpen: () =
   const subtitle = [file.data.recipient.company, file.data.applicant.name].filter(Boolean).join(" · ")
   const updated = file.updatedAt ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(file.updatedAt * 1000) : "Local preview"
   return (
-    <Button variant="ghost" className="resume-card h-auto w-full p-0 font-normal" onClick={onOpen} aria-label={`Open ${title}`}>
-      <div className="resume-card-preview" aria-hidden="true"><div className="resume-card-document cover-letter-card-document" style={{ width: getCoverLetterPageWidth(file.data) }}><CoverLetterDocument letter={file.data} compact /></div></div>
-      <div className="resume-card-info"><div><h2>{title}</h2><p>{subtitle || `Updated ${updated}`}</p></div><span>View <span aria-hidden="true">↗</span></span></div>
-    </Button>
+    <Card>
+      <CardContent><div className="relative h-64 overflow-hidden bg-muted" aria-hidden="true"><div className="resume-card-document cover-letter-card-document" style={{ width: getCoverLetterPageWidth(file.data) }}><CoverLetterDocument letter={file.data} compact /></div></div></CardContent>
+      <CardHeader><CardTitle>{title}</CardTitle><CardDescription>{subtitle || updated}</CardDescription></CardHeader>
+      <CardFooter><Button variant="outline" onClick={onOpen} aria-label={`Open ${title}`}>Open letter</Button></CardFooter>
+    </Card>
   )
 }
 
@@ -592,7 +586,7 @@ export function CoverLetterViewer({
 }
 
 function LibrarySkeletons() {
-  return <div className="resume-grid" aria-label="Loading cover letters">{[0, 1, 2].map((item) => <div className="resume-card resume-card-skeleton" key={item}><div /><span /></div>)}</div>
+  return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Loading cover letters">{[0, 1, 2].map(item => <Skeleton className="h-80" key={item} />)}</div>
 }
 
 function areCoverLettersEqual(left: CoverLetterData, right: CoverLetterData) { return JSON.stringify(left) === JSON.stringify(right) }
