@@ -11,11 +11,12 @@ import { workspaceError } from "@/lib/job-workspace"
 import type { ResumeFile } from "@/lib/resume-types"
 import { readResumeTargetCheck, checkResumeTargets, cancelResumeTargetCheck, resumeTargetTaskKey, type ResumeTargetCheck } from "@/lib/resume-target-check"
 
-export function ResumeTargetsPanel({ file, targetJobId, dirty, beforeRun }: {
+export function ResumeTargetsPanel({ file, targetJobId, dirty, beforeRun, onCheckChange }: {
   file: ResumeFile
   targetJobId?: number
   dirty: boolean
   beforeRun: () => Promise<ResumeFile>
+  onCheckChange: (check: ResumeTargetCheck | null) => void
 }) {
   const [jobs, setJobs] = useState<TheirStackJob[]>([])
   const [jobId, setJobId] = useState(() => targetJobId ?? (Number(localStorage.getItem(`muttjobs.resume-target-job:${file.path}`)) || 0))
@@ -43,7 +44,7 @@ export function ResumeTargetsPanel({ file, targetJobId, dirty, beforeRun }: {
     setLoading(true)
     try {
       const next = await readResumeTargetCheck(jobId, file.path)
-      if (version === requestVersion.current) { setView(next); setError("") }
+      if (version === requestVersion.current) { setView(current => JSON.stringify(current) === JSON.stringify(next) ? current : next); setError("") }
     } catch (cause) {
       if (version === requestVersion.current) { setView(null); setError(workspaceError(cause)) }
     } finally { if (version === requestVersion.current) setLoading(false) }
@@ -80,6 +81,10 @@ export function ResumeTargetsPanel({ file, targetJobId, dirty, beforeRun }: {
   }
   const stale = dirty || !!view?.stale || (!!view && !!file.revision && file.revision !== view.resumeRevision)
   const checked = !!view?.result && !stale
+  useEffect(() => {
+    onCheckChange(checked ? view : null)
+    return () => onCheckChange(null)
+  }, [checked, view, onCheckChange])
   const matched = checked ? view?.result?.assessments.filter(item => item.matched).length ?? 0 : 0
   const job = jobs.find(item => item.id === jobId)
   return <section className="resume-targets" aria-label="Resume targets">

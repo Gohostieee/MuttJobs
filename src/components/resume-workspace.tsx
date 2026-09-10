@@ -85,6 +85,8 @@ import type { ResumeSectionItemDropPosition, ResumeSectionLane } from "@/lib/res
 import type { ResumeFile, ResumeSectionAlignment } from "@/lib/resume-types"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { ResumeTargetsPanel } from "@/components/resume-targets-panel"
+import { ResumeTargetLinks } from "@/components/resume-target-links"
+import type { ResumeTargetCheck } from "@/lib/resume-target-check"
 import "./resume-targets-panel.css"
 
 const MIN_ZOOM = 0.1
@@ -231,6 +233,8 @@ export function ResumeViewer({
   const [zoom, setZoom] = useState(0.78)
   const [showPageGuides, setShowPageGuides] = useState(false)
   const [rightTab, setRightTab] = useState("sections")
+  const [targetSidebarWidth, setTargetSidebarWidth] = useState(256)
+  const [targetCheck, setTargetCheck] = useState<ResumeTargetCheck | null>(null)
   const [sectionsSidebarOpen, setSectionsSidebarOpen] = useState(true)
   const [sectionsSidebarWidth, setSectionsSidebarWidth] = useState(DEFAULT_SECTIONS_SIDEBAR_WIDTH)
   const [isSectionsSidebarResizing, setIsSectionsSidebarResizing] = useState(false)
@@ -640,6 +644,7 @@ export function ResumeViewer({
   const canRedo = redoStackRef.current.length > 0
 
   const viewerStyle = {
+    "--resume-target-sidebar-width": `${targetSidebarWidth}px`,
     "--resume-sections-sidebar-size": `${sectionsSidebarWidth}px`,
   } as CSSProperties
 
@@ -721,6 +726,7 @@ export function ResumeViewer({
         </div>
       </header>
       <div className="resume-viewer-content">
+        {sectionsSidebarOpen && rightTab === "targets" && targetCheck?.result && saveState === "saved" && <ResumeTargetLinks check={targetCheck} viewportRef={viewportRef} width={targetSidebarWidth} onWidthChange={setTargetSidebarWidth} />}
         <div
           className="resume-sections-resize-handle"
           role="separator"
@@ -760,7 +766,7 @@ export function ResumeViewer({
               <Button variant="ghost" size="icon-sm" aria-label="Hide resume sidebar" onClick={() => setSectionsSidebarOpen(false)}><PanelRightClose /></Button>
             </div>
             <TabsContent value="targets" forceMount hidden={rightTab !== "targets"} className="resume-right-content">
-              <ResumeTargetsPanel file={currentFile} targetJobId={targetJobId} dirty={saveState !== "saved"} beforeRun={async () => { commitTextEdit(); await flushPendingSave(); return latestFileRef.current }} />
+              <ResumeTargetsPanel file={currentFile} targetJobId={targetJobId} dirty={saveState !== "saved"} onCheckChange={setTargetCheck} beforeRun={async () => { commitTextEdit(); await flushPendingSave(); return latestFileRef.current }} />
             </TabsContent>
             <TabsContent value="sections" forceMount hidden={rightTab !== "sections"} className="resume-right-content">
           <ResumeSectionsSidebar
@@ -784,11 +790,6 @@ export function ResumeViewer({
             </TabsContent>
           </Tabs>
         ) : null}
-      </div>
-      <div className="resume-export-root" aria-hidden="true">
-        <ResumeDocument resume={currentFile.data} showPageGuides={false} renderPageSurfaces={false} />
-      </div>
-      {exportError ? <p id="resume-export-status" className="resume-export-error" role="alert">{exportError}</p> : null}
       <div className="resume-zoom-controls" role="toolbar" aria-label="Resume zoom controls">
         <Button variant="ghost" size="icon" onClick={() => changeZoom(1 / 1.2)} aria-label="Zoom out"><Minus /></Button>
         <output aria-live="polite">{Math.round(zoom * 100)}%</output>
@@ -796,6 +797,11 @@ export function ResumeViewer({
         <span className="resume-control-separator" />
         <Button variant="ghost" size="icon" onClick={fit} aria-label="Fit resume to width" title="Fit to width"><Maximize2 /></Button>
       </div>
+      </div>
+      <div className="resume-export-root" aria-hidden="true">
+        <ResumeDocument resume={currentFile.data} showPageGuides={false} renderPageSurfaces={false} />
+      </div>
+      {exportError ? <p id="resume-export-status" className="resume-export-error" role="alert">{exportError}</p> : null}
     </main>
   )
 }

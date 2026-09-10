@@ -899,7 +899,7 @@ function ResumeText({ context, path, value, as = "span", className, inline = tru
   }
 
   return (
-    <div className="resume-editable-field">
+    <div className="resume-editable-field" data-resume-field={`/${path.map(part => String(part).replace(/~/g, "~0").replace(/\//g, "~1")).join("/")}`}>
       <Element
         className={`${className || ""}${context ? " resume-editable-text" : ""}`.trim() || undefined}
         data-editable={context ? "true" : undefined}
