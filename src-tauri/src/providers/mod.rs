@@ -1377,7 +1377,10 @@ fn run_document_edit(
     mut on_event: Option<&mut dyn FnMut(job::JobEvent)>,
     additional_context: Option<String>,
 ) -> Result<(Value, String, bool), String> {
-    if prompt_mode == DocumentPromptMode::Standard && selection_action.as_deref() != Some("quantify-impact") {
+    // Resume chat edits the open document, including when a saved job supplies
+    // context. Only cover letters use the workspace proposal workflow; the old
+    // workspace resume generation/matching entry point has been retired.
+    if document_kind == "cover letter" && prompt_mode == DocumentPromptMode::Standard && selection_action.as_deref() != Some("quantify-impact") {
         if let Some(job_id) = target_job_id {
             let decode = requested_skills.as_ref().is_some_and(|names| names.iter().any(|name|name=="decode-job")) || user_prompt.contains("#(decode-job)");
             let matching = requested_skills.as_ref().is_some_and(|names| names.iter().any(|name|name=="job-match")) || user_prompt.contains("#(job-match)");

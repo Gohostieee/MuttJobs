@@ -46,6 +46,9 @@ import {
   type ResumeChangeMeta,
   type ResumeSectionDropPosition,
 } from "@/components/resume-document"
+import { ResumeAiSidebar } from "@/components/resume-ai-sidebar"
+import { runResumeAiJob } from "@/lib/resume-ai"
+import type { ResumeSelectionAction, ResumeTextSelection } from "@/lib/resume-selection"
 import { ResumeDesignPanel } from "@/components/resume-design-panel"
 import { ResumeSkillsSection } from "@/components/resume-skills-section"
 import { Button } from "@/components/ui/button"
@@ -64,7 +67,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
-import { duplicateResume, getResumesDirectory, loadResumes, resumeTitle, saveResume } from "@/lib/resume-storage"
+import { duplicateResume, getResumesDirectory, loadJobPrimaryResume, loadResumes, resumeTitle, saveResume } from "@/lib/resume-storage"
 import { exportResumePdf } from "@/lib/resume-export"
 import { DocumentExportSurface } from "@/components/document-export-surface"
 import {
@@ -91,7 +94,7 @@ import type { ResumeTargetCheck } from "@/lib/resume-target-check"
 import "./resume-targets-panel.css"
 
 const MIN_ZOOM = 0.1
-const DEFAULT_SECTIONS_SIDEBAR_WIDTH = 320
+const DEFAULT_SECTIONS_SIDEBAR_WIDTH = 400
 const MIN_SECTIONS_SIDEBAR_WIDTH = 240
 const MAX_SECTIONS_SIDEBAR_WIDTH = 520
 
@@ -233,7 +236,10 @@ export function ResumeViewer({
   const [currentFile, setCurrentFile] = useState(file)
   const [zoom, setZoom] = useState(0.78)
   const [showPageGuides, setShowPageGuides] = useState(false)
-  const [rightTab, setRightTab] = useState("sections")
+  const [rightTab, setRightTab] = useState("chat")
+  const [aiBusy, setAiBusy] = useState(false)
+  const [textSelection, setTextSelection] = useState<ResumeTextSelection | null>(null)
+  const [selectionRequest, setSelectionRequest] = useState<{ id: number; action: ResumeSelectionAction; selection: ResumeTextSelection } | null>(null)
   const [targetSidebarWidth, setTargetSidebarWidth] = useState(256)
   const [targetCheck, setTargetCheck] = useState<ResumeTargetCheck | null>(null)
   const [sectionsSidebarOpen, setSectionsSidebarOpen] = useState(true)
@@ -414,6 +420,7 @@ export function ResumeViewer({
   }, [handleResumeChange])
 
   const handleUndo = useCallback(() => {
+    if (aiBusy) return
     commitTextEdit()
     const previousData = undoStackRef.current.pop()
     if (!previousData) {
@@ -425,9 +432,10 @@ export function ResumeViewer({
     applyResumeData(previousData)
     setDocumentRevision((revision) => revision + 1)
     refreshHistoryControls()
-  }, [applyResumeData, commitTextEdit, refreshHistoryControls])
+  }, [aiBusy, applyResumeData, commitTextEdit, refreshHistoryControls])
 
   const handleRedo = useCallback(() => {
+    if (aiBusy) return
     commitTextEdit()
     const nextData = redoStackRef.current.pop()
     if (!nextData) {
@@ -439,7 +447,7 @@ export function ResumeViewer({
     applyResumeData(nextData)
     setDocumentRevision((revision) => revision + 1)
     refreshHistoryControls()
-  }, [applyResumeData, commitTextEdit, refreshHistoryControls])
+  }, [aiBusy, applyResumeData, commitTextEdit, refreshHistoryControls])
 
   const flushPendingSave = useCallback(async () => {
     if (saveTimerRef.current !== null) {
@@ -456,6 +464,22 @@ export function ResumeViewer({
     }
     await saveQueueRef.current
   }, [queueSave])
+
+  const runChatJob: typeof runResumeAiJob = useCallback(async (...args) => {
+    const result = await runResumeAiJob(...args)
+    // Job artifact writes advance the revision in Rust. Adopt it before the next save.
+    if (targetJobId !== undefined) {
+      const saved = await loadJobPrimaryResume(targetJobId)
+      artifactRevisionRef.current = saved.revision
+    }
+    return result
+  }, [targetJobId])
+
+  const applyAiResult = useCallback((data: ResumeFile["data"], changed: boolean) => {
+    if (!changed || areResumeDataEqual(data, latestFileRef.current.data)) return
+    handleSidebarResumeChange(data)
+    setDocumentRevision((revision) => revision + 1)
+  }, [handleSidebarResumeChange])
 
   const clampSectionsSidebarWidth = useCallback((width: number) => {
     return Math.min(MAX_SECTIONS_SIDEBAR_WIDTH, Math.max(MIN_SECTIONS_SIDEBAR_WIDTH, width))
@@ -662,8 +686,8 @@ export function ResumeViewer({
             <Button
               variant="ghost"
               size="icon-sm"
-              onClick={handleUndo}
-              disabled={!canUndo}
+              onClick={handleUndo} aria-disabled={aiBusy}
+              disabled={aiBusy || !canUndo}
               aria-label="Undo last change"
               title="Undo last change (Ctrl+Z)"
             >
@@ -673,7 +697,7 @@ export function ResumeViewer({
               variant="ghost"
               size="icon-sm"
               onClick={handleRedo}
-              disabled={!canRedo}
+              disabled={aiBusy || !canRedo}
               aria-label="Redo last undone change"
               title="Redo last undone change (Ctrl+Shift+Z)"
             >
@@ -754,22 +778,45 @@ export function ResumeViewer({
               key={documentRevision}
               resume={currentFile.data}
               showPageGuides={showPageGuides}
-              onChange={handleResumeChange}
+              onChange={aiBusy ? undefined : handleResumeChange}
+              onSelectionAction={(action, selection) => {
+                setTextSelection(selection)
+                setSelectionRequest({ id: Date.now(), action, selection })
+                setRightTab("chat")
+                setSectionsSidebarOpen(true)
+              }}
               onEditStart={beginTextEdit}
               onEditEnd={finishTextEdit}
               onEditCancel={cancelTextEdit}
             />
           </div>
         </div>
-        {sectionsSidebarOpen ? (
-          <Tabs value={rightTab} onValueChange={setRightTab} className="resume-right-panel">
-            <div className="resume-right-tabs"><TabsList variant="line" aria-label="Resume sidebar"><TabsTrigger value="sections">Sections</TabsTrigger><TabsTrigger value="targets">Targets</TabsTrigger></TabsList>
+        <Tabs value={rightTab} onValueChange={setRightTab} className="resume-right-panel" hidden={!sectionsSidebarOpen}>
+            <div className="resume-right-tabs"><TabsList variant="line" aria-label="Resume sidebar"><TabsTrigger value="chat">AI Chat</TabsTrigger><TabsTrigger value="sections">Sections</TabsTrigger><TabsTrigger value="targets">Targets</TabsTrigger></TabsList>
               <Button variant="ghost" size="icon-sm" aria-label="Hide resume sidebar" onClick={() => setSectionsSidebarOpen(false)}><PanelRightClose /></Button>
             </div>
+            <TabsContent value="chat" forceMount hidden={rightTab !== "chat"} className="resume-right-content resume-chat-tab">
+              <ResumeAiSidebar
+                key={file.path}
+                resumePath={currentFile.path}
+                embedded
+                isOpen={sectionsSidebarOpen && rightTab === "chat"}
+                onToggle={() => setSectionsSidebarOpen(false)}
+                onActivate={async () => { commitTextEdit(); await flushPendingSave() }}
+                runJob={runChatJob}
+                onApply={applyAiResult}
+                onBusyChange={setAiBusy}
+                textSelection={textSelection}
+                selectionActionRequest={selectionRequest}
+                onClearTextSelection={() => setTextSelection(null)}
+                enableJobTargeting
+                targetJobId={targetJobId}
+              />
+            </TabsContent>
             <TabsContent value="targets" forceMount hidden={rightTab !== "targets"} className="resume-right-content">
               <ResumeTargetsPanel file={currentFile} targetJobId={targetJobId} dirty={saveState !== "saved"} onCheckChange={setTargetCheck} beforeRun={async () => { commitTextEdit(); await flushPendingSave(); return latestFileRef.current }} />
             </TabsContent>
-            <TabsContent value="sections" forceMount hidden={rightTab !== "sections"} className="resume-right-content">
+            <TabsContent value="sections" forceMount hidden={rightTab !== "sections"} className="resume-right-content" inert={aiBusy}>
           <ResumeSectionsSidebar
             resume={currentFile.data}
             sections={sections}
@@ -790,7 +837,6 @@ export function ResumeViewer({
           />
             </TabsContent>
           </Tabs>
-        ) : null}
       <div className="resume-zoom-controls" role="toolbar" aria-label="Resume zoom controls">
         <Button variant="ghost" size="icon" onClick={() => changeZoom(1 / 1.2)} aria-label="Zoom out"><Minus /></Button>
         <output aria-live="polite">{Math.round(zoom * 100)}%</output>

@@ -3,26 +3,22 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import type { ChatStatus } from "ai"
 import type { StickToBottomContext } from "use-stick-to-bottom"
 import {
+  Copy,
+  MessageSquarePlus,
   Brain,
   BriefcaseBusiness,
   Check,
   ChevronDown,
-  ChevronRight,
   CircleAlert,
   CircleDashed,
   CircleX,
-  FilePenLine,
   FileText,
-  Globe2,
-  ListTodo,
   LoaderCircle,
   PanelLeftClose,
   RefreshCw,
   Search,
   Sparkles,
   Star,
-  Terminal,
-  Wrench,
   WandSparkles,
   X,
 } from "lucide-react"
@@ -33,7 +29,12 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation"
-import { MessageResponse } from "@/components/ai-elements/message"
+import { Message, MessageContent, MessageResponse, MessageActions, MessageAction } from "@/components/ai-elements/message"
+import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from "@/components/ai-elements/tool"
+import { ModelSelector, ModelSelectorTrigger, ModelSelectorContent, ModelSelectorInput, ModelSelectorList, ModelSelectorEmpty, ModelSelectorGroup, ModelSelectorItem } from "@/components/ai-elements/model-selector"
+import { Plan, PlanHeader, PlanTitle, PlanDescription, PlanContent, PlanTrigger } from "@/components/ai-elements/plan"
+import { Shimmer } from "@/components/ai-elements/shimmer"
+import { buildResumeChatPrompt } from "@/lib/resume-chat"
 import {
   Reasoning,
   ReasoningContent,
@@ -42,19 +43,19 @@ import {
 import {
   PromptInput,
   PromptInputFooter,
+  PromptInputSelect,
+  PromptInputSelectTrigger,
+  PromptInputSelectContent,
+  PromptInputSelectItem,
+  PromptInputSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input"
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion"
 import { Button } from "@/components/ui/button"
-import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Kbd } from "@/components/ui/kbd"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import {
-  Message as UiMessage,
-  MessageContent as UiMessageContent,
-} from "@/components/ui/message"
 import {
   runResumeAiJob,
   type ResumeAiJobOptions,
@@ -103,6 +104,8 @@ type DocumentAiRunner<T> = (
 
 type ResumeAiSidebarProps<T> = {
   resumePath: string
+  embedded?: boolean
+  onBusyChange?: (busy: boolean) => void
   documentLabel?: string
   suggestions?: string[]
   runJob?: DocumentAiRunner<T>
@@ -155,6 +158,8 @@ type ResumeAiChatEntry = {
 
 export function ResumeAiSidebar<T = ResumeData>({
   resumePath,
+  embedded = false,
+  onBusyChange,
   documentLabel = "resume",
   suggestions = SUGGESTIONS,
   runJob = runResumeAiJob as unknown as DocumentAiRunner<T>,
@@ -189,6 +194,7 @@ export function ResumeAiSidebar<T = ResumeData>({
   const [targetResume, setTargetResume] = useState<ResumeFile | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const conversationRef = useRef<StickToBottomContext | null>(null)
+  const submittingRef = useRef(false)
   const activationStartedRef = useRef(false)
   const lastSelectionActionRef = useRef(0)
 
@@ -392,7 +398,9 @@ export function ResumeAiSidebar<T = ResumeData>({
     scopedAction: ResumeSelectionAction | undefined = scopedSelection ? "custom" : undefined,
   ) {
     const text = requestedText.trim()
-    if (!text || status === "submitted" || status === "streaming") return
+    if (!text || submittingRef.current) return
+    if (text.length > 16000) { setError("Keep your message under 16,000 characters."); return }
+    submittingRef.current = true
 
     setError("")
 
@@ -400,6 +408,7 @@ export function ResumeAiSidebar<T = ResumeData>({
     try {
       skillNames = await resolveSubmittedSkills(text)
     } catch (reason) {
+      submittingRef.current = false
       setStatus("ready")
       setError(toErrorMessage(reason, "The local skill mention could not be validated."))
       return
@@ -425,7 +434,7 @@ export function ResumeAiSidebar<T = ResumeData>({
       setInput("")
       setStatus("streaming")
 
-      const result = await runJob(resumePath, text, selection, {
+      const result = await runJob(resumePath, buildResumeChatPrompt(messages, text), selection, {
         skillNames,
         targetJobId: targetJobId ?? (enableJobTargeting ? targetJob?.id : undefined),
         targetResumeId: enableResumeTargeting ? targetResume?.id : undefined,
@@ -461,6 +470,8 @@ export function ResumeAiSidebar<T = ResumeData>({
             }
           : entry)
         : [...current, createMessage("assistant", `I couldn't update the ${documentLabel}. Check the ${selectedProvider.name} provider status and try again.`)])
+    } finally {
+      submittingRef.current = false
     }
   }
 
@@ -485,6 +496,7 @@ export function ResumeAiSidebar<T = ResumeData>({
   }, [selectionActionRequest])
 
   const isBusy = status === "submitted" || status === "streaming"
+  useEffect(() => { onBusyChange?.(isBusy) }, [isBusy, onBusyChange])
 
   useEffect(() => {
     if (!messages.some((message) => message.streaming)) return
@@ -510,7 +522,7 @@ export function ResumeAiSidebar<T = ResumeData>({
 
   return (
     <aside
-      className={`resume-ai-sidebar ${isOpen ? "" : "is-collapsed"}`.trim()}
+      className={`resume-ai-sidebar ${embedded ? "is-embedded" : ""} ${isOpen ? "" : "is-collapsed"}`.trim()}
       id="resume-ai-sidebar"
       aria-hidden={!isOpen}
       aria-label={`AI ${documentLabel} assistant`}
@@ -518,10 +530,12 @@ export function ResumeAiSidebar<T = ResumeData>({
       <header className="resume-ai-sidebar-header">
         <div className="resume-ai-sidebar-heading">
           <ProviderMark provider={selectedProvider.id} aria-hidden="true" />
-          <h2>Edit with AI</h2>
+          <h2>{documentLabel === "resume" ? "Resume assistant" : "Writing assistant"}</h2>
           <span className="resume-ai-sidebar-provider">{selectedProvider.name}</span>
         </div>
         <div className="resume-ai-sidebar-header-actions">
+          <Button variant="ghost" size="icon-sm" aria-label="New conversation" title="New conversation" disabled={isBusy || !messages.length} onClick={() => { setMessages([]); setError(""); setStatus("ready"); setInput(""); onClearTextSelection?.() }}><MessageSquarePlus /></Button>
+          {!embedded && (
           <Button
             variant="ghost"
             size="icon-sm"
@@ -534,6 +548,7 @@ export function ResumeAiSidebar<T = ResumeData>({
           >
             <PanelLeftClose aria-hidden="true" />
           </Button>
+          )}
         </div>
       </header>
 
@@ -543,23 +558,18 @@ export function ResumeAiSidebar<T = ResumeData>({
             <ConversationEmptyState
               className="resume-ai-empty-state"
               icon={<WandSparkles className="size-5" />}
-              title="Send a message to start editing."
-              description={`Ask ${selectedProvider.name} to improve, tailor, or clean up this ${documentLabel}.`}
+              title="Make your next move."
+              description={`Refine a bullet, tailor your story, or ask for feedback. Your ${documentLabel} is already in context.`}
             />
           ) : (
             messages.map((message) => (
-              <UiMessage
-                align={message.role === "user" ? "end" : "start"}
+              <Message
+                from={message.role}
                 className={`resume-ai-message ${message.role === "user" ? "resume-ai-message-user" : "resume-ai-message-assistant"}`}
                 key={message.id}
               >
-                <UiMessageContent className="resume-ai-message-content">
-                  <Bubble
-                    align={message.role === "user" ? "end" : "start"}
-                    className="resume-ai-message-bubble"
-                    variant={message.role === "user" ? "secondary" : "ghost"}
-                  >
-                    <BubbleContent className="resume-ai-bubble-content">
+                <MessageContent className="resume-ai-message-content">
+                  <div className="resume-ai-bubble-content">
                       {message.role === "assistant" && message.activities.length ? (
                         <ResumeAiTrace
                           activities={message.activities}
@@ -569,17 +579,19 @@ export function ResumeAiSidebar<T = ResumeData>({
                       {message.text ? <MessageResponse className="resume-ai-message-response">{message.text}</MessageResponse> : null}
                       {message.role === "assistant" && message.streaming ? (
                         <div className="resume-ai-working-message" role="status" aria-live="polite">
-                          <span className="resume-ai-working-dots" aria-hidden="true"><i /><i /><i /></span>
-                          <span>{message.activities.length ? "Working through the request…" : `Editing your ${documentLabel} JSON…`}</span>
+                          <Shimmer>{message.activities.length ? "Working through your request?" : "Reading your request?"}</Shimmer>
                         </div>
                       ) : null}
                       {message.role === "assistant" && message.model ? (
                         <ResumeAiTurnMeta model={message.model} usage={message.usage} />
                       ) : null}
-                    </BubbleContent>
-                  </Bubble>
-                </UiMessageContent>
-              </UiMessage>
+                  </div>
+                </MessageContent>
+                {message.role === "assistant" && !message.streaming && message.text && <MessageActions>
+                  <MessageAction label="Copy response" onClick={() => { void navigator.clipboard.writeText(message.text).catch(() => setError("Could not copy the response.")) }}><Copy className="size-3.5" /></MessageAction>
+                  {message.error && <MessageAction label="Retry request" disabled={isBusy} onClick={() => { const index = messages.findIndex(entry => entry.id === message.id); const previous = messages[index - 1]; if (previous?.role === "user") void submitPrompt(previous.text) }}><RefreshCw className="size-3.5" /></MessageAction>}
+                </MessageActions>}
+              </Message>
             ))
           )}
         </ConversationContent>
@@ -752,27 +764,47 @@ export function ResumeAiSidebar<T = ResumeData>({
                   onChange={setTargetJob}
                 />
               ) : null}
-              <ModelReasoningSelector
-                disabled={isBusy}
-                iconOnly
-                value={selection}
-                onChange={setSelection}
-              />
+              <ResumeChatModelPicker disabled={isBusy} value={selection} onChange={setSelection} />
             </div>
             <PromptInputSubmit
-              status={status}
+              status={isBusy ? "submitted" : status}
               disabled={!input.trim() || isBusy}
               className="resume-ai-submit"
             />
           </PromptInputFooter>
         </PromptInput>
         <p className="resume-ai-composer-hint">
-          <CircleAlert aria-hidden="true" /> Changes are checkpointed before the first request.
+          <CircleAlert aria-hidden="true" /> Edits save to your document. Use Undo to restore a previous version.
         </p>
         {error ? <p className="resume-ai-error" role="alert">{error}</p> : null}
       </div>
     </aside>
   )
+}
+
+function ResumeChatModelPicker({ value, onChange, disabled }: { value: ResumeAiSelection; onChange: (value: ResumeAiSelection) => void; disabled: boolean }) {
+  const [open, setOpen] = useState(false)
+  const model = ALL_MODELS.find(candidate => candidate.id === value.model && candidate.providerId === value.provider) ?? ALL_MODELS[0]
+  const efforts = reasoningLevelsForModel(model)
+  return <>
+    <ModelSelector open={open} onOpenChange={setOpen}>
+      <ModelSelectorTrigger asChild><Button variant="ghost" size="sm" disabled={disabled} className="resume-chat-model-trigger" aria-label="Choose AI model"><ProviderMark provider={value.provider} /><span>{model.name}</span><ChevronDown className="size-3" /></Button></ModelSelectorTrigger>
+      <ModelSelectorContent title="Choose your editing model">
+        <ModelSelectorInput placeholder="Search models and providers..." />
+        <ModelSelectorList><ModelSelectorEmpty>No matching models.</ModelSelectorEmpty>
+          {MODEL_PROVIDERS.map(provider => <ModelSelectorGroup heading={provider.name} key={provider.id}>
+            {ALL_MODELS.filter(candidate => candidate.providerId === provider.id).map(candidate => <ModelSelectorItem key={candidate.id} value={provider.name + " " + candidate.name} onSelect={() => { onChange({provider:candidate.providerId,model:candidate.id,effort:effortForModel(value.effort,candidate)});setOpen(false) }}>
+              <ProviderMark provider={provider.id} /><span>{candidate.name}</span>{candidate.id === value.model && candidate.providerId === value.provider ? <Check className="ml-auto size-4" /> : null}
+            </ModelSelectorItem>)}
+          </ModelSelectorGroup>)}
+        </ModelSelectorList>
+      </ModelSelectorContent>
+    </ModelSelector>
+    <PromptInputSelect value={value.effort} onValueChange={effort => onChange({...value,effort})} disabled={disabled}>
+      <PromptInputSelectTrigger aria-label="Reasoning effort"><PromptInputSelectValue /></PromptInputSelectTrigger>
+      <PromptInputSelectContent>{efforts.map(effort => <PromptInputSelectItem key={effort.id} value={effort.id}>{effort.label}</PromptInputSelectItem>)}</PromptInputSelectContent>
+    </PromptInputSelect>
+  </>
 }
 
 function updateAssistantEntry(
@@ -881,43 +913,28 @@ function ResumeAiReasoningBlock({
 }
 
 function ResumeAiToolBlock({ activity }: { activity: ResumeAiActivity }) {
+  const [expanded, setExpanded] = useState<boolean | null>(null)
   const item = activity.item
   const kind = asString(item, "type") || activity.kind
   const title = toolTitle(item, kind)
-  const preview = toolPreview(item, kind)
-  const details = toolDetails(item, kind)
-  const Icon = toolIcon(kind)
-
+  const state = activity.status === "failed" ? "output-error" : activity.status === "completed" ? "output-available" : "input-available"
   return (
-    <details className="resume-ai-tool" open={activity.status === "running"}>
-      <summary>
-        <ChevronRight className="resume-ai-tool-chevron" aria-hidden="true" />
-        <span className="resume-ai-tool-icon"><Icon aria-hidden="true" /></span>
-        <span className="resume-ai-tool-title">{title}</span>
-        {preview ? <span className="resume-ai-tool-preview">{preview}</span> : null}
-        <TraceStatus status={activity.status} />
-      </summary>
-      <div className="resume-ai-tool-details">
-        {details.map((detail) => (
-          <TraceDataBlock key={detail.label} label={detail.label} value={detail.value} />
-        ))}
-        {!details.length ? <TraceDataBlock label="Event" value={formatPayload(item)} /> : null}
-      </div>
-    </details>
+    <Tool open={expanded ?? activity.status === "running"} onOpenChange={setExpanded}>
+      <ToolHeader type="dynamic-tool" toolName={kind} title={title} state={state} />
+      <ToolContent>
+        <ToolInput input={item?.arguments ?? { command: item?.command, query: item?.query, files: item?.changes }} />
+        <ToolOutput output={item?.result ?? item?.aggregated_output ?? item?.changes ?? item} errorText={activity.status === "failed" ? asString(item, "message") ?? "Tool failed" : undefined} />
+      </ToolContent>
+    </Tool>
   )
 }
 
 function ResumeAiTodoBlock({ activity }: { activity: ResumeAiActivity }) {
   const items = Array.isArray(activity.item?.items) ? activity.item.items : []
   return (
-    <details className="resume-ai-tool" open={activity.status === "running"}>
-      <summary>
-        <ChevronRight className="resume-ai-tool-chevron" aria-hidden="true" />
-        <span className="resume-ai-tool-icon"><ListTodo aria-hidden="true" /></span>
-        <span className="resume-ai-tool-title">Plan</span>
-        <span className="resume-ai-tool-preview">{items.length} steps</span>
-        <TraceStatus status={activity.status} />
-      </summary>
+    <Plan defaultOpen>
+      <PlanHeader><div><PlanTitle>Editing plan</PlanTitle><PlanDescription>{String(items.length) + " steps"}</PlanDescription></div><PlanTrigger /></PlanHeader>
+      <PlanContent>
       <div className="resume-ai-tool-details resume-ai-plan-details">
         {items.map((value, index) => {
           const step = asRecord(value)
@@ -930,7 +947,8 @@ function ResumeAiTodoBlock({ activity }: { activity: ResumeAiActivity }) {
           )
         })}
       </div>
-    </details>
+      </PlanContent>
+    </Plan>
   )
 }
 
@@ -961,16 +979,6 @@ function ResumeAiTurnMeta({
       <span>{model.effort}</span>
       {tokenLabel ? <span>{tokenLabel}</span> : null}
       {reasoningTokens !== undefined ? <span>{formatNumber(reasoningTokens)} reasoning</span> : null}
-    </div>
-  )
-}
-
-function TraceDataBlock({ label, value }: { label: string; value: string }) {
-  if (!value) return null
-  return (
-    <div className="resume-ai-trace-data">
-      <p>{label}</p>
-      <pre>{value}</pre>
     </div>
   )
 }
@@ -1007,56 +1015,6 @@ function toolTitle(item: ResumeAiItem | null, kind: string) {
   if (kind === "image_view") return "View image"
   if (kind === "error") return "Agent error"
   return asString(item, "name") || asString(item, "title") || humanize(kind)
-}
-
-function toolPreview(item: ResumeAiItem | null, kind: string) {
-  if (kind === "command_execution") return asString(item, "command")
-  if (kind === "mcp_tool_call") return asString(item, "server")
-  if (kind === "web_search") return asString(item, "query")
-  if (kind === "file_change") {
-    const changes = Array.isArray(item?.changes) ? item.changes : []
-    return changes.length ? `${changes.length} file${changes.length === 1 ? "" : "s"}` : null
-  }
-  return asString(item, "message") || null
-}
-
-function toolDetails(item: ResumeAiItem | null, kind: string) {
-  const details: Array<{ label: string; value: string }> = []
-  if (!item) return details
-  if (kind === "command_execution" && asString(item, "command")) {
-    details.push({ label: "Command", value: asString(item, "command")! })
-  }
-  if (kind === "command_execution" && asString(item, "aggregated_output")) {
-    details.push({ label: "Output", value: asString(item, "aggregated_output")! })
-  }
-  if (kind === "command_execution" && item.exit_code !== undefined) {
-    details.push({ label: "Exit code", value: String(item.exit_code) })
-  }
-  if (kind === "mcp_tool_call") {
-    if (asString(item, "server")) details.push({ label: "Server", value: asString(item, "server")! })
-    if (asString(item, "tool")) details.push({ label: "Tool", value: asString(item, "tool")! })
-    if (item.arguments !== undefined) details.push({ label: "Arguments", value: formatPayload(item.arguments) })
-    if (item.result !== undefined) details.push({ label: "Result", value: formatPayload(item.result) })
-    if (item.error !== undefined) details.push({ label: "Error", value: formatPayload(item.error) })
-  }
-  if (kind === "file_change" && item.changes !== undefined) {
-    details.push({ label: "Changes", value: formatPayload(item.changes) })
-  }
-  if (kind === "web_search" && asString(item, "query")) {
-    details.push({ label: "Query", value: asString(item, "query")! })
-  }
-  if (kind === "error" && asString(item, "message")) {
-    details.push({ label: "Message", value: asString(item, "message")! })
-  }
-  return details
-}
-
-function toolIcon(kind: string) {
-  if (kind === "command_execution") return Terminal
-  if (kind === "file_change") return FilePenLine
-  if (kind === "web_search") return Globe2
-  if (kind === "mcp_tool_call" || kind === "dynamic_tool_call") return Wrench
-  return Brain
 }
 
 function asString(value: unknown, key?: string) {

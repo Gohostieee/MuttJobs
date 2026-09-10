@@ -1,0 +1,6 @@
+export { createElement } from 'react'
+export { createRoot } from 'react-dom/client'
+export { mockIPC } from '@tauri-apps/api/mocks'
+export { emit } from '@tauri-apps/api/event'
+export { ResumeViewer } from '../../src/components/resume-workspace'
+export { normalizeAndValidateResume } from '../../src/lib/resume-validation'

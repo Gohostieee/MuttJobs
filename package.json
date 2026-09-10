@@ -11,6 +11,7 @@
     "test:company-research-ui": "node --experimental-strip-types --test src/lib/company-research-ui.test.ts",
     "test": "node --experimental-strip-types --test src/lib/*.test.ts",
     "test:workspace-ui": "playwright test",
+    "test:resume-chat": "node tests/browser/resume-chat-check.mjs",
     "audit:theme": "node scripts/audit-theme.mjs --write",
     "preview": "vite preview",
     "tauri": "tauri"
