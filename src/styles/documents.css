@@ -392,11 +392,14 @@
 @page cover-letter-a4 { size: A4; margin: 0; background: white; }
 
 @media print {
+  body:has(> .resume-export-root) > :not(.resume-export-root) { display: none !important; }
   html { color-scheme: only light !important; }
   html, body, #root, .resume-viewer { width: auto !important; min-width: 0 !important; height: auto !important; min-height: 0 !important; overflow: visible !important; background: white !important; }
   body { margin: 0 !important; }
   .resume-viewer > :not(.resume-export-root) { display: none !important; }
   .resume-export-root { position: static !important; display: block !important; width: auto !important; visibility: visible !important; }
+  .resume-export-root .resume-item, .resume-export-root .resume-role { break-inside: auto; page-break-inside: auto; }
+  .resume-export-root .resume-accent { position: static; margin-bottom: 12px; }
   .resume-export-root .resume-document { position: static !important; top: auto !important; left: auto !important; box-sizing: border-box !important; width: auto !important; min-height: 0 !important; overflow: visible !important; padding: 0 !important; background: var(--resume-paper) !important; box-shadow: none !important; zoom: 1 !important; }
   .resume-export-root .cover-letter-document { position: static !important; top: auto !important; left: auto !important; box-sizing: border-box !important; width: auto !important; min-height: 0 !important; overflow: visible !important; padding: 0 !important; background: var(--resume-paper) !important; box-shadow: none !important; zoom: 1 !important; }
   .resume-export-root .resume-document::after { display: none !important; }

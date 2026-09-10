@@ -36,6 +36,7 @@ import { createCoverLetter, getCoverLettersDirectory, loadCoverLetters, saveCove
 import type { CoverLetterData, CoverLetterFile } from "@/lib/cover-letter-types"
 import type { ResumeSelectionAction, ResumeTextSelection } from "@/lib/resume-selection"
 import { exportResumePdf } from "@/lib/resume-export"
+import { DocumentExportSurface } from "@/components/document-export-surface"
 
 const MIN_ZOOM = 0.1
 const DEFAULT_AI_SIDEBAR_WIDTH = 368
@@ -576,9 +577,9 @@ export function CoverLetterViewer({
         </div>
         {inspectorOpen ? <CoverLetterInspector letter={currentFile.data} onChange={handleCoverLetterChange} onEditStart={beginTextEdit} onEditEnd={finishTextEdit} onToggle={() => setInspectorOpen(false)} /> : null}
       </div>
-      <div className="resume-export-root cover-letter-export-root" aria-hidden="true">
-        <CoverLetterDocument letter={currentFile.data} showPageGuides={false} />
-      </div>
+      <DocumentExportSurface>
+        <CoverLetterDocument letter={currentFile.data} showPageGuides={false} paginate={false} />
+      </DocumentExportSurface>
       {exportError ? <p id="cover-letter-export-status" className="resume-export-error" role="alert">{exportError}</p> : null}
       <div className="resume-zoom-controls" role="toolbar" aria-label="Cover letter zoom controls"><Button variant="ghost" size="icon" onClick={() => changeZoom(1 / 1.2)} aria-label="Zoom out"><Minus /></Button><output>{Math.round(zoom * 100)}%</output><Button variant="ghost" size="icon" onClick={() => changeZoom(1.2)} aria-label="Zoom in"><Plus /></Button><span className="resume-control-separator" /><Button variant="ghost" size="icon" onClick={fit} aria-label="Fit cover letter to width"><Maximize2 /></Button></div>
     </main>

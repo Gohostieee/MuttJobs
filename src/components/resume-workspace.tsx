@@ -66,6 +66,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { duplicateResume, getResumesDirectory, loadResumes, resumeTitle, saveResume } from "@/lib/resume-storage"
 import { exportResumePdf } from "@/lib/resume-export"
+import { DocumentExportSurface } from "@/components/document-export-surface"
 import {
   addResumeSection,
   addResumeSectionItem,
@@ -798,9 +799,9 @@ export function ResumeViewer({
         <Button variant="ghost" size="icon" onClick={fit} aria-label="Fit resume to width" title="Fit to width"><Maximize2 /></Button>
       </div>
       </div>
-      <div className="resume-export-root" aria-hidden="true">
-        <ResumeDocument resume={currentFile.data} showPageGuides={false} renderPageSurfaces={false} />
-      </div>
+      <DocumentExportSurface>
+        <ResumeDocument resume={currentFile.data} showPageGuides={false} renderPageSurfaces={false} paginate={false} />
+      </DocumentExportSurface>
       {exportError ? <p id="resume-export-status" className="resume-export-error" role="alert">{exportError}</p> : null}
     </main>
   )
