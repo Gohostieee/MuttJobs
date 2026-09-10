@@ -1371,6 +1371,7 @@ fn save_resume(
     path: String,
     data: serde_json::Value,
 ) -> Result<ResumeFile, String> {
+    let _guard = providers::job_workspace::storage_guard()?;
     let directory = fs::canonicalize(resumes_dir(&app)?).map_err(|error| error.to_string())?;
     let target = fs::canonicalize(PathBuf::from(&path)).map_err(|error| error.to_string())?;
 
@@ -1676,30 +1677,28 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .manage(providers::ProviderState::default())
         .invoke_handler(tauri::generate_handler![
+            providers::job_workspace::resume_target_check::resume_target_check_read,
+            providers::job_workspace::resume_target_check::resume_target_check_run,
+            providers::job_workspace::resume_target_check::resume_target_check_cancel,
             providers::job_workspace::job_workspace_read,
             providers::job_workspace::job_workspace_document,
-            providers::job_workspace::job_workspace_profile_entries,
             providers::job_workspace::job_workspace_mutate,
             providers::job_workspace::job_workspace_run,
             providers::job_workspace::job_workspace_cancel,
             providers::job_workspace::job_workspace_summaries,
             list_resumes,
+            duplicate_resume,
             list_cover_letters,
             get_resumes_directory,
             get_cover_letters_directory,
-            create_resume,
-            duplicate_resume,
-            create_resume_from_pdf,
             import_profile_from_resume_pdf,
             list_resume_import_jobs,
-            start_resume_pdf_import,
             create_cover_letter,
             load_or_create_job_cover_letter,
             job_cover_letter_is_drafted,
             save_resume,
             providers::resume_matching::load_job_primary_resume,
             providers::resume_matching::save_job_primary_resume,
-            providers::profile_resume::generate_primary_resume_from_profile,
             export_resume_pdf,
             save_cover_letter,
             save_job_cover_letter,
@@ -1708,7 +1707,6 @@ pub fn run() {
             data_backup::begin_data_import,
             data_backup::commit_data_import,
             data_backup::rollback_data_import,
-            run_resume_ai_job,
             run_cover_letter_ai_job,
             providers::general_agent::run_general_agent_job,
             providers::company_research::list_company_research_runs,
@@ -1731,7 +1729,6 @@ pub fn run() {
             providers::saved_searches::delete_saved_their_stack_search,
             providers::job_import::list_job_import_jobs,
             providers::job_import::start_job_url_import,
-            providers::resume_matching::start_resume_matching,
             providers::resume_matching::set_primary_resume_for_job,
             providers::get_provider_settings,
             providers::update_provider_settings,

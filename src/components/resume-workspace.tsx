@@ -1,9 +1,14 @@
-import { ImportStatus, useImportDismissals } from "@/components/import-status"
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent } from "react"
-import { open, save } from "@tauri-apps/plugin-dialog"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { WorkspaceHeader } from "@/components/workspace-layout"
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type WheelEvent } from "react"
 import { openPath } from "@tauri-apps/plugin-opener"
+import { save } from "@tauri-apps/plugin-dialog"
 import {
   ArrowLeft,
+  FileText,
+  Grid2X2,
+  RefreshCw,
+  Search,
   AlignCenter,
   AlignLeft,
   AlignRight,
@@ -14,25 +19,18 @@ import {
   Columns3,
   Eye,
   EyeOff,
-  FileUp,
-  FileJson2,
   FileDown,
   FolderOpen,
   Folder,
-  Grid2X2,
   GripVertical,
   ListTree,
   LoaderCircle,
   Maximize2,
   Minus,
-  PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
   Plus,
-  RefreshCw,
-  Copy,
   Ruler,
-  Search,
   Trash2,
   Undo2,
   Redo2,
@@ -48,12 +46,6 @@ import {
 } from "@/components/resume-document"
 import { ResumeDesignPanel } from "@/components/resume-design-panel"
 import { ResumeSkillsSection } from "@/components/resume-skills-section"
-import {
-  DEFAULT_RESUME_AI_SELECTION,
-  ModelReasoningSelector,
-  ResumeAiSidebar,
-  type AgentActivity,
-} from "@/components/resume-ai-sidebar"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -64,19 +56,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverDescription, PopoverTitle, PopoverTrigger } from "@/components/ui/popover"
-import { Input } from "@/components/ui/input"
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
-import { createResume, duplicateResume, getResumesDirectory, loadResumes, saveResume } from "@/lib/resume-storage"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { Skeleton } from "@/components/ui/skeleton"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
+import { getResumesDirectory, loadResumes, saveResume } from "@/lib/resume-storage"
 import { exportResumePdf } from "@/lib/resume-export"
-import {
-  listResumeImportJobs,
-  startResumePdfImport,
-  subscribeToResumeImportEvents,
-  type ResumeImportJob,
-} from "@/lib/resume-import"
-import { ALL_AGENT_MODELS } from "@/lib/agent-models"
 import {
   addResumeSection,
   addResumeSectionItem,
@@ -94,16 +81,12 @@ import {
 } from "@/lib/resume-sections"
 import type { ResumeSectionItemDropPosition, ResumeSectionLane } from "@/lib/resume-sections"
 import type { ResumeFile, ResumeSectionAlignment } from "@/lib/resume-types"
-import type {
-  ResumeSelectionAction,
-  ResumeTextSelection,
-} from "@/lib/resume-selection"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { ResumeTargetsPanel } from "@/components/resume-targets-panel"
+import "./resume-targets-panel.css"
 
 const MIN_ZOOM = 0.1
-const DEFAULT_AI_SIDEBAR_WIDTH = 336
-const MIN_AI_SIDEBAR_WIDTH = 368
-const MAX_AI_SIDEBAR_WIDTH = 520
-const DEFAULT_SECTIONS_SIDEBAR_WIDTH = 288
+const DEFAULT_SECTIONS_SIDEBAR_WIDTH = 320
 const MIN_SECTIONS_SIDEBAR_WIDTH = 240
 const MAX_SECTIONS_SIDEBAR_WIDTH = 520
 
@@ -122,401 +105,81 @@ type ResumeTextEdit = {
 
 type ResumeSaveMode = "debounced" | "immediate"
 
-type ResumeSelectionActionRequest = {
-  id: number
-  action: ResumeSelectionAction
-  selection: ResumeTextSelection
-}
-
-type ResumeCreationMode = "blank" | "pdf"
-
 export function ResumeWorkspace({ onViewerChange }: { onViewerChange?: (open: boolean) => void }) {
-  const [resumes, setResumes] = useState<ResumeFile[]>([])
+  const [files, setFiles] = useState<ResumeFile[]>([])
   const [selected, setSelected] = useState<ResumeFile | null>(null)
   const [query, setQuery] = useState("")
-  const [loading, setLoading] = useState(true)
-  const [creating, setCreating] = useState(false)
-  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [resumeCreationMode, setResumeCreationMode] = useState<ResumeCreationMode>("blank")
-  const [resumeName, setResumeName] = useState("")
-  const [resumePdfPath, setResumePdfPath] = useState("")
-  const [resumeImportSelection, setResumeImportSelection] = useState(DEFAULT_RESUME_AI_SELECTION)
-  const { isDismissed, dismiss, dismissError } = useImportDismissals("resume")
-  const [resumeImports, setResumeImports] = useState<ResumeImportJob[]>([])
-  const [createError, setCreateError] = useState("")
   const [error, setError] = useState("")
-
+  const [folderError, setFolderError] = useState("")
+  const [loading, setLoading] = useState(true)
   const refresh = useCallback(async () => {
     setLoading(true)
     setError("")
-    try {
-      const [loadedResumes, loadedImports] = await Promise.all([
-        loadResumes(),
-        listResumeImportJobs(),
-      ])
-      setResumes(loadedResumes)
-      setResumeImports(loadedImports)
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not load resumes.")
-    } finally {
-      setLoading(false)
-    }
+    try { setFiles(await loadResumes()) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not load resumes.") }
+    finally { setLoading(false) }
   }, [])
-
   useEffect(() => { void refresh() }, [refresh])
-
-  useEffect(() => {
-    let disposed = false
-    let cleanup: (() => void) | undefined
-
-    void subscribeToResumeImportEvents((job) => {
-      if (disposed) return
-      if (job.status === "completed") {
-        setResumeImports((current) => current.filter((existing) => existing.jobId !== job.jobId))
-        void refresh()
-        return
-      }
-      setResumeImports((current) => upsertResumeImport(current, job))
-    }).then((unlisten) => {
-      if (disposed) unlisten()
-      else cleanup = unlisten
-    }).catch(() => {
-      // The browser preview has no Tauri event bridge.
-    })
-
-    return () => {
-      disposed = true
-      cleanup?.()
-    }
-  }, [refresh])
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    if (!needle) return resumes
-    return resumes.filter((resume) => [resume.data.basics?.name, resume.data.basics?.headline, resume.fileName]
-      .some((value) => value?.toLowerCase().includes(needle)))
-  }, [query, resumes])
-
-  const searchedImports = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    if (!needle) return resumeImports
-    return resumeImports.filter((job) => [job.pdfFileName, job.resumeName, job.stage]
-      .some((value) => value?.toLowerCase().includes(needle)))
-  }, [query, resumeImports])
-  const filteredImports = searchedImports.filter((job) => !isDismissed(job.jobId))
+    return files.filter(file => !needle || [file.fileName, file.data.basics.name, file.data.basics.headline]
+      .some(value => value.toLowerCase().includes(needle)))
+  }, [files, query])
 
   async function openFolder() {
-    const directory = await getResumesDirectory()
-    if (directory) await openPath(directory)
-  }
-
-  function openCreateDialog() {
-    setResumeCreationMode("blank")
-    setResumeName("")
-    setResumePdfPath("")
-    setCreateError("")
-    setCreateDialogOpen(true)
-  }
-
-  async function chooseResumePdf() {
-    setCreateError("")
+    setFolderError("")
     try {
-      const selectedPath = await open({
-        multiple: false,
-        directory: false,
-        filters: [{ name: "PDF resume", extensions: ["pdf"] }],
-      })
-      if (typeof selectedPath === "string") setResumePdfPath(selectedPath)
-    } catch (reason) {
-      setCreateError(reason instanceof Error ? reason.message : "Could not choose a PDF.")
+      const directory = await getResumesDirectory()
+      if (!directory) throw new Error("The resume folder is available in the desktop app.")
+      await openPath(directory)
+    } catch (cause) {
+      setFolderError(cause instanceof Error ? cause.message : "Could not open the resume folder.")
     }
   }
 
-  async function createSelectedResume() {
-    if (creating) return
-
-    const name = resumeName.trim()
-    if (resumeCreationMode === "blank" && !name) return
-    if (resumeCreationMode === "pdf" && !resumePdfPath) {
-      setCreateError("Choose a PDF resume to import first.")
-      return
-    }
-
-    setCreating(true)
-    setCreateError("")
-    try {
-      if (resumeCreationMode === "pdf") {
-        const job = await startResumePdfImport(
-          resumePdfPath,
-          name || undefined,
-          resumeImportSelection,
-        )
-        setResumeImports((current) => upsertResumeImport(current, job))
-      } else {
-        const resume = await createResume(name)
-        setResumes((current) => [resume, ...current])
-      }
-      setCreateDialogOpen(false)
-      setResumeName("")
-      setResumePdfPath("")
-    } catch (reason) {
-      setCreateError(reason instanceof Error ? reason.message : "Could not create resume.")
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  async function duplicateSelectedResume(resume: ResumeFile) {
-    if (duplicatingId) return
-    setDuplicatingId(resume.id)
-    setError("")
-    try {
-      const copy = await duplicateResume(resume)
-      setResumes((current) => [copy, ...current])
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not duplicate resume.")
-    } finally {
-      setDuplicatingId(null)
-    }
-  }
-
-  if (selected) {
-    return (
-      <ResumeViewer
-        file={selected}
-        onBack={(updatedFile) => {
-          setResumes((current) => current.map((resume) => resume.id === selected.id ? updatedFile : resume))
-          onViewerChange?.(false)
-          setSelected(null)
-        }}
-      />
-    )
-  }
+  if (selected) return <ResumeViewer key={selected.path} file={selected} onBack={updated => {
+    setFiles(items => items.map(item => item.path === updated.path ? updated : item))
+    setSelected(null); onViewerChange?.(false)
+  }} />
 
   return (
-    <main className="resume-workspace">
-      <header className="resume-library-header">
-        <div>
-          <div className="resume-title-row"><FileJson2 aria-hidden="true" /><span>Resume library</span></div>
-          <h1>Your story, ready to send.</h1>
-          <p>Every JSON resume saved on this machine, rendered as a crisp, living document.</p>
+    <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <WorkspaceHeader title="Resumes" description="Choose a saved resume to edit, refine, and check against your job targets." actions={<>
+          <Button variant="outline" onClick={() => void openFolder()}><FolderOpen data-icon="inline-start" />Open folder</Button>
+          <Button variant="outline" size="icon" disabled={loading} onClick={() => void refresh()} aria-label="Refresh resumes"><RefreshCw /></Button>
+        </>} />
+      <section className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6" aria-label="Saved resumes" aria-busy={loading}>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <InputGroup className="w-full max-w-md"><InputGroupAddon><Search /></InputGroupAddon><InputGroupInput value={query} onChange={event => setQuery(event.target.value)} placeholder="Search resumes" aria-label="Search resumes" /></InputGroup>
+          <div className="resume-count" role="status"><Grid2X2 aria-hidden="true" />{loading ? "Loading resumes..." : `${filtered.length} ${filtered.length === 1 ? "resume" : "resumes"}`}</div>
         </div>
-        <div className="resume-header-actions">
-          <Button onClick={openCreateDialog}>
-            <Plus /> Create resume
-          </Button>
-          <Button variant="outline" onClick={() => void openFolder()}><FolderOpen /> Open folder</Button>
-          <Button variant="outline" size="icon" onClick={() => void refresh()} aria-label="Refresh resumes" title="Refresh resumes"><RefreshCw /></Button>
-        </div>
-      </header>
-
-      <section className="resume-library-body">
-        <div className="resume-toolbar">
-          <InputGroup className="resume-search">
-            <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
-            <InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search resumes" aria-label="Search resumes" />
-          </InputGroup>
-        <div className="resume-count"><Grid2X2 aria-hidden="true" /> {filtered.length} {filtered.length === 1 ? "resume" : "resumes"}</div>
-      </div>
-
-        {dismissError && <p role="alert" className="text-xs text-destructive">{dismissError}</p>}
-        {!loading && !error && filteredImports.length > 0 && <div className="import-status-list" aria-label="Resume imports">
-          {filteredImports.map((job) => <ResumeImportCard key={job.jobId} job={job} onDismiss={() => dismiss(job.jobId)} />)}
-        </div>}
-        {loading ? <ResumeSkeletons /> : null}
-        {error ? <div className="resume-empty"><h2>Something went wrong</h2><p>{error}</p></div> : null}
-        {!loading && !error && filtered.length > 0 ? (
-          <div className="resume-grid">
-            {filtered.map((resume) => (
-              <ResumeCard
-                key={resume.id}
-                file={resume}
-                duplicating={duplicatingId === resume.id}
-                onDuplicate={() => void duplicateSelectedResume(resume)}
-                onOpen={() => {
-                  onViewerChange?.(true)
-                  setSelected(resume)
-                }}
-              />
-            ))}
-          </div>
-        ) : null}
-        {!loading && !error && !filtered.length && !filteredImports.length ? (
-          <div className="resume-empty">
-            <FileJson2 aria-hidden="true" />
-            <h2>{query ? "No matching resumes" : "Your library is ready"}</h2>
-            <p>{query ? "Try a name or file name." : "Add a JSON resume to the resume folder, then refresh."}</p>
-          </div>
+        {folderError ? <Alert className="mb-4" variant="destructive"><AlertTitle>Could not open folder</AlertTitle><AlertDescription>{folderError}</AlertDescription></Alert> : null}
+        {loading ? <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-hidden="true">{[0, 1, 2].map(index => <Skeleton className="h-[29rem]" key={index} />)}</div> : null}
+        {error ? <Alert variant="destructive"><AlertTitle>Could not load resumes</AlertTitle><AlertDescription>{error}</AlertDescription><Button variant="outline" className="mt-3 w-fit" onClick={() => void refresh()}>Try again</Button></Alert> : null}
+        {!loading && !error && filtered.length ? <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.map(file => <ResumeCard key={file.path} file={file} onOpen={() => { setSelected(file); onViewerChange?.(true) }} />)}</div> : null}
+        {!loading && !error && !filtered.length ? (
+          <Empty className="min-h-88 border">
+            <EmptyHeader><EmptyMedia variant="icon"><FileText /></EmptyMedia><EmptyTitle>{query.trim() ? "No matching resumes" : "Your library is ready"}</EmptyTitle><EmptyDescription>{query.trim() ? "Try a name, headline, or file name." : "Create a resume in Job Workspace. Your saved resumes will appear here."}</EmptyDescription></EmptyHeader>
+            {query.trim() ? <Button variant="outline" onClick={() => setQuery("")}>Clear search</Button> : null}
+          </Empty>
         ) : null}
       </section>
-
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="resume-create-dialog">
-          <form
-            className="grid min-w-0 gap-4"
-            onSubmit={(event) => {
-              event.preventDefault()
-              void createSelectedResume()
-            }}
-          >
-            <DialogHeader>
-              <DialogTitle>Create a resume</DialogTitle>
-              <DialogDescription>
-                {resumeCreationMode === "pdf"
-                  ? "Choose the agent for this import. It will keep running in the background while you work."
-                  : "Start with a blank resume and build it in the editor."}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid min-w-0 gap-2">
-              <Label htmlFor="resume-creation-mode">Starting point</Label>
-              <NativeSelect
-                id="resume-creation-mode"
-                className="w-full"
-                value={resumeCreationMode}
-                onChange={(event) => {
-                  setResumeCreationMode(event.target.value as ResumeCreationMode)
-                  setCreateError("")
-                }}
-                disabled={creating}
-              >
-                <NativeSelectOption value="blank">Blank resume</NativeSelectOption>
-                <NativeSelectOption value="pdf">Import from PDF with an agent</NativeSelectOption>
-              </NativeSelect>
-            </div>
-            {resumeCreationMode === "pdf" ? (
-              <div className="resume-import-selector grid min-w-0 gap-2">
-                <Label>Agent</Label>
-                <ModelReasoningSelector
-                  value={resumeImportSelection}
-                  onChange={setResumeImportSelection}
-                  disabled={creating}
-                />
-              </div>
-            ) : null}
-            {resumeCreationMode === "pdf" ? (
-              <div className="grid min-w-0 gap-2">
-                <Label>PDF file</Label>
-                <div className="flex min-w-0 items-center gap-2">
-                  <Button type="button" variant="outline" onClick={() => void chooseResumePdf()} disabled={creating}>
-                    <FileUp /> Choose PDF
-                  </Button>
-                  <span className="min-w-0 truncate text-sm text-muted-foreground" title={resumePdfPath || undefined}>
-                    {resumePdfPath ? getFileName(resumePdfPath) : "No PDF selected"}
-                  </span>
-                </div>
-              </div>
-            ) : null}
-            <div className="grid min-w-0 gap-2">
-              <Label htmlFor="resume-name">
-                Resume name{resumeCreationMode === "pdf" ? " (optional)" : ""}
-              </Label>
-              <Input
-                id="resume-name"
-                value={resumeName}
-                onChange={(event) => setResumeName(event.target.value)}
-                placeholder={resumeCreationMode === "pdf" ? "Leave blank to use the name in the PDF" : "e.g. Product designer"}
-                autoFocus={resumeCreationMode === "blank"}
-                disabled={creating}
-              />
-              {createError ? <p className="text-sm text-destructive" role="alert">{createError}</p> : null}
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={creating}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={creating || (resumeCreationMode === "blank" ? !resumeName.trim() : !resumePdfPath)}
-              >
-                {creating
-                  ? (resumeCreationMode === "pdf" ? "Starting import..." : "Creating...")
-                  : (resumeCreationMode === "pdf" ? "Start import" : "Create resume")}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </main>
   )
 }
 
-function getFileName(path: string) {
-  return path.split(/[\\/]/).pop() || path
-}
-
-function ResumeCard({
-  file,
-  onOpen,
-  onDuplicate,
-  duplicating,
-}: {
-  file: ResumeFile
-  onOpen: () => void
-  onDuplicate: () => void
-  duplicating: boolean
-}) {
-  const name = file.data.basics?.name || file.fileName.replace(/\.json$/i, "")
+function ResumeCard({ file, onOpen }: { file: ResumeFile; onOpen: () => void }) {
+  const title = file.fileName.replace(/\.json$/i, "")
+  const subtitle = [file.data.basics.name, file.data.basics.headline].filter(Boolean).join(" \u00b7 ")
   const updated = file.updatedAt ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(file.updatedAt * 1000) : "Local preview"
   return (
-    <div className="resume-card-shell">
-      <Button variant="ghost" className="resume-card h-auto w-full p-0 font-normal" onClick={onOpen} aria-label={`Open ${name}`}>
-        <div className="resume-card-preview" aria-hidden="true">
-          <div className="resume-card-document" style={{ width: getResumePageWidth(file.data) }}><ResumeDocument resume={file.data} compact /></div>
-        </div>
-        <div className="resume-card-info">
-          <div><h2>{name}</h2><p>Updated {updated}</p></div>
-          <span>View <span aria-hidden="true">↗</span></span>
-        </div>
-      </Button>
-      <Button
-        variant="outline"
-        size="icon-sm"
-        className="resume-card-duplicate"
-        onClick={onDuplicate}
-        disabled={duplicating}
-        aria-label={`Duplicate ${name}`}
-        title={`Duplicate ${name}`}
-      >
-        {duplicating ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Copy aria-hidden="true" />}
-      </Button>
-    </div>
+    <Card className="overflow-hidden">
+      <CardContent className="px-0"><div className="resume-card-preview" aria-hidden="true" inert><div className="resume-card-document" style={{ width: getResumePageWidth(file.data) }}><ResumeDocument resume={file.data} compact /></div></div></CardContent>
+      <CardHeader><CardTitle className="truncate" title={title}>{title}</CardTitle><CardDescription className="truncate" title={subtitle}>{subtitle || updated}</CardDescription></CardHeader>
+      <CardFooter><Button variant="outline" onClick={onOpen} aria-label={"Open " + title}>Open resume</Button></CardFooter>
+    </Card>
   )
-}
-
-function ResumeImportCard({ job, onDismiss }: { job: ResumeImportJob; onDismiss: () => void }) {
-  return <ImportStatus title={job.resumeName || job.pdfFileName} status={job.status} stage={job.stage}
-    metadata={`${modelLabel(job)} / ${formatImportEffort(job.effort)}`} error={job.error} activities={resumeImportActivities(job)} onDismiss={onDismiss} />
-}
-
-function resumeImportActivities(job: ResumeImportJob): AgentActivity[] {
-  return job.activities.flatMap((event) => event.type === "item"
-    ? [{
-        id: event.id,
-        kind: event.kind,
-        status: event.status,
-        eventType: event.eventType,
-        item: event.item,
-      }]
-    : [])
-}
-
-function upsertResumeImport(current: ResumeImportJob[], next: ResumeImportJob) {
-  const existingIndex = current.findIndex((job) => job.jobId === next.jobId)
-  if (existingIndex === -1) return [next, ...current]
-  return current.map((job, index) => index === existingIndex ? next : job)
-}
-
-function modelLabel(job: ResumeImportJob) {
-  return ALL_AGENT_MODELS.find((model) => model.providerId === job.provider && model.id === job.model)?.name
-    ?? job.model
-    ?? (job.provider === "claude-code" ? "Claude Code" : "Codex")
-}
-
-function formatImportEffort(value: string | null) {
-  if (!value || value === "auto") return "Default reasoning"
-  if (value === "extra-high" || value === "xhigh") return "Extra High reasoning"
-  return `${value.charAt(0).toUpperCase()}${value.slice(1)} reasoning`
 }
 
 type ResumeViewerProps = {
@@ -524,9 +187,6 @@ type ResumeViewerProps = {
   onBack: (file: ResumeFile) => void
   targetJobId?: number
   backLabel?: string
-  rebuildLabel?: string
-  rebuildSelection?: ReactNode
-  onRebuild?: () => Promise<ResumeFile | null>
 }
 
 export function ResumeViewer({
@@ -534,16 +194,11 @@ export function ResumeViewer({
   onBack,
   targetJobId,
   backLabel = "Back to resume library",
-  rebuildLabel = "Rebuild",
-  rebuildSelection,
-  onRebuild,
 }: ResumeViewerProps) {
   const [currentFile, setCurrentFile] = useState(file)
   const [zoom, setZoom] = useState(0.78)
   const [showPageGuides, setShowPageGuides] = useState(false)
-  const [aiSidebarOpen, setAiSidebarOpen] = useState(true)
-  const [aiSidebarWidth, setAiSidebarWidth] = useState(DEFAULT_AI_SIDEBAR_WIDTH)
-  const [isAiSidebarResizing, setIsAiSidebarResizing] = useState(false)
+  const [rightTab, setRightTab] = useState("sections")
   const [sectionsSidebarOpen, setSectionsSidebarOpen] = useState(true)
   const [sectionsSidebarWidth, setSectionsSidebarWidth] = useState(DEFAULT_SECTIONS_SIDEBAR_WIDTH)
   const [isSectionsSidebarResizing, setIsSectionsSidebarResizing] = useState(false)
@@ -551,11 +206,6 @@ export function ResumeViewer({
   const [saveError, setSaveError] = useState("")
   const [exportState, setExportState] = useState<"idle" | "exporting" | "exported" | "error">("idle")
   const [exportError, setExportError] = useState("")
-  const [isRebuilding, setIsRebuilding] = useState(false)
-  const [rebuildError, setRebuildError] = useState("")
-  const [activeTextSelection, setActiveTextSelection] = useState<ResumeTextSelection | null>(null)
-  const [selectionActionRequest, setSelectionActionRequest] = useState<ResumeSelectionActionRequest | null>(null)
-  const [selectionResetKey, setSelectionResetKey] = useState(0)
   const [, setHistoryVersion] = useState(0)
   const [documentRevision, setDocumentRevision] = useState(0)
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -569,12 +219,6 @@ export function ResumeViewer({
   const undoStackRef = useRef<ResumeFile["data"][]>([])
   const redoStackRef = useRef<ResumeFile["data"][]>([])
   const textEditRef = useRef<ResumeTextEdit | null>(null)
-  const aiChatActivatedRef = useRef(false)
-  const aiActivationPromiseRef = useRef<Promise<void> | null>(null)
-  const aiChangeCountRef = useRef(0)
-  const selectionRestoreRef = useRef<(() => void) | null>(null)
-  const selectionRequestIdRef = useRef(0)
-  const aiSidebarResizeRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
   const sectionsSidebarResizeRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
   const name = currentFile.data.basics?.name || currentFile.fileName
   const pageWidth = getResumePageWidth(currentFile.data)
@@ -638,9 +282,6 @@ export function ResumeViewer({
     const nextFile = { ...latestFileRef.current, data }
     latestFileRef.current = nextFile
     revisionRef.current += 1
-    selectionRestoreRef.current = null
-    setActiveTextSelection(null)
-    setSelectionResetKey((version) => version + 1)
     setCurrentFile(nextFile)
     setSaveState("saving")
     setSaveError("")
@@ -779,115 +420,6 @@ export function ResumeViewer({
     await saveQueueRef.current
   }, [queueSave])
 
-  const activateAiChat = useCallback(() => {
-    if (aiChatActivatedRef.current) return flushPendingSave()
-    if (aiActivationPromiseRef.current) return aiActivationPromiseRef.current
-
-    const activation = (async () => {
-      commitTextEdit()
-      await flushPendingSave()
-
-      undoStackRef.current.push(latestFileRef.current.data)
-      redoStackRef.current = []
-      aiChatActivatedRef.current = true
-      refreshHistoryControls()
-    })()
-
-    aiActivationPromiseRef.current = activation
-    void activation.catch(() => {
-      aiActivationPromiseRef.current = null
-    })
-    return activation
-  }, [commitTextEdit, flushPendingSave, refreshHistoryControls])
-
-  const handleAiApply = useCallback((data: ResumeFile["data"], changed: boolean) => {
-    const previousData = latestFileRef.current.data
-    const didChange = changed && !areResumeDataEqual(previousData, data)
-
-    if (didChange) {
-      if (aiChangeCountRef.current === 0) {
-        // The activation checkpoint already owns the first undo step.
-        applyResumeData(data)
-      } else {
-        handleResumeChange(data)
-      }
-      aiChangeCountRef.current += 1
-    }
-  }, [applyResumeData, handleResumeChange])
-
-  const handleTextSelection = useCallback((selection: ResumeTextSelection | null) => {
-    setActiveTextSelection(selection)
-    if (!selection) selectionRestoreRef.current = null
-  }, [])
-
-  const handleSelectionRestoreChange = useCallback((restore: (() => void) | null) => {
-    selectionRestoreRef.current = restore
-  }, [])
-
-  const handleSelectionAction = useCallback((action: ResumeSelectionAction, selection: ResumeTextSelection) => {
-    setActiveTextSelection(selection)
-    selectionRequestIdRef.current += 1
-    setSelectionActionRequest({ id: selectionRequestIdRef.current, action, selection })
-    setAiSidebarOpen(true)
-  }, [])
-
-  const handleClearTextSelection = useCallback(() => {
-    selectionRestoreRef.current?.()
-    selectionRestoreRef.current = null
-    setActiveTextSelection(null)
-  }, [])
-
-  const clampAiSidebarWidth = useCallback((width: number) => {
-    return Math.min(MAX_AI_SIDEBAR_WIDTH, Math.max(MIN_AI_SIDEBAR_WIDTH, width))
-  }, [])
-
-  const handleAiSidebarResizeStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!aiSidebarOpen) return
-
-    event.preventDefault()
-    event.currentTarget.focus()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    aiSidebarResizeRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startWidth: aiSidebarWidth,
-    }
-    setIsAiSidebarResizing(true)
-  }, [aiSidebarOpen, aiSidebarWidth])
-
-  const handleAiSidebarResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const resize = aiSidebarResizeRef.current
-    if (!resize || resize.pointerId !== event.pointerId) return
-
-    setAiSidebarWidth(clampAiSidebarWidth(resize.startWidth + event.clientX - resize.startX))
-  }, [clampAiSidebarWidth])
-
-  const finishAiSidebarResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const resize = aiSidebarResizeRef.current
-    if (!resize || resize.pointerId !== event.pointerId) return
-
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-    aiSidebarResizeRef.current = null
-    setIsAiSidebarResizing(false)
-  }, [])
-
-  const handleAiSidebarResizeKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const step = event.shiftKey ? 48 : 16
-
-    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-      event.preventDefault()
-      setAiSidebarWidth((width) => clampAiSidebarWidth(width + (event.key === "ArrowRight" ? step : -step)))
-      return
-    }
-
-    if (event.key === "Home" || event.key === "End") {
-      event.preventDefault()
-      setAiSidebarWidth(event.key === "Home" ? MIN_AI_SIDEBAR_WIDTH : MAX_AI_SIDEBAR_WIDTH)
-    }
-  }, [clampAiSidebarWidth])
-
   const clampSectionsSidebarWidth = useCallback((width: number) => {
     return Math.min(MAX_SECTIONS_SIDEBAR_WIDTH, Math.max(MIN_SECTIONS_SIDEBAR_WIDTH, width))
   }, [])
@@ -996,36 +528,6 @@ export function ResumeViewer({
     }
   }, [flushPendingSave, onBack])
 
-  const handleRebuild = useCallback(async () => {
-    if (!onRebuild || isRebuilding) return
-    commitTextEdit()
-    setIsRebuilding(true)
-    setRebuildError("")
-    try {
-      await flushPendingSave()
-      const rebuilt = await onRebuild()
-      if (!rebuilt) return
-      revisionRef.current += 1
-      persistedRevisionRef.current = revisionRef.current
-      queuedSaveRevisionRef.current = revisionRef.current
-      latestFileRef.current = rebuilt
-      artifactRevisionRef.current = rebuilt.revision
-      undoStackRef.current = []
-      redoStackRef.current = []
-      textEditRef.current = null
-      setCurrentFile(rebuilt)
-      setActiveTextSelection(null)
-      setSelectionResetKey((version) => version + 1)
-      setDocumentRevision((revision) => revision + 1)
-      setSaveState("saved")
-      setSaveError("")
-      refreshHistoryControls()
-    } catch (reason) {
-      setRebuildError(reason instanceof Error ? reason.message : "Could not rebuild this resume from the Career Profile.")
-    } finally {
-      setIsRebuilding(false)
-    }
-  }, [commitTextEdit, flushPendingSave, isRebuilding, onRebuild, refreshHistoryControls])
 
   const handleExport = useCallback(async () => {
     if (exportState === "exporting") return
@@ -1066,7 +568,8 @@ export function ResumeViewer({
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") void handleBack()
+      if (event.defaultPrevented || document.querySelector('[role="dialog"], [role="menu"]')) return
+      if (event.key === "Escape" && !textEditRef.current) void handleBack()
       const modifier = event.ctrlKey || event.metaKey
       const key = event.key.toLowerCase()
       if (modifier && key === "z") {
@@ -1105,48 +608,15 @@ export function ResumeViewer({
   const canRedo = redoStackRef.current.length > 0
 
   const viewerStyle = {
-    "--resume-ai-sidebar-width": `min(${aiSidebarWidth}px, 84vw)`,
-    "--resume-ai-sidebar-min-width": `${MIN_AI_SIDEBAR_WIDTH}px`,
     "--resume-sections-sidebar-size": `${sectionsSidebarWidth}px`,
   } as CSSProperties
 
   return (
-    <main className={`resume-viewer ${aiSidebarOpen ? "has-ai-sidebar" : "is-ai-sidebar-collapsed"} ${sectionsSidebarOpen ? "has-sections-sidebar" : "is-sections-sidebar-collapsed"} ${isAiSidebarResizing ? "is-ai-sidebar-resizing" : ""} ${isSectionsSidebarResizing ? "is-sections-sidebar-resizing" : ""}`.trim()} style={viewerStyle}>
+    <main className={`resume-viewer is-ai-sidebar-collapsed ${sectionsSidebarOpen ? "has-sections-sidebar" : "is-sections-sidebar-collapsed"}  ${isSectionsSidebarResizing ? "is-sections-sidebar-resizing" : ""}`.trim()} style={viewerStyle}>
       <header className="resume-viewer-header">
         <Button variant="ghost" size="icon" onClick={() => void handleBack()} aria-label={backLabel}><ArrowLeft /></Button>
-        {!aiSidebarOpen ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="resume-ai-toggle"
-            onClick={() => setAiSidebarOpen(true)}
-            aria-label="Show AI assistant"
-            aria-controls="resume-ai-sidebar"
-            aria-expanded={false}
-            title="Show AI assistant"
-          >
-            <PanelLeftOpen aria-hidden="true" />
-            <span>AI chat</span>
-          </Button>
-        ) : null}
         <div className="resume-viewer-title"><h1>{name}</h1><p>{currentFile.fileName}</p></div>
         <div className="resume-viewer-actions">
-          {onRebuild ? (
-            <>
-              {rebuildSelection}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void handleRebuild()}
-                disabled={isRebuilding}
-                title={rebuildError || `${rebuildLabel} using the latest saved Career Profile`}
-              >
-                {isRebuilding ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
-                {isRebuilding ? "Rebuilding..." : rebuildLabel}
-              </Button>
-            </>
-          ) : null}
           <div className={`resume-save-state is-${saveState}`} role="status" aria-live="polite" title={saveError || undefined}>
             {saveState === "saving" ? "Saving…" : saveState === "error" ? "Save failed" : "Saved"}
           </div>
@@ -1219,38 +689,6 @@ export function ResumeViewer({
         </div>
       </header>
       <div className="resume-viewer-content">
-        <ResumeAiSidebar
-          resumePath={currentFile.path}
-          enableJobTargeting
-          targetJobId={targetJobId}
-          isOpen={aiSidebarOpen}
-          onToggle={() => setAiSidebarOpen((open) => !open)}
-          onActivate={activateAiChat}
-          onApply={handleAiApply}
-          textSelection={activeTextSelection}
-          selectionActionRequest={selectionActionRequest}
-          onClearTextSelection={handleClearTextSelection}
-        />
-        <div
-          className="resume-ai-resize-handle"
-          role="separator"
-          tabIndex={aiSidebarOpen ? 0 : -1}
-          aria-label="Resize AI assistant panel"
-          aria-orientation="vertical"
-          aria-valuemin={MIN_AI_SIDEBAR_WIDTH}
-          aria-valuemax={MAX_AI_SIDEBAR_WIDTH}
-          aria-valuenow={Math.round(aiSidebarWidth)}
-          title="Drag to resize AI assistant"
-          onKeyDown={handleAiSidebarResizeKeyDown}
-          onPointerDown={handleAiSidebarResizeStart}
-          onPointerMove={handleAiSidebarResize}
-          onPointerUp={finishAiSidebarResize}
-          onPointerCancel={finishAiSidebarResize}
-          onLostPointerCapture={() => {
-            aiSidebarResizeRef.current = null
-            setIsAiSidebarResizing(false)
-          }}
-        />
         <div
           className="resume-sections-resize-handle"
           role="separator"
@@ -1281,14 +719,18 @@ export function ResumeViewer({
               onEditStart={beginTextEdit}
               onEditEnd={finishTextEdit}
               onEditCancel={cancelTextEdit}
-              onTextSelection={handleTextSelection}
-              onSelectionAction={handleSelectionAction}
-              onSelectionRestoreChange={handleSelectionRestoreChange}
-              selectionResetKey={selectionResetKey}
             />
           </div>
         </div>
         {sectionsSidebarOpen ? (
+          <Tabs value={rightTab} onValueChange={setRightTab} className="resume-right-panel">
+            <div className="resume-right-tabs"><TabsList variant="line" aria-label="Resume sidebar"><TabsTrigger value="sections">Sections</TabsTrigger><TabsTrigger value="targets">Targets</TabsTrigger></TabsList>
+              <Button variant="ghost" size="icon-sm" aria-label="Hide resume sidebar" onClick={() => setSectionsSidebarOpen(false)}><PanelRightClose /></Button>
+            </div>
+            <TabsContent value="targets" forceMount hidden={rightTab !== "targets"} className="resume-right-content">
+              <ResumeTargetsPanel file={currentFile} targetJobId={targetJobId} dirty={saveState !== "saved"} beforeRun={async () => { commitTextEdit(); await flushPendingSave(); return latestFileRef.current }} />
+            </TabsContent>
+            <TabsContent value="sections" forceMount hidden={rightTab !== "sections"} className="resume-right-content">
           <ResumeSectionsSidebar
             resume={currentFile.data}
             sections={sections}
@@ -1307,6 +749,8 @@ export function ResumeViewer({
             onReorderItem={handleSectionItemReorder}
             onToggle={() => setSectionsSidebarOpen(false)}
           />
+            </TabsContent>
+          </Tabs>
         ) : null}
       </div>
       <div className="resume-export-root" aria-hidden="true">
@@ -1568,7 +1012,7 @@ export function ResumeSectionsSidebar({
                     </Button>
                     <Button
                       variant="ghost"
-                      className={`resume-section-link ${section.hidden ? "is-hidden" : ""}`}
+                      className={`resume-section-link grid h-auto min-w-0 justify-start gap-2 px-2 py-2.5 whitespace-normal ${section.hidden ? "is-hidden" : ""}`}
                       type="button"
                       onClick={() => { if (!section.hidden) handleSectionClick(section.id) }}
                       onKeyDown={(event) => { if (!section.hidden) handleKeyDown(event, section.key) }}
@@ -1874,7 +1318,7 @@ function ResumeSectionItemsFolder({
               >
                 <Button
                   variant="ghost"
-                  className={`resume-section-item-link ${item.hidden ? "is-hidden" : ""}`}
+                  className={`resume-section-item-link grid h-auto min-w-0 justify-start gap-1 px-1 py-2 whitespace-normal ${item.hidden ? "is-hidden" : ""}`}
                   type="button"
                   onClick={() => handleItemClick(item.index, item.hidden)}
                   onKeyDown={(event) => { if (!item.hidden) handleItemKeyDown(event, item.index) }}
@@ -2037,10 +1481,6 @@ function SectionAlignmentOptions({
       </div>
     </div>
   )
-}
-
-function ResumeSkeletons() {
-  return <div className="resume-grid" aria-label="Loading resumes">{[0, 1, 2].map((item) => <div className="resume-card resume-card-skeleton" key={item}><div /><span /></div>)}</div>
 }
 
 function areResumeDataEqual(left: ResumeFile["data"], right: ResumeFile["data"]) {

@@ -53,9 +53,9 @@ export class ClaudeCodeJobRunner {
       "--permission-mode",
       "acceptEdits",
       "--allowedTools",
-      ["job_workspace", "document_step"].includes(job.kind) ? "" : "Read,Edit,Write",
+      ["job_workspace", "document_step", "resume_target_check"].includes(job.kind) ? "" : "Read,Edit,Write",
       "--tools",
-      ["job_workspace", "document_step"].includes(job.kind) ? "" : "Read,Edit,Write",
+      ["job_workspace", "document_step", "resume_target_check"].includes(job.kind) ? "" : "Read,Edit,Write",
       // `--bare` disables OAuth and keychain reads. Provider health accepts
       // Claude.ai subscription login, so keep the user's normal auth sources
       // available to the non-interactive process.
@@ -64,7 +64,7 @@ export class ClaudeCodeJobRunner {
       "8",
     ]
 
-    if (job.kind === "document_step") args.push("--safe-mode", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--disable-slash-commands", "--setting-sources", "")
+    if (["document_step", "resume_target_check"].includes(job.kind)) args.push("--safe-mode", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--disable-slash-commands", "--setting-sources", "")
 
     if (job.model) args.push("--model", job.model)
     const effort = toClaudeEffort(job.reasoningEffort)

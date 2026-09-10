@@ -33,11 +33,14 @@ fn dispatch(s: &WorkspaceService, input: &Value, count: &mut usize) -> Result<Va
         "job_workspace_document" => s.artifact(1, args["artifact"].as_str().unwrap_or("resume")),
         "job_workspace_summaries" => Ok(json!([s.summary(1)?])),
         "job_workspace_read" => Ok(serde_json::to_value(s.read(1)?)?),
-        "job_workspace_mutate" => Ok(serde_json::to_value(
-            s.mutate(serde_json::from_value(args["request"].clone())?)?,
-        )?),
+        "job_workspace_mutate" => {
+            let request: Mutation = serde_json::from_value(args["request"].clone())?;
+            validate_active_mutation(&request.operation)?;
+            Ok(serde_json::to_value(s.mutate(request)?)?)
+        },
         "job_workspace_run" => {
             let request: RunRequest = serde_json::from_value(args["request"].clone())?;
+            validate_active_operation(&request.operation)?;
             let w = s.read(request.job_id)?;
             *count += 1;
             let creation = matches!(
@@ -60,6 +63,32 @@ fn dispatch(s: &WorkspaceService, input: &Value, count: &mut usize) -> Result<Va
                     }
                 },
             )?)?)
+        }
+        "list_resumes" => {
+            let path = s.root.join("resumes/fixture-resume.json");
+            if !path.exists() { fs::create_dir_all(path.parent().unwrap())?; fs::write(&path, s.profile()?.to_string())?; }
+            let data: Value = serde_json::from_slice(&fs::read(&path)?)?;
+            Ok(json!([{"id":"fixture-resume","fileName":"fixture-resume.json","path":path,"updatedAt":0,"revision":document_revision(&data),"data":data}]))
+        }
+        "save_resume" => {
+            let path = s.root.join("resumes/fixture-resume.json");
+            let data = args["data"].clone();
+            validate_document("resume", &data)?;
+            fs::write(&path, data.to_string())?;
+            Ok(json!({"id":"fixture-resume","fileName":"fixture-resume.json","path":path,"updatedAt":0,"revision":document_revision(&data),"data":data}))
+        }
+        "resume_target_check_read" => Ok(serde_json::to_value(resume_target_check::read(s, 1, args["path"].as_str().unwrap())?)?),
+        "resume_target_check_run" => {
+            let request: resume_target_check::CheckRequest = serde_json::from_value(args["request"].clone())?;
+            *count += 1;
+            let targets = effective_targets(&s.read(1)?);
+            let output = json!({"assessments":targets.iter().map(|t| json!({"targetId":t.id,"matched":true,"reason":"The resume describes reliable services using Vue.","passages":[{"field":"/sections/experience/items/0/description","quote":"Built reliable event-driven services with Vue."}]})).collect::<Vec<_>>()});
+            Ok(serde_json::to_value(resume_target_check::execute(s, &request, &AtomicBool::new(false), |_, _| Ok(output))?)?)
+        }
+        "set_primary_resume_for_job" => {
+            fs::create_dir_all(s.directory(1)?)?;
+            fs::copy(s.root.join("resumes/fixture-resume.json"), s.artifact_path(1, "resume")?)?;
+            Ok(json!({}))
         }
         "load_job_primary_resume" => {
             let data = s.artifact(1, "resume")?;

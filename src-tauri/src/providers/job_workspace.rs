@@ -1,3 +1,5 @@
+#[path = "resume_target_check.rs"]
+pub(crate) mod resume_target_check;
 #[path = "document_creation.rs"]
 mod document_creation;
 // The saved-job preparation boundary. Tests use the same service as desktop commands.
@@ -1684,7 +1686,7 @@ fn project(w: &mut Workspace) {
         .filter(|t| {
             priority(&t.priority) < 2
                 && t.grounding != "Weak inference"
-                && !addressed.contains(&t.id)
+                && !w.actions.iter().any(|a| a.id == format!("{}-prepare", t.id) && matches!(a.status.as_str(), "Done" | "Dismissed"))
         })
         .count();
     let open_actions = w
@@ -1702,12 +1704,10 @@ fn project(w: &mut Workspace) {
         "Analyze job"
     } else if analysis == "Stale" || analysis == "Incomplete" {
         "Review analysis"
-    } else if w.evidence.is_empty() {
-        "Match Career Profile"
-    } else if evidence_to_review > 0 {
-        "Review evidence"
-    } else if high_priority > 0 {
-        "Address selected targets"
+    } else if targets.iter().any(|t| !w.confirmed_targets.get(&t.id).is_some_and(|saved| saved["sourceRevision"] == json!(w.source.revision) && saved["target"] == json!(t))) {
+        "Confirm requirements"
+    } else if open_actions > 0 {
+        "Work on preparation tasks"
     } else {
         "Review application"
     };
@@ -1735,66 +1735,26 @@ fn project(w: &mut Workspace) {
     };
 }
 fn derive_actions(w: &mut Workspace) {
-    for t in effective_targets(w) {
-        let addressed = w.coverage.iter().any(|c| {
-            c.artifact == "resume"
-                && c.placement.target_id == t.id
-                && c.status == "Addressed"
-                && c.reviewed_at.is_some()
-        });
-        let evidence = w.evidence.iter().find(|e| e.suggestion.target_id == t.id);
-        let (kind, title, destination) = if evidence.is_none() {
-            ("match", "Find documented evidence", "Targets")
-        } else if evidence.is_some_and(|e| e.review != "Confirmed") {
-            ("review", "Review suggested evidence", "Targets")
-        } else if evidence.is_some_and(|e| e.suggestion.strength == "No documented evidence") {
-            (
-                "detail",
-                "Add factual detail or acknowledge a gap",
-                "Career Profile",
-            )
+    let targets = effective_targets(w);
+    // Remove only the old generated workflow actions, retaining custom tasks and records.
+    w.actions.retain(|a| !a.target_ids.iter().any(|id|
+        ["match", "review", "detail", "write"].iter().any(|suffix| a.id == format!("{id}-{suffix}"))));
+    for t in targets {
+        let id = format!("{}-prepare", t.id);
+        if let Some(action) = w.actions.iter_mut().find(|a| a.id == id) {
+            action.title = t.title;
+            action.completion_condition = t.interpretation;
         } else {
-            (
-                "write",
-                "Show confirmed evidence in the application",
-                "Documents",
-            )
-        };
-        let id = format!("{}-{kind}", t.id);
-        for action in &mut w.actions {
-            let generated = ["match", "review", "detail", "write"]
-                .iter()
-                .any(|suffix| action.id == format!("{}-{suffix}", t.id));
-            if generated && (action.id != id || addressed) && action.status != "Dismissed" {
-                action.status = "Done".into();
-                action.reason = "Linked evidence or coverage now satisfies this step.".into();
-            } else if generated
-                && action.id == id
-                && !addressed
-                && action.status == "Done"
-                && action.reason == "Linked evidence or coverage now satisfies this step."
-            {
-                action.status = "To do".into();
-                action.reason.clear();
-            }
-        }
-        if addressed {
-            continue;
-        }
-        if !w.actions.iter().any(|a| a.id == id) {
             w.actions.push(Action {
-                id,
-                target_ids: vec![t.id],
-                title: format!("{title}: {}", t.title),
-                destination: destination.into(),
-                prerequisites: vec![],
-                completion_condition: "User reviews the linked evidence or saved placement.".into(),
-                status: "To do".into(),
-                reason: String::new(),
+                id, target_ids: vec![t.id], title: t.title,
+                destination: "Tasks".into(), prerequisites: vec![],
+                completion_condition: t.interpretation,
+                status: "To do".into(), reason: String::new(),
             });
         }
     }
 }
+
 fn validate_document(artifact: &str, data: &Value) -> Result<()> {
     let schema: Value = serde_json::from_str(if artifact == "resume" {
         include_str!("../../../public/resume.schema.json")
@@ -2334,7 +2294,7 @@ impl WorkspaceService {
                 })
             })
             .collect();
-        Ok(hash(&serde_json::to_string(&stamps)?))
+        Ok(hash(&format!("tasks-only-v1:{}", serde_json::to_string(&stamps)?)))
     }
     fn cache_summary(&self, w: &Workspace) -> Result<()> {
         let dir = self.directory(w.job_id)?;
@@ -2448,6 +2408,9 @@ pub(crate) fn run_from_editor(
     instructions: &str,
     artifact: &str,
 ) -> std::result::Result<(Value, String, bool), String> {
+    if artifact == "resume" || operation != "edit" {
+        return Err("Resume generation and evidence matching have been retired.".into());
+    }
     let w = {
         let _guard = storage_guard()?;
         service(app)
@@ -2576,8 +2539,18 @@ pub async fn job_workspace_profile_entries(app: AppHandle) -> Result<Vec<Evidenc
         .await
         .map_err(|e| error("persistence", e))?
 }
+// Legacy records remain readable, but retired workflows are not exposed over IPC.
+fn validate_active_operation(operation: &str) -> Result<()> {
+    if operation == "analyze" { return Ok(()); }
+    Err(error("deprecated", "Document generation and evidence matching have been retired. Use requirements and preparation tasks."))
+}
+fn validate_active_mutation(operation: &str) -> Result<()> {
+    if matches!(operation, "confirmTarget" | "source" | "target" | "splitTarget" | "action" | "acceptAnalysis" | "rejectAnalysis") { return Ok(()); }
+    Err(error("deprecated", "Document creation and evidence tagging have been retired."))
+}
 #[tauri::command]
 pub async fn job_workspace_mutate(app: AppHandle, request: Mutation) -> Result<Workspace> {
+    validate_active_mutation(&request.operation)?;
     tauri::async_runtime::spawn_blocking(move || service(&app)?.mutate(request))
         .await
         .map_err(|e| error("persistence", e))?
@@ -2624,6 +2597,7 @@ pub fn job_workspace_cancel(run_id: String) -> Result<()> {
 }
 #[tauri::command]
 pub async fn job_workspace_run(app: AppHandle, mut request: RunRequest) -> Result<Workspace> {
+    validate_active_operation(&request.operation)?;
     if request.run_id.is_empty()
         || !request
             .run_id
@@ -2935,6 +2909,34 @@ pub(crate) mod tests {
         assert_eq!(properties["strength"]["enum"], json!(EVIDENCE_STRENGTHS));
         assert_eq!(properties["matchKind"]["enum"], json!(EVIDENCE_MATCH_KINDS));
     }
+    #[test]
+    fn retired_workflows_are_rejected_at_the_command_boundary() {
+        assert!(validate_active_operation("analyze").is_ok());
+        for operation in ["match", "prepare", "resumeCreation", "audit", "edit"] {
+            assert_eq!(validate_active_operation(operation).unwrap_err().code, "deprecated");
+        }
+        for operation in ["linkEvidence", "evidenceReview", "placement", "coverageReview", "createDraft", "acceptProposal", "queueCreationRepair"] {
+            assert_eq!(validate_active_mutation(operation).unwrap_err().code, "deprecated");
+        }
+        for operation in ["action", "target", "confirmTarget", "source", "splitTarget", "acceptAnalysis"] {
+            assert!(validate_active_mutation(operation).is_ok());
+        }
+    }
+
+    #[test]
+    fn preparation_tasks_do_not_depend_on_evidence_or_documents() {
+        let (_root, s) = fixture();
+        let w = analyze(&s);
+        assert_eq!(w.actions.len(), 1);
+        assert_eq!(w.actions[0].destination, "Tasks");
+        assert!(w.evidence.is_empty());
+        let mut action = w.actions[0].clone();
+        action.status = "Done".into();
+        let updated = s.mutate(mutation(&w, "action", json!(action))).unwrap();
+        assert_eq!(updated.summary.open_actions, 0);
+        assert_eq!(s.read(1).unwrap().actions[0].status, "Done");
+    }
+
     #[test]
     fn requirement_confirmation_persists_snapshot_and_supports_undo() {
         let (_root, service) = fixture();
@@ -3371,7 +3373,7 @@ pub(crate) mod tests {
             ))
             .unwrap();
         assert_eq!(w.summary.addressed, 0);
-        assert_eq!(w.summary.high_priority, 1);
+        assert_eq!(w.summary.high_priority, 0);
     }
     #[test]
     fn unsupported_manual_placement_never_checks_a_target() {
@@ -3569,7 +3571,7 @@ pub(crate) mod tests {
             ))
             .unwrap();
         assert_eq!(w.summary.addressed, 1);
-        assert_eq!(w.summary.open_actions, 0);
+        assert_eq!(w.summary.open_actions, 1); // Legacy coverage never completes a preparation task.
         let saved_document = fs::read(root.path().join("jobs/1/primary-resume.json")).unwrap();
         let replacement = s
             .execute(

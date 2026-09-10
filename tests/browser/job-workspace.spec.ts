@@ -62,7 +62,7 @@ test("opening Applications and navigating does not invoke a provider", async ({
     "Build reliable services",
   )
   await page.getByRole("button", { name: "Close", exact: true }).click()
-  await page.getByRole("button", { name: /Documents$/ }).click()
+  await page.getByRole("button", { name: /Preparation tasks$/ }).click()
   await expect(
     page.getByRole("heading", { name: "Systems Engineer" }),
   ).toBeVisible()
@@ -90,137 +90,6 @@ test("analysis preserves alternatives and returns to the same target after resta
     .last()
     .click()
   await expect(page.getByText("1 high-priority unresolved")).toBeVisible()
-})
-test("supported document proposal requires acceptance and a separate coverage review", async ({
-  page,
-}) => {
-  await analyze(page)
-  await expect(
-    page.getByRole("button", { name: "Continue to matching" }),
-  ).toBeDisabled()
-  await page.getByRole("button", { name: /^Confirm requirement:/ }).click()
-  await expect(page.getByLabel("Current preparation step")).toContainText(
-    "1 of 1 requirements confirmed",
-  )
-  await page.reload()
-  await expect(page.getByLabel("Current preparation step")).toContainText(
-    "1 of 1 requirements confirmed",
-  )
-  await page.getByRole("button", { name: "Continue to matching" }).click()
-  await page.screenshot({
-    path: "test-results/preparation-ready.png",
-    fullPage: true,
-  })
-  let finishMatch!: () => void
-  const matchingPaused = new Promise<void>((resolve) => {
-    finishMatch = resolve
-  })
-  await page.route("http://127.0.0.1:1439/command", async (route) => {
-    const input = route.request().postDataJSON()
-    if (
-      input.command === "job_workspace_run" &&
-      input.args.request.operation === "match"
-    )
-      await matchingPaused
-    await route.continue()
-  })
-  await page
-    .getByRole("button", { name: "Match Career Profile", exact: true })
-    .click()
-  await expect(page.locator(".target-row")).toHaveAttribute(
-    "data-state",
-    "matching",
-  )
-  await expect(page.locator(".target-state")).toHaveText("Matching profile...")
-  const reasoning = page.getByRole("region", { name: "Job match progress" })
-  await reasoning.getByRole("button", { name: /View live reasoning/ }).click()
-  await expect(reasoning.getByText("Reasoning and activity appear here as the provider sends them.")).toBeVisible()
-  finishMatch()
-  await expect(page.locator(".target-row")).toHaveAttribute(
-    "data-state",
-    "review",
-  )
-  await expect(page.locator(".target-match-excerpt")).toContainText(
-    "Built reliable event-driven services with Vue.",
-  )
-  await page.screenshot({
-    path: "test-results/preparation-matched.png",
-    fullPage: true,
-  })
-  await page.getByRole("button", { name: "Review next match" }).click()
-  await expect(page.getByRole("heading", { name: "Does this experience fit?" })).toBeVisible()
-  await expect(page.getByRole("textbox", { name: "What did you do?" })).toBeHidden()
-  await page.getByRole("button", { name: "Yes, use this experience" }).click()
-  await expect(page.getByRole("heading", { name: "Match confirmed", exact: true })).toBeVisible()
-  await expect(page.getByText("Nothing else to do for this match.")).toBeVisible()
-  await expect(page.getByRole("textbox", { name: "What did you do?" })).toBeHidden()
-  await page.screenshot({ path: "test-results/match-confirmed.png" })
-  await page.getByRole("button", { name: "Done", exact: true }).click()
-  await expect(page.locator(".target-row")).toHaveAttribute(
-    "data-state",
-    "confirmed",
-  )
-  await page.getByRole("button", { name: "Continue to documents" }).click()
-  await page.getByRole("button", { name: "Create tailored resume" }).click()
-  await expect(page.getByRole("region", { name: "Document creation" })).toContainText("Ready for review")
-  await expect(page.getByLabel("Current draft preview")).toContainText("Built reliable event-driven services with Vue.")
-  await page.screenshot({ path: "test-results/creation-draft.png", fullPage: true })
-  await page.getByRole("button", { name: "Review proposal" }).click()
-  await expect(
-    page
-      .getByRole("dialog")
-      .getByRole("article")
-      .getByText("Built reliable event-driven services with Vue.", {
-        exact: true,
-      }),
-  ).toBeVisible()
-  await expect(page.getByRole("button", { name: "Save resume" })).toBeEnabled()
-  await page.getByRole("dialog").evaluate((dialog) => { dialog.scrollTop = 0 })
-  await page.screenshot({ path: "test-results/creation-review.png", fullPage: true })
-  await page.getByRole("button", { name: "Save resume" }).click()
-  await page.getByRole("button", { name: /Match your profile$/ }).click()
-  await expect(page.locator(".target-state")).toHaveText(
-    "Review document coverage",
-  )
-  await inspect(page)
-  await page.getByRole("button", { name: "Document", exact: true }).click()
-  await page.getByRole("checkbox", { name: "Vue", exact: true }).check()
-  await page.getByRole("button", { name: "Confirm addressed" }).click()
-  await page.keyboard.press("Escape")
-  await expect(page.locator(".target-state")).toHaveText(
-    "Addressed in document",
-  )
-  await page.reload()
-  await expect(page.locator(".target-state")).toHaveText(
-    "Addressed in document",
-  )
-})
-
-test("draft edits survive reopening and clear affected proposed coverage", async ({ page, request }) => {
-  await analyze(page)
-  await page.getByRole("button", { name: /^Confirm requirement:/ }).click()
-  await page.getByRole("button", { name: "Continue to matching" }).click()
-  await page.getByRole("button", { name: "Match Career Profile", exact: true }).click()
-  await page.getByRole("button", { name: "Review next match" }).click()
-  await page.getByRole("button", { name: "Yes, use this experience" }).click()
-  await page.getByRole("button", { name: "Done", exact: true }).click()
-  await page.getByRole("button", { name: "Continue to documents" }).click()
-  await page.getByRole("button", { name: "Create tailored resume" }).click()
-  await page.getByRole("button", { name: "Review proposal" }).click()
-  await page.getByRole("button", { name: "Edit draft", exact: true }).click()
-  await page.getByRole("dialog").getByRole("article").getByText("Built reliable event-driven services with Vue.", { exact: true }).click()
-  await page.getByRole("textbox", { name: "Edit text", exact: true }).fill("Built event-driven services with Vue.")
-  await page.getByRole("button", { name: "Done editing" }).click()
-  await page.getByRole("button", { name: "Keep draft edits" }).click()
-  await expect(page.getByRole("dialog").getByText("0 proposed coverage bindings")).toBeVisible()
-  const saved = await request.post("http://127.0.0.1:1439/command", { data: { command: "job_workspace_document", args: { artifact: "resume" } } })
-  expect((await saved.json()).value).toBeNull()
-  await page.reload()
-  await expect(page.getByLabel("Current draft preview")).toContainText("Built event-driven services with Vue.")
-  await page.getByRole("button", { name: "Review proposal" }).last().click()
-  await expect(page.getByRole("button", { name: "Save resume" })).toBeEnabled()
-  await page.getByRole("button", { name: "Save resume" }).click()
-  await expect(page.getByRole("dialog")).toBeHidden()
 })
 test("narrow inspector is accessible and returns keyboard focus", async ({
   page,
@@ -258,57 +127,14 @@ test("board and list share preparation counts", async ({ page }) => {
     .last()
     .click()
   await expect(page.getByText("1 high-priority unresolved")).toBeVisible()
-  await page.getByRole("button", { name: "Board", exact: true }).click()
+  await page.getByRole("radio", { name: "Board", exact: true }).click()
   await expect(
     page.getByRole("region", { name: "Application board" }),
   ).toContainText("1 high-priority unresolved")
-  await page.getByRole("button", { name: "List", exact: true }).click()
+  await page.getByRole("radio", { name: "List", exact: true }).click()
   await page.screenshot({
     path: "test-results/applications-list.png",
     fullPage: true,
-  })
-})
-
-test("typed editor storage advances revisions and rejects an older snapshot", async ({
-  page,
-}) => {
-  await openJob(page)
-  const result = await page.evaluate(async () => {
-    const workspaceModule = "/src/lib/job-workspace.ts"
-    const storageModule = "/src/lib/resume-storage.ts"
-    const { readJobWorkspace, mutateJobWorkspace } = await import(
-      workspaceModule
-    )
-    const { loadJobPrimaryResume, saveResume } = await import(storageModule)
-    await mutateJobWorkspace(await readJobWorkspace(1), "createDraft", {
-      artifact: "resume",
-    })
-    const original = await loadJobPrimaryResume(1)
-    const firstData = structuredClone(original.data)
-    firstData.basics.name = "First saved name"
-    const first = await saveResume(original, firstData, { jobId: 1 })
-    const secondData = structuredClone(first.data)
-    secondData.basics.name = "Second saved name"
-    const second = await saveResume(first, secondData, { jobId: 1 })
-    let rejected = false
-    try {
-      await saveResume(original, firstData, { jobId: 1 })
-    } catch {
-      rejected = true
-    }
-    const current = await loadJobPrimaryResume(1)
-    return {
-      rejected,
-      name: current.data.basics.name,
-      revisionsChanged:
-        original.revision !== first.revision &&
-        first.revision !== second.revision,
-    }
-  })
-  expect(result).toEqual({
-    rejected: true,
-    name: "Second saved name",
-    revisionsChanged: true,
   })
 })
 
@@ -318,7 +144,7 @@ test("requirement confirmation is invalidated by edits and the page has one scro
   await analyze(page)
   await page.getByRole("button", { name: /^Confirm requirement:/ }).click()
   await expect(
-    page.getByRole("button", { name: "Continue to matching" }),
+    page.getByRole("button", { name: "View preparation tasks" }),
   ).toBeEnabled()
   await page.evaluate(async () => {
     const path = "/src/lib/job-workspace.ts"
@@ -348,8 +174,8 @@ test("requirement confirmation is invalidated by edits and the page has one scro
     "0 of 9 requirements confirmed",
   )
   await expect(
-    page.getByRole("button", { name: "Continue to matching" }),
-  ).toBeDisabled()
+    page.getByRole("button", { name: "View preparation tasks" }),
+  ).toBeEnabled()
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 })
     const scrollables = await page.evaluate(() =>
@@ -379,31 +205,106 @@ test("requirement confirmation is invalidated by edits and the page has one scro
 })
 
 
-test("rejecting a match shows a clear experience input", async ({ page }) => {
+
+test("preparation tasks persist without matching or document creation", async ({ page }) => {
   await analyze(page)
-  await page.getByRole("button", { name: /^Confirm requirement:/ }).click()
-  await page.getByRole("button", { name: "Continue to matching" }).click()
-  await inspect(page)
-  await expect(page.getByRole("heading", { name: "Find matching experience" })).toBeVisible()
-  await page.getByRole("button", { name: "Find a match", exact: true }).click()
-  await page.getByRole("button", { name: "Review next match" }).click()
-  await page.getByRole("button", { name: "Not a match", exact: true }).click()
-  await expect(page.getByRole("heading", { name: "Add experience for this requirement" })).toBeVisible()
-  await expect(page.getByRole("textbox", { name: "What did you do?" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Save and review match" })).toBeDisabled()
+  await expect(page.getByRole("button", { name: /Match your profile|Documents$/ })).toHaveCount(0)
+  await page.getByRole("button", { name: "View preparation tasks" }).click()
+  const status = page.getByLabel("Status of Demonstrate reliable service development")
+  await expect(status).toHaveValue("To do")
+  await status.selectOption("Done")
+  await expect(status).toBeEnabled()
+  await page.reload()
+  await expect(status).toHaveValue("Done")
+  await page.screenshot({ path: "test-results/preparation-tasks.png", fullPage: true })
+})
+
+test("retired navigation restores to requirements", async ({ page }) => {
+  await analyze(page)
+  await page.evaluate(() => {
+    localStorage.setItem("muttjobs.active-tab", "applications")
+    localStorage.setItem("muttjobs.job-view.1", JSON.stringify({ destination: "Documents", step: "match" }))
+  })
+  await page.reload()
+  await expect(page.getByRole("heading", { name: "What this role asks of you" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Resumes", exact: true })).toBeVisible()
+})
+
+async function openResumeTargets(page: Page) {
+  await analyze(page)
+  await page.getByRole("button", { name: "Resumes", exact: true }).click()
+  await page.getByRole("button", { name: "Open fixture-resume", exact: true }).click()
+  await page.getByRole("tab", { name: "Targets", exact: true }).click()
+  await page.getByLabel("Job", { exact: true }).selectOption("1")
+  await expect(page.getByRole("button", { name: "Check resume", exact: true })).toBeEnabled()
+}
+
+test("resume targets check the saved document and expire after an edit", async ({ page }) => {
+  await openResumeTargets(page)
+  await expect(page.getByRole("button", { name: /^AI model:/ })).toBeVisible()
+  await expect(page.getByRole("button", { name: /^Reasoning:/ })).toBeVisible()
+  await page.getByRole("button", { name: /^AI model:/ }).click()
+  await expect(page.getByRole("dialog", { name: "AI model selector" })).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("tab", { name: "Targets", exact: true })).toBeVisible()
+  await page.getByRole("button", { name: /^Reasoning:/ }).click()
+  await page.getByRole("menuitemradio", { name: "High", exact: true }).click()
+  const submitted = page.waitForRequest(request => request.url().endsWith("/command") && request.postDataJSON()?.command === "resume_target_check_run")
+  await page.getByRole("button", { name: "Check resume", exact: true }).click()
+  expect((await submitted).postDataJSON().args.request.effort).toBe("high")
+  await expect(page.getByRole("img", { name: "Matched", exact: true })).toBeVisible()
+  await expect(page.getByText("1/1 matched", { exact: true })).toBeVisible()
+  await page.screenshot({ path: "test-results/resume-targets-desktop.png", fullPage: true })
+  await page.getByRole("tab", { name: "Sections", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Sections", exact: true })).toBeVisible()
+  await page.getByRole("tab", { name: "Sections", exact: true }).press("ArrowRight")
+  await expect(page.getByRole("tab", { name: "Targets", exact: true })).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByText("1/1 matched", { exact: true })).toBeVisible()
+  await page.locator(".resume-viewport").getByText("Built reliable event-driven services with Vue.", { exact: true }).click()
+  await page.getByLabel("Edit text", { exact: true }).fill("Changed resume content")
+  await page.getByRole("button", { name: "Done editing", exact: true }).click()
+  await expect(page.getByRole("img", { name: "Matched", exact: true })).toHaveCount(0)
+  await expect(page.getByText("Resume or targets changed. Check again to update the ticks.")).toBeVisible()
+  await page.getByRole("button", { name: "Back to resume library", exact: true }).click()
+  await page.getByRole("button", { name: "Open fixture-resume", exact: true }).click()
+  await page.getByRole("tab", { name: "Targets", exact: true }).click()
+  await expect(page.getByText("Resume or targets changed. Check again to update the ticks.")).toBeVisible()
+})
+
+test("target checks continue across tabs and the sidebar fits a narrow viewport", async ({ page }) => {
+  await openResumeTargets(page)
+  let release!: () => void
+  const pause = new Promise<void>(resolve => { release = resolve })
+  await page.route("http://127.0.0.1:1439/command", async route => {
+    if (route.request().postDataJSON().command === "resume_target_check_run") await pause
+    await route.continue()
+  })
+  await page.getByRole("button", { name: "Check resume", exact: true }).click()
+  await expect(page.getByRole("button", { name: /^Checking/ })).toBeDisabled()
+  await page.getByRole("tab", { name: "Sections", exact: true }).click()
+  release()
+  await page.getByRole("tab", { name: "Targets", exact: true }).click()
+  await expect(page.getByText("1/1 matched", { exact: true })).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.getByRole("button", { name: "Check resume", exact: true })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
+  const panelBounds = await page.locator(".resume-right-panel").boundingBox()
+  expect(panelBounds!.x).toBeGreaterThanOrEqual(0)
+  expect(panelBounds!.x + panelBounds!.width).toBeLessThanOrEqual(390)
+  await page.screenshot({ path: "test-results/resume-targets-mobile.png", fullPage: true })
+  await page.getByRole("button", { name: "Hide resume sidebar", exact: true }).click()
+  await expect(page.getByRole("tab", { name: "Targets", exact: true })).toHaveCount(0)
 })
 
 
-test("card approves evidence without opening a dialog", async ({ page }) => {
+test("job resume editor uses that job's targets directly", async ({ page }) => {
   await analyze(page)
-  await page.getByRole("button", { name: /^Confirm requirement:/ }).click()
-  await page.getByRole("button", { name: "Continue to matching" }).click()
-  await page.getByRole("button", { name: "Match Career Profile", exact: true }).click()
-  await page.getByRole("button", { name: "Approve evidence", exact: true }).click()
-  await expect(page.locator(".target-row")).toHaveAttribute("data-state", "confirmed")
-  await expect(page.getByRole("dialog")).toBeHidden()
-  await page.reload()
-  await expect(page.locator(".target-row")).toHaveAttribute("data-state", "confirmed")
-  await page.getByRole("button", { name: "View evidence", exact: true }).click()
-  await expect(page.getByRole("heading", { name: "Match confirmed", exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Resume editor", exact: true }).click()
+  await page.getByRole("button", { name: "fixture-resume.json", exact: true }).click()
+  await page.getByRole("tab", { name: "Targets", exact: true }).click()
+  await expect(page.getByLabel("Job", { exact: true })).toHaveCount(0)
+  await page.getByRole("button", { name: "Check resume", exact: true }).click()
+  await expect(page.getByText("1/1 matched", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Back to job", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "What this role asks of you" })).toBeVisible()
 })

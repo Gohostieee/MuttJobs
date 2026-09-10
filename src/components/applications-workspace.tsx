@@ -1,3 +1,12 @@
+import { WorkspaceHeader, WorkspaceEmpty } from "@/components/workspace-layout"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Skeleton } from "@/components/ui/skeleton"
+import { FormField } from "@/components/form-field"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { BackgroundActivityPreview } from "./background-activity"
 import { runInBackground } from "@/lib/background-activity"
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
@@ -44,7 +53,7 @@ import {
   cancelCompanyResearchRun,
 } from "@/lib/company-research"
 
-type Operation = "analyze" | "match" | "resume" | "coverLetter" | "research"
+type Operation = "analyze" | "research"
 type Progress = {
   status: "queued" | "running" | "completed" | "failed" | "cancelled"
   message: string
@@ -72,6 +81,7 @@ function preferences(): Preferences {
     return {
       ...defaults,
       ...JSON.parse(localStorage.getItem("muttjobs.applications-view") || "{}"),
+      filter: (() => { const value = JSON.parse(localStorage.getItem("muttjobs.applications-view") || "{}").filter; return value === "Evidence to review" ? "Tasks to do" : value || defaults.filter })(),
     }
   } catch {
     return defaults
@@ -79,9 +89,6 @@ function preferences(): Preferences {
 }
 const labels: Record<Operation, string> = {
   analyze: "Analyze selected jobs",
-  match: "Match Career Profile",
-  resume: "Prepare targeted resumes",
-  coverLetter: "Prepare cover letters (optional)",
   research: "Run Company Research",
 }
 export function ApplicationsWorkspace({
@@ -225,13 +232,9 @@ export function ApplicationsWorkspace({
             if (cancelled.current) throw new Error("Cancelled before starting.")
             const result = await runWorkspace(
               workspace,
-              operation === "resume" || operation === "coverLetter"
-                ? "prepare"
-                : operation,
+              operation,
               selection,
               id,
-              [],
-              operation === "coverLetter" ? "coverLetter" : "resume",
             )
             setSummaries((current) => ({
               ...current,
@@ -312,15 +315,12 @@ export function ApplicationsWorkspace({
           .includes(prefs.query.toLowerCase()) &&
         (prefs.filter === "All preparation" ||
           (prefs.filter === "Not analyzed" && s?.analysis === "Not analyzed") ||
-          (prefs.filter === "Evidence to review" &&
-            (s?.evidenceToReview ?? 0) > 0) ||
+          (prefs.filter === "Tasks to do" && (s?.openActions ?? 0) > 0) ||
           (prefs.filter === "Application work remaining" &&
             ((s?.highPriority ?? 0) > 0 || (s?.openActions ?? 0) > 0)) ||
           (prefs.filter === "Ready for review" &&
             s?.analysis === "Complete" &&
-            s.documentReview === "Coverage reviewed" &&
-            s.highPriority === 0 &&
-            s.evidenceToReview === 0) ||
+            s.highPriority === 0 && s.openActions === 0) ||
           (prefs.filter === "Stale" && s?.analysis === "Stale"))
       )
     })
@@ -368,15 +368,14 @@ export function ApplicationsWorkspace({
           e.dataTransfer.setData("text/plain", String(job.id))
         }
       >
-        <input
-          type="checkbox"
+        <Checkbox
           aria-label={`Select ${job.jobTitle} at ${job.company}`}
           checked={prefs.selected.includes(job.id)}
           disabled={running}
-          onChange={(e) => selectJob(job.id, e.target.checked)}
+          onCheckedChange={(checked) => selectJob(job.id, checked === true)}
         />
-        <button
-          className="application-role"
+        <Button variant="ghost"
+          className="application-role h-auto min-w-0 flex-1 flex-col items-start gap-1 whitespace-normal"
           onClick={() => update({ jobId: job.id })}
         >
           <strong>{job.jobTitle}</strong>
@@ -385,8 +384,8 @@ export function ApplicationsWorkspace({
             {job.location || job.longLocation || "Location not provided"}
             {job.salaryString ? ` · ${job.salaryString}` : ""}
           </small>
-        </button>
-        <select
+        </Button>
+        <NativeSelect
           aria-label={`Stage for ${job.jobTitle}`}
           value={job.applicationStatus || "revealed"}
           onChange={(e) =>
@@ -394,20 +393,19 @@ export function ApplicationsWorkspace({
           }
         >
           {applicationStatusMetadata.map((s) => (
-            <option key={s.value} value={s.value}>
+            <NativeSelectOption key={s.value} value={s.value}>
               {s.label}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
         <div className="application-preparation-state">
           <Badge variant="outline">{summary?.analysis || "Not analyzed"}</Badge>
           <span>
             {summary?.highPriority || 0} high-priority unresolved ·{" "}
-            {summary?.evidenceToReview || 0} evidence reviews
+            {summary?.openActions || 0} open tasks
           </span>
           <small>
-            {summary?.addressed || 0}/{summary?.total || 0} resume targets
-            addressed · {summary?.documentReview || "Unreviewed"}
+            {summary?.total || 0} requirements
           </small>
         </div>
         <Button
@@ -436,42 +434,22 @@ export function ApplicationsWorkspace({
   }
   return (
     <main className="applications-preparation">
-      <header>
-        <div>
-          <p className="job-eyebrow">Applications</p>
-          <h1>Build a well-supported application.</h1>
-          <p>
-            See what each employer wants, what you can demonstrate, and what
-            needs attention.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => void refresh()}>
-            <RefreshCw /> Refresh
-          </Button>
-          <Button onClick={() => setImportOpen(true)}>
-            <Plus /> Import or paste job
-          </Button>
-        </div>
-      </header>
+      <WorkspaceHeader title="Applications" description="Track each role, review requirements, and prepare your next step." actions={<><Button variant="outline" onClick={() => void refresh()}><RefreshCw /> Refresh</Button><Button onClick={() => setImportOpen(true)}><Plus /> Import or paste job</Button></>} />
       {(error || dismissError) && (
-        <p role="alert" className="workspace-error">
-          {error || dismissError}
-        </p>
+        <Alert variant="destructive"><AlertDescription>{error || dismissError}</AlertDescription></Alert>
       )}
       <div
         ref={scroller}
-        className="applications-preparation-content"
+        className="mx-auto min-h-0 w-full max-w-7xl flex-1 overflow-auto p-4 sm:p-6"
         onScroll={(e) => update({ scroll: e.currentTarget.scrollTop })}
       >
-        <div className="application-filters">
-          <input
-            aria-label="Search applications"
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <Input className="w-full sm:w-64" aria-label="Search applications"
             placeholder="Search role or company"
             value={prefs.query}
             onChange={(e) => update({ query: e.target.value })}
           />
-          <select
+          <NativeSelect
             aria-label="Preparation filter"
             value={prefs.filter}
             onChange={(e) => update({ filter: e.target.value })}
@@ -479,48 +457,36 @@ export function ApplicationsWorkspace({
             {[
               "All preparation",
               "Not analyzed",
-              "Evidence to review",
+              "Tasks to do",
               "Application work remaining",
               "Ready for review",
               "Stale",
             ].map((f) => (
-              <option key={f}>{f}</option>
+              <NativeSelectOption key={f}>{f}</NativeSelectOption>
             ))}
-          </select>
-          <select
+          </NativeSelect>
+          <NativeSelect
             aria-label="Sort applications"
             value={prefs.sort}
             onChange={(e) => update({ sort: e.target.value })}
           >
             {["Next action", "Role", "Company"].map((s) => (
-              <option key={s}>{s}</option>
+              <NativeSelectOption key={s}>{s}</NativeSelectOption>
             ))}
-          </select>
-          <Button
-            variant={prefs.view === "list" ? "default" : "outline"}
-            onClick={() => update({ view: "list" })}
-          >
-            List
-          </Button>
-          <Button
-            variant={prefs.view === "board" ? "default" : "outline"}
-            onClick={() => update({ view: "board" })}
-          >
-            Board
-          </Button>
+          </NativeSelect>
+          <ToggleGroup type="single" value={prefs.view} onValueChange={value => { if (value) update({ view: value as "list" | "board" }) }} aria-label="Application layout" variant="outline"><ToggleGroupItem value="list">List</ToggleGroupItem><ToggleGroupItem value="board">Board</ToggleGroupItem></ToggleGroup>
         </div>
-        <section className="application-bulk" aria-label="Bulk preparation">
-          <label>
-            <input
-              type="checkbox"
+        <section className="mb-6 flex flex-wrap items-center gap-3 border bg-card p-4 text-sm" aria-label="Bulk preparation">
+          <label className="flex items-center gap-2">
+            <Checkbox
               checked={
                 !!filtered.length &&
                 filtered.every((j) => prefs.selected.includes(j.id))
               }
               disabled={running}
-              onChange={(e) =>
+              onCheckedChange={(checked) =>
                 update({
-                  selected: e.target.checked
+                  selected: checked === true
                     ? [
                         ...new Set([
                           ...prefs.selected,
@@ -535,7 +501,7 @@ export function ApplicationsWorkspace({
             />{" "}
             Select visible jobs ({prefs.selected.length} selected)
           </label>
-          <select
+          <NativeSelect
             aria-label="Preparation operation"
             disabled={running}
             value={operation}
@@ -545,11 +511,11 @@ export function ApplicationsWorkspace({
             }}
           >
             {Object.entries(labels).map(([id, label]) => (
-              <option key={id} value={id}>
+              <NativeSelectOption key={id} value={id}>
                 {label}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
           <span>Model &amp; reasoning</span>
           <ModelReasoningSelector
             value={selection}
@@ -610,22 +576,13 @@ export function ApplicationsWorkspace({
             />
           ))}
         {loading ? (
-          <p role="status">Loading saved applications…</p>
+          <div role="status" aria-label="Loading saved applications" className="grid gap-3">{[0, 1, 2].map(index => <Skeleton key={index} className="h-20" />)}</div>
         ) : !jobs.length ? (
-          <section className="unanalyzed-job">
-            <h2>Your application workspace starts here</h2>
-            <p>
-              Import a posting or save a result from Search. Opening this page
-              does not run analysis.
-            </p>
-            <Button onClick={() => setImportOpen(true)}>
-              Import or paste job
-            </Button>
-          </section>
+          <WorkspaceEmpty title="Your application workspace starts here" description="Import a posting or save a result from Search to begin preparing."><Button onClick={() => setImportOpen(true)}>Import or paste job</Button></WorkspaceEmpty>
         ) : prefs.view === "list" ? (
           <section aria-label="Applications list">
             {filtered.map(row)}
-            {!filtered.length && <p>No applications match these filters.</p>}
+            {!filtered.length && <WorkspaceEmpty title="No matching applications" description="Try a different search or preparation filter." />}
           </section>
         ) : (
           <section className="application-board" aria-label="Application board">
@@ -677,22 +634,16 @@ export function ApplicationsWorkspace({
             className="target-edit-form"
             onSubmit={(e) => void importJob(e)}
           >
-            <label>
-              Posting URL (optional)
-              <input
+            <FormField label="Posting URL (optional)"><Input
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-              />
-            </label>
-            <label>
-              Complete posting text
-              <textarea
+              /></FormField>
+            <FormField label="Complete posting text"><Textarea
                 rows={10}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-              />
-            </label>
+              /></FormField>
             <span>Model &amp; reasoning</span>
             <ModelReasoningSelector
               value={selection}

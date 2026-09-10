@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core"
+import { invoke, isTauri } from "@tauri-apps/api/core"
 import emptyResume from "../../public/empty-resume.json"
 import sampleResume from "../../public/sample-resume.json"
 
@@ -16,7 +16,8 @@ export async function loadResumes(): Promise<ResumeFile[]> {
         return []
       }
     })
-  } catch {
+  } catch (cause) {
+    if (isTauri()) throw cause
     return [
       {
         id: "sample-resume",

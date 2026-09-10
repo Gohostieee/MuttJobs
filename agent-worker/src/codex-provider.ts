@@ -74,7 +74,7 @@ export class CodexJobRunner {
           show_raw_agent_reasoning: true,
           ...(job.codexSkills ? { "skills.config": job.codexSkills } : {}),
           ...(job.reasoningEffort === "max" ? { model_reasoning_effort: "max" } : {}),
-          ...(job.kind === "job_workspace" ? workspaceExecutionConfig() : {}),
+          ...(["job_workspace", "resume_target_check"].includes(job.kind) ? workspaceExecutionConfig() : {}),
         },
       })
       const thread = codex.startThread({

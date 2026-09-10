@@ -159,20 +159,10 @@ export type JobPreparation = {
   artifactRevisions: Record<string, string>
   summary: PreparationSummary
 }
-export type WorkspaceOperation = "analyze" | "match" | "prepare" | "audit" | "resumeCreation"
+export type WorkspaceOperation = "analyze"
 export type WorkspaceMutations = {
-  queueCreationRepair: { id: string; text: string }
-  omitCreationTarget: { id: string; target: string }
-  pinCreation: { id: string; pinned: boolean }
-  rebaseCreation: { id: string; keepSavedEdits: boolean }
-  creationPageMode: { id: string; pageMode: "one" | "two" }
-  creationLayout: { id: string; draftRevision: number; pages: number; clipped: boolean; readable: boolean }
-  editCreationDraft: { id: string; draftRevision: number; data: unknown }
-  discardCreation: { id: string }
-  clearCreationHistory: Record<string, never>
   confirmTarget: { targetId: string; confirmed: boolean }
   source: { text: string }
-  createDraft: { artifact: string }
   target: {
     target: Target
     note?: string
@@ -180,18 +170,10 @@ export type WorkspaceMutations = {
     dismissed?: boolean
   }
   splitTarget: { sourceId: string; targets: Target[]; note?: string }
-  linkEvidence: Evidence["suggestion"]
-  evidenceReview: { id: string; review: "Confirmed" | "Rejected" }
   action: PreparationAction
   acceptAnalysis: Record<string, never>
   rejectAnalysis: Record<string, never>
-  placement: { artifact: string; placement: Placement }
-  coverageReview: {
-    id: string
-    criteria: { criterionIndex: number; alternatives: number[] }[]
-  }
-  acceptProposal: { id: string }
-  rejectProposal: { id: string }
+
 }
 export const readJobWorkspace = (jobId: number) =>
   invoke<JobPreparation>("job_workspace_read", { jobId })
