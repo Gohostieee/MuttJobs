@@ -10,27 +10,27 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { ComponentProps, ReactNode } from "react";
 
-export type ModelSelectorProps = ComponentProps<typeof Dialog>;
+export type ModelSelectorProps = ComponentProps<typeof Popover>;
 
 export const ModelSelector = (props: ModelSelectorProps) => (
-  <Dialog {...props} />
+  <Popover {...props} />
 );
 
-export type ModelSelectorTriggerProps = ComponentProps<typeof DialogTrigger>;
+export type ModelSelectorTriggerProps = ComponentProps<typeof PopoverTrigger>;
 
 export const ModelSelectorTrigger = (props: ModelSelectorTriggerProps) => (
-  <DialogTrigger {...props} />
+  <PopoverTrigger {...props} />
 );
 
-export type ModelSelectorContentProps = ComponentProps<typeof DialogContent> & {
+export type ModelSelectorContentProps = ComponentProps<typeof PopoverContent> & {
   title?: ReactNode;
 };
 
@@ -40,19 +40,22 @@ export const ModelSelectorContent = ({
   title = "Model Selector",
   ...props
 }: ModelSelectorContentProps) => (
-  <DialogContent
-    aria-describedby={undefined}
+  <PopoverContent
+    aria-label={typeof title === "string" ? title : "Model Selector"}
+    side="top"
+    align="start"
+    collisionPadding={8}
     className={cn(
-      "outline! border-none! p-0 outline-border! outline-solid!",
+      "w-80 max-w-[calc(100vw-1rem)] max-h-[var(--radix-popover-content-available-height)] gap-0 overflow-hidden p-0",
       className
     )}
     {...props}
   >
-    <DialogTitle className="sr-only">{title}</DialogTitle>
-    <Command className="**:data-[slot=command-input-wrapper]:h-auto">
+    <PopoverTitle className="sr-only">{title}</PopoverTitle>
+    <Command className="min-h-0 **:data-[slot=command-input-wrapper]:h-auto">
       {children}
     </Command>
-  </DialogContent>
+  </PopoverContent>
 );
 
 export type ModelSelectorDialogProps = ComponentProps<typeof CommandDialog>;
