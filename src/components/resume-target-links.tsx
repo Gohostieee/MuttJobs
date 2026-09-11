@@ -28,7 +28,7 @@ export function ResumeTargetLinks({ check, viewportRef, width, onWidthChange }: 
       item.passages.flatMap(passage => locateResumePassage(root, passage).map(location => ({ ...location, targetId: item.targetId, quote: passage.quote })))) || []
     setLinks(next)
     setActive("")
-    const clearCoverage = markResumeBulletCoverage(root, next.map(link => link.element))
+    const clearCoverage = markResumeBulletCoverage(root, next)
     return () => {
       clearCoverage()
       next.forEach(link => link.element.removeAttribute("data-target-highlight"))
@@ -70,7 +70,7 @@ export function ResumeTargetLinks({ check, viewportRef, width, onWidthChange }: 
     }}
   /><aside className="resume-target-links" aria-label="Matched target locations">
     <header><h2>Matched text</h2><p>{matched.length} matched {matched.length === 1 ? "target" : "targets"} · Select text to locate it in your resume.</p></header>
-    <p className="resume-target-coverage-legend"><span data-coverage="matched">Green: matched bullet</span><span data-coverage="unmatched">Red: no target match</span></p>
+    <p className="resume-target-coverage-legend"><span data-coverage="matched">Green: one target</span><span data-coverage="redundant">Yellow: multiple targets share this bullet</span><span data-coverage="unmatched">Red: no target match</span></p>
     {!matched.length && <p className="resume-targets-message">No targets matched yet. Update your resume and check again.</p>}
     {matched.map(assessment => <section key={assessment.targetId}>
       <h3><Check aria-hidden="true" />{check.targets.find(target => target.id === assessment.targetId)?.title || "Matched target"}</h3>

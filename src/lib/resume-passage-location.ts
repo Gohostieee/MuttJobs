@@ -3,14 +3,21 @@ export type ResumePassage = { field: string; quote: string }
 const normalize = (value: string) => value.replace(/\s+/g, " ").trim()
 
 // Decorations belong to the current check, never to saved resume content.
-export function markResumeBulletCoverage(root: HTMLElement, matchedElements: HTMLElement[]) {
+export function markResumeBulletCoverage(root: HTMLElement, links: { element: HTMLElement; targetId: string }[]) {
   const bullets = Array.from(root.querySelectorAll<HTMLElement>("[data-resume-field] li"))
     .filter(bullet => normalize(bullet.textContent || ""))
-  const matched = new Set(matchedElements.flatMap(element => {
+  const targetsByBullet = new Map<HTMLElement, Set<string>>()
+  links.forEach(({ element, targetId }) => {
     const bullet = element.closest<HTMLElement>("li")
-    return bullet && root.contains(bullet) ? [bullet] : []
-  }))
-  bullets.forEach(bullet => { bullet.dataset.targetCoverage = matched.has(bullet) ? "matched" : "unmatched" })
+    if (!bullet || !root.contains(bullet)) return
+    const targets = targetsByBullet.get(bullet) || new Set<string>()
+    targets.add(targetId)
+    targetsByBullet.set(bullet, targets)
+  })
+  bullets.forEach(bullet => {
+    const count = targetsByBullet.get(bullet)?.size || 0
+    bullet.dataset.targetCoverage = count > 1 ? "redundant" : count === 1 ? "matched" : "unmatched"
+  })
   return () => bullets.forEach(bullet => bullet.removeAttribute("data-target-coverage"))
 }
 

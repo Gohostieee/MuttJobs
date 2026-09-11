@@ -79,8 +79,10 @@
 .resume-target-coverage-legend { display: flex; flex-wrap: wrap; gap: .4rem .8rem; padding: .75rem 1rem; font-size: .65rem; }
 .resume-target-coverage-legend span::before { content: ""; display: inline-block; width: .5rem; height: .5rem; margin-right: .35rem; border-radius: 50%; background: #dc2626; }
 .resume-target-coverage-legend [data-coverage=matched]::before { background: #16a34a; }
+.resume-target-coverage-legend [data-coverage=redundant]::before { background: #ca8a04; }
 .resume-viewer-content:has(> .resume-target-links) .resume-viewport [data-target-coverage] { border-radius: 2px; box-shadow: -3px 0 0 var(--bullet-coverage-color); background: var(--bullet-coverage-background); }
 .resume-viewport [data-target-coverage=matched] { --bullet-coverage-color: #16a34a; --bullet-coverage-background: rgb(22 163 74 / 16%); }
+.resume-viewport [data-target-coverage=redundant] { --bullet-coverage-color: #ca8a04; --bullet-coverage-background: rgb(234 179 8 / 24%); }
 .resume-viewport [data-target-coverage=unmatched] { --bullet-coverage-color: #dc2626; --bullet-coverage-background: rgb(220 38 38 / 14%); }
 @media print { [data-target-highlight], [data-target-coverage] { outline: none !important; background: transparent !important; box-shadow: none !important; } }
 @media (max-width: 640px) {
